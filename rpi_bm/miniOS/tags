@@ -1,0 +1,1169 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	0.0.0	//
+$(BUILD_DIR)/%_c.o	Makefile	/^$(BUILD_DIR)\/%_c.o: $(SRC_DIR)\/%.c$/;"	t	language:Make
+$(BUILD_DIR)/%_s.o	Makefile	/^$(BUILD_DIR)\/%_s.o: $(SRC_DIR)\/%.S$/;"	t	language:Make
+.bss	src/linker.ld	/^    .bss : { *(.bss*) }$/;"	S	language:LdScript
+.data	src/linker.ld	/^    .data : { *(.data) }$/;"	S	language:LdScript
+.data.id_pgd	src/linker.ld	/^    .data.id_pgd : { . += (6 * (1 << 12)); }$/;"	S	language:LdScript
+.rodata	src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
+.text	src/linker.ld	/^  .text : {$/;"	S	language:LdScript
+.text.boot	src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
+ARMGNU	Makefile	/^ARMGNU ?= aarch64-linux-gnu$/;"	m	language:Make
+ASMOPS	Makefile	/^ASMOPS = -Iinclude$/;"	m	language:Make
+ASM_FILES	Makefile	/^ASM_FILES = $(wildcard $(SRC_DIR)\/*.S)$/;"	m	language:Make
+ATTRINDX_COHERENT	include/mmu.h	/^#define ATTRINDX_COHERENT	/;"	d	language:C++
+ATTRINDX_DEVICE	include/mmu.h	/^#define ATTRINDX_DEVICE	/;"	d	language:C++
+ATTRINDX_NORMAL	include/mmu.h	/^#define ATTRINDX_NORMAL	/;"	d	language:C++
+AUX_IRQ	include/peripherals/irq.h	/^    AUX_IRQ = (1 << 29)$/;"	e	language:C++	enum:vc_irqs
+AuxRegs	include/peripherals/aux.h	/^struct AuxRegs {$/;"	s	language:C++
+BACK_COLOR	src/drivers/video/video.c	/^#define BACK_COLOR /;"	d	language:C	file:
+BLOCK_SIZE	include/mm.h	/^#define BLOCK_SIZE /;"	d	language:C++
+BOOTMNT	Makefile	/^BOOTMNT ?= \/media\/rlk\/bootfs$/;"	m	language:Make
+BOOT_SIGNATURE	src/kernel/kernel.c	/^#define BOOT_SIGNATURE /;"	d	language:C	file:
+BSWAP32	include/peripherals/emmc.h	/^#define BSWAP32(/;"	d	language:C++	signature:(x)
+BUILD_DIR	Makefile	/^BUILD_DIR = build$/;"	m	language:Make
+BUS_ADDR	src/drivers/video/video.c	/^#define BUS_ADDR(/;"	d	language:C	file:	signature:(x)
+BUS_ADDRESS	include/mem.h	/^#define BUS_ADDRESS(/;"	d	language:C++	signature:(addr)
+CHARCOUNT	src/drivers/video/fontData.c	/^#define CHARCOUNT	/;"	d	language:C	file:
+CLOCKHZ	include/peripherals/timer.h	/^#define CLOCKHZ /;"	d	language:C++
+COPS	Makefile	/^COPS =  -g -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nosta/;"	m	language:Make
+CORE_CLOCK_SPEED	include/peripherals/base.h	/^#define CORE_CLOCK_SPEED /;"	d	language:C++
+CPACR_EL1_FPEN	include/sysregs.h	/^#define CPACR_EL1_FPEN /;"	d	language:C++
+CPACR_EL1_VAL	include/sysregs.h	/^#define CPACR_EL1_VAL /;"	d	language:C++
+CPACR_EL1_ZEN	include/sysregs.h	/^#define CPACR_EL1_ZEN /;"	d	language:C++
+CS_ABORT	include/peripherals/dma.h	/^#define CS_ABORT	/;"	d	language:C++
+CS_ACTIVE	include/peripherals/dma.h	/^#define CS_ACTIVE	/;"	d	language:C++
+CS_ADCS	include/peripherals/spi.h	/^#define CS_ADCS	/;"	d	language:C++
+CS_CLEAR_RX	include/peripherals/spi.h	/^#define CS_CLEAR_RX	/;"	d	language:C++
+CS_CLEAR_TX	include/peripherals/spi.h	/^#define CS_CLEAR_TX	/;"	d	language:C++
+CS_CPHA__SHIFT	include/peripherals/spi.h	/^#define CS_CPHA__SHIFT	/;"	d	language:C++
+CS_CPOL__SHIFT	include/peripherals/spi.h	/^#define CS_CPOL__SHIFT	/;"	d	language:C++
+CS_CS	include/peripherals/spi.h	/^#define CS_CS	/;"	d	language:C++
+CS_CSPOL	include/peripherals/spi.h	/^#define CS_CSPOL	/;"	d	language:C++
+CS_CSPOL0	include/peripherals/spi.h	/^#define CS_CSPOL0	/;"	d	language:C++
+CS_CSPOL1	include/peripherals/spi.h	/^#define CS_CSPOL1	/;"	d	language:C++
+CS_CSPOL2	include/peripherals/spi.h	/^#define CS_CSPOL2	/;"	d	language:C++
+CS_CS__SHIFT	include/peripherals/spi.h	/^#define CS_CS__SHIFT	/;"	d	language:C++
+CS_DMAEN	include/peripherals/spi.h	/^#define CS_DMAEN	/;"	d	language:C++
+CS_DMA_LEN	include/peripherals/spi.h	/^#define CS_DMA_LEN	/;"	d	language:C++
+CS_DONE	include/peripherals/spi.h	/^#define CS_DONE	/;"	d	language:C++
+CS_END	include/peripherals/dma.h	/^#define CS_END	/;"	d	language:C++
+CS_ERROR	include/peripherals/dma.h	/^#define CS_ERROR	/;"	d	language:C++
+CS_INT	include/peripherals/dma.h	/^#define CS_INT	/;"	d	language:C++
+CS_INTD	include/peripherals/spi.h	/^#define CS_INTD	/;"	d	language:C++
+CS_INTR	include/peripherals/spi.h	/^#define CS_INTR	/;"	d	language:C++
+CS_LEN	include/peripherals/spi.h	/^#define CS_LEN	/;"	d	language:C++
+CS_LEN_LONG	include/peripherals/spi.h	/^#define CS_LEN_LONG	/;"	d	language:C++
+CS_PANIC_PRIORITY_SHIFT	include/peripherals/dma.h	/^#define CS_PANIC_PRIORITY_SHIFT	/;"	d	language:C++
+CS_PRIORITY_SHIFT	include/peripherals/dma.h	/^#define CS_PRIORITY_SHIFT	/;"	d	language:C++
+CS_REN	include/peripherals/spi.h	/^#define CS_REN	/;"	d	language:C++
+CS_RESET	include/peripherals/dma.h	/^#define CS_RESET	/;"	d	language:C++
+CS_RXD	include/peripherals/spi.h	/^#define CS_RXD	/;"	d	language:C++
+CS_RXF	include/peripherals/spi.h	/^#define CS_RXF	/;"	d	language:C++
+CS_RXR	include/peripherals/spi.h	/^#define CS_RXR	/;"	d	language:C++
+CS_TA	include/peripherals/spi.h	/^#define CS_TA	/;"	d	language:C++
+CS_TXD	include/peripherals/spi.h	/^#define CS_TXD	/;"	d	language:C++
+CS_WAIT_FOR_OUTSTANDING_WRITES	include/peripherals/dma.h	/^#define CS_WAIT_FOR_OUTSTANDING_WRITES	/;"	d	language:C++
+CTApp	include/peripherals/emmc.h	/^    CTApp = 55$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTGoIdle	include/peripherals/emmc.h	/^    CTGoIdle = 0,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTIOSetOpCond	include/peripherals/emmc.h	/^    CTIOSetOpCond = 5,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTOcrCheck	include/peripherals/emmc.h	/^    CTOcrCheck = 41,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTReadBlock	include/peripherals/emmc.h	/^    CTReadBlock = 17,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTReadMultiple	include/peripherals/emmc.h	/^    CTReadMultiple = 18,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSelectCard	include/peripherals/emmc.h	/^    CTSelectCard = 7,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSendCide	include/peripherals/emmc.h	/^    CTSendCide = 2,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSendIfCond	include/peripherals/emmc.h	/^    CTSendIfCond = 8,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSendRelativeAddr	include/peripherals/emmc.h	/^    CTSendRelativeAddr = 3,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSendSCR	include/peripherals/emmc.h	/^    CTSendSCR = 51,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTSetBlockLen	include/peripherals/emmc.h	/^    CTSetBlockLen = 16,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTWriteBlock	include/peripherals/emmc.h	/^    CTWriteBlock = 24,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CTWriteMultiple	include/peripherals/emmc.h	/^    CTWriteMultiple = 25,$/;"	e	language:C++	enum:__anon6b67dcbe0303
+CT_ARM	include/mailbox.h	/^    CT_ARM = 3,$/;"	e	language:C++	enum:__anon89d52dda0603
+CT_CORE	include/mailbox.h	/^    CT_CORE = 4$/;"	e	language:C++	enum:__anon89d52dda0603
+CT_EMMC	include/mailbox.h	/^    CT_EMMC = 1,$/;"	e	language:C++	enum:__anon89d52dda0603
+CT_NONE	include/dma.h	/^    CT_NONE = -1,$/;"	e	language:C++	enum:__anona519e2800203
+CT_NORMAL	include/dma.h	/^    CT_NORMAL = 0x81$/;"	e	language:C++	enum:__anona519e2800203
+CT_UART	include/mailbox.h	/^    CT_UART = 2,$/;"	e	language:C++	enum:__anon89d52dda0603
+C_CLEAR	include/peripherals/i2c.h	/^#define C_CLEAR	/;"	d	language:C++
+C_FILES	Makefile	/^C_FILES = $(wildcard $(SRC_DIR)\/*.c)$/;"	m	language:Make
+C_I2CEN	include/peripherals/i2c.h	/^#define C_I2CEN	/;"	d	language:C++
+C_INTD	include/peripherals/i2c.h	/^#define C_INTD	/;"	d	language:C++
+C_INTR	include/peripherals/i2c.h	/^#define C_INTR	/;"	d	language:C++
+C_INTT	include/peripherals/i2c.h	/^#define C_INTT	/;"	d	language:C++
+C_READ	include/peripherals/i2c.h	/^#define C_READ	/;"	d	language:C++
+C_ST	include/peripherals/i2c.h	/^#define C_ST	/;"	d	language:C++
+DEFAULT_BURST_LENGTH	include/peripherals/dma.h	/^#define DEFAULT_BURST_LENGTH	/;"	d	language:C++
+DEFAULT_PANIC_PRIORITY	include/peripherals/dma.h	/^    #define DEFAULT_PANIC_PRIORITY	/;"	d	language:C++
+DEFAULT_PRIORITY	include/peripherals/dma.h	/^    #define DEFAULT_PRIORITY	/;"	d	language:C++
+DEP_FILES	Makefile	/^DEP_FILES = $(OBJ_FILES:%.o=%.d)$/;"	m	language:Make
+DEVICE_START	include/peripherals/base.h	/^#define DEVICE_START /;"	d	language:C++
+DIGIT_TABLE	src/drivers/spi/led_display.c	/^const static u8 DIGIT_TABLE [] = {$/;"	v	language:C	typeref:typename:const u8[]	file:
+DMABUFFER	src/drivers/video/video.c	/^#define DMABUFFER /;"	d	language:C	file:
+DRAWBUFFER	src/drivers/video/video.c	/^#define DRAWBUFFER /;"	d	language:C	file:
+EMMC	include/peripherals/emmc.h	/^#define EMMC /;"	d	language:C++
+EMMC_BASE	include/peripherals/emmc.h	/^#define EMMC_BASE /;"	d	language:C++
+EMMC_CTRL0_ALT_BOOT_EN	include/peripherals/emmc.h	/^#define EMMC_CTRL0_ALT_BOOT_EN /;"	d	language:C++
+EMMC_CTRL0_BOOT_EN	include/peripherals/emmc.h	/^#define EMMC_CTRL0_BOOT_EN /;"	d	language:C++
+EMMC_CTRL0_SPI_MODE	include/peripherals/emmc.h	/^#define EMMC_CTRL0_SPI_MODE /;"	d	language:C++
+EMMC_CTRL1_CLK_ENABLE	include/peripherals/emmc.h	/^#define EMMC_CTRL1_CLK_ENABLE /;"	d	language:C++
+EMMC_CTRL1_CLK_GENSEL	include/peripherals/emmc.h	/^#define EMMC_CTRL1_CLK_GENSEL /;"	d	language:C++
+EMMC_CTRL1_CLK_INT_EN	include/peripherals/emmc.h	/^#define EMMC_CTRL1_CLK_INT_EN /;"	d	language:C++
+EMMC_CTRL1_CLK_STABLE	include/peripherals/emmc.h	/^#define EMMC_CTRL1_CLK_STABLE /;"	d	language:C++
+EMMC_CTRL1_RESET_ALL	include/peripherals/emmc.h	/^#define EMMC_CTRL1_RESET_ALL /;"	d	language:C++
+EMMC_CTRL1_RESET_CMD	include/peripherals/emmc.h	/^#define EMMC_CTRL1_RESET_CMD /;"	d	language:C++
+EMMC_CTRL1_RESET_DATA	include/peripherals/emmc.h	/^#define EMMC_CTRL1_RESET_DATA /;"	d	language:C++
+EMMC_CTRL1_RESET_HOST	include/peripherals/emmc.h	/^#define EMMC_CTRL1_RESET_HOST /;"	d	language:C++
+EMMC_DEBUG	include/peripherals/emmc.h	/^#define EMMC_DEBUG /;"	d	language:C++
+EMMC_STATUS_CMD_INHIBIT	include/peripherals/emmc.h	/^#define EMMC_STATUS_CMD_INHIBIT /;"	d	language:C++
+EMMC_STATUS_DAT_INHIBIT	include/peripherals/emmc.h	/^#define EMMC_STATUS_DAT_INHIBIT /;"	d	language:C++
+ENTRIES_PER_TABLE	include/mm.h	/^#define ENTRIES_PER_TABLE /;"	d	language:C++
+ENTRIES_PER_TABLE	src/mem/mem.c	/^#define ENTRIES_PER_TABLE /;"	d	language:C	file:
+ERROR_INVALID_EL0_32	include/entry.h	/^#define ERROR_INVALID_EL0_32	/;"	d	language:C++
+ERROR_INVALID_EL0_64	include/entry.h	/^#define ERROR_INVALID_EL0_64	/;"	d	language:C++
+ERROR_INVALID_EL1h	include/entry.h	/^#define ERROR_INVALID_EL1h	/;"	d	language:C++
+ERROR_INVALID_EL1t	include/entry.h	/^#define ERROR_INVALID_EL1t	/;"	d	language:C++
+ESR_ELx_EC_DABT_LOW	include/sysregs.h	/^#define ESR_ELx_EC_DABT_LOW	/;"	d	language:C++
+ESR_ELx_EC_DA_LOW	include/sysregs.h	/^#define ESR_ELx_EC_DA_LOW /;"	d	language:C++
+ESR_ELx_EC_SHIFT	include/sysregs.h	/^#define ESR_ELx_EC_SHIFT	/;"	d	language:C++
+ESR_ELx_EC_SHIFT	include/sysregs.h	/^#define ESR_ELx_EC_SHIFT /;"	d	language:C++
+ESR_ELx_EC_SVC64	include/sysregs.h	/^#define ESR_ELx_EC_SVC64	/;"	d	language:C++
+ESR_ELx_EC_SVC64	include/sysregs.h	/^#define ESR_ELx_EC_SVC64 /;"	d	language:C++
+FIQ_INVALID_EL0_32	include/entry.h	/^#define FIQ_INVALID_EL0_32	/;"	d	language:C++
+FIQ_INVALID_EL0_64	include/entry.h	/^#define FIQ_INVALID_EL0_64	/;"	d	language:C++
+FIQ_INVALID_EL1h	include/entry.h	/^#define FIQ_INVALID_EL1h	/;"	d	language:C++
+FIQ_INVALID_EL1t	include/entry.h	/^#define FIQ_INVALID_EL1t	/;"	d	language:C++
+FIRSTCHAR	src/drivers/video/fontData.c	/^#define FIRSTCHAR	/;"	d	language:C	file:
+FIRST_TASK	include/sched.h	/^#define FIRST_TASK /;"	d	language:C++
+FLAG_EN	src/drivers/i2c/lcd.c	/^    FLAG_EN = 4$/;"	e	language:C	enum:Flags	file:
+FLAG_RS	src/drivers/i2c/lcd.c	/^    FLAG_RS = 1,$/;"	e	language:C	enum:Flags	file:
+FLAG_RW	src/drivers/i2c/lcd.c	/^    FLAG_RW = 2,$/;"	e	language:C	enum:Flags	file:
+FRAMEBUFFER	src/drivers/video/video.c	/^#define FRAMEBUFFER /;"	d	language:C	file:
+Flags	src/drivers/i2c/lcd.c	/^typedef enum Flags {$/;"	g	language:C	file:
+GFAlt0	include/gpio.h	/^    GFAlt0 = 4,$/;"	e	language:C++	enum:_GpioFunc
+GFAlt1	include/gpio.h	/^    GFAlt1 = 5,$/;"	e	language:C++	enum:_GpioFunc
+GFAlt2	include/gpio.h	/^    GFAlt2 = 6,$/;"	e	language:C++	enum:_GpioFunc
+GFAlt3	include/gpio.h	/^    GFAlt3 = 7,$/;"	e	language:C++	enum:_GpioFunc
+GFAlt4	include/gpio.h	/^    GFAlt4 = 3,$/;"	e	language:C++	enum:_GpioFunc
+GFAlt5	include/gpio.h	/^    GFAlt5 = 2$/;"	e	language:C++	enum:_GpioFunc
+GFInput	include/gpio.h	/^    GFInput = 0,$/;"	e	language:C++	enum:_GpioFunc
+GFOutput	include/gpio.h	/^    GFOutput = 1,$/;"	e	language:C++	enum:_GpioFunc
+GPU_CACHED_BASE	include/mem.h	/^#define GPU_CACHED_BASE	/;"	d	language:C++
+GPU_MEM_BASE	include/mem.h	/^#define GPU_MEM_BASE	/;"	d	language:C++
+GPU_UNCACHED_BASE	include/mem.h	/^#define GPU_UNCACHED_BASE	/;"	d	language:C++
+GpioFunc	include/gpio.h	/^} GpioFunc;$/;"	t	language:C++	typeref:enum:_GpioFunc
+GpioPinData	include/peripherals/gpio.h	/^struct GpioPinData {$/;"	s	language:C++
+GpioRegs	include/peripherals/gpio.h	/^struct GpioRegs {$/;"	s	language:C++
+HCR_RW	include/sysregs.h	/^#define HCR_RW /;"	d	language:C++
+HCR_VALUE	include/sysregs.h	/^#define HCR_VALUE /;"	d	language:C++
+HIGH_MEMORY	include/mm.h	/^#define HIGH_MEMORY /;"	d	language:C++
+I2CRegs	include/peripherals/i2c.h	/^struct I2CRegs {$/;"	s	language:C++
+I2CS_ACK_ERROR	include/i2c.h	/^    I2CS_ACK_ERROR,$/;"	e	language:C++	enum:_i2c_status
+I2CS_CLOCK_TIMEOUT	include/i2c.h	/^    I2CS_CLOCK_TIMEOUT$/;"	e	language:C++	enum:_i2c_status
+I2CS_DATA_LOSS	include/i2c.h	/^    I2CS_DATA_LOSS,$/;"	e	language:C++	enum:_i2c_status
+I2CS_SUCCESS	include/i2c.h	/^    I2CS_SUCCESS,$/;"	e	language:C++	enum:_i2c_status
+I2C_SPEED	src/drivers/i2c/i2c.c	/^#define I2C_SPEED /;"	d	language:C	file:
+ID_MAP_PAGES	src/mem/mem.c	/^#define ID_MAP_PAGES /;"	d	language:C	file:
+ID_MAP_TABLE_SIZE	src/mem/mem.c	/^#define ID_MAP_TABLE_SIZE /;"	d	language:C	file:
+INIT_MMU	Makefile	/^INIT_MMU ?= 1$/;"	m	language:Make
+INIT_TASK	include/sched.h	/^#define INIT_TASK /;"	d	language:C++
+INVALID_CMD	src/drivers/emmc/emmc.c	/^static const emmc_cmd INVALID_CMD = RES_CMD;$/;"	v	language:C	typeref:typename:const emmc_cmd	file:
+IRQ_INVALID_EL0_32	include/entry.h	/^#define IRQ_INVALID_EL0_32	/;"	d	language:C++
+IRQ_INVALID_EL0_64	include/entry.h	/^#define IRQ_INVALID_EL0_64	/;"	d	language:C++
+IRQ_INVALID_EL1h	include/entry.h	/^#define IRQ_INVALID_EL1h	/;"	d	language:C++
+IRQ_INVALID_EL1t	include/entry.h	/^#define IRQ_INVALID_EL1t	/;"	d	language:C++
+KERNEL_EXEC_FLAGS	include/mem.h	/^#define KERNEL_EXEC_FLAGS /;"	d	language:C++
+KERNEL_VIRT_OFFSET	include/mm.h	/^#define KERNEL_VIRT_OFFSET /;"	d	language:C++
+LASTCHAR	src/drivers/video/fontData.c	/^#define LASTCHAR	/;"	d	language:C	file:
+LAST_TASK	include/sched.h	/^#define LAST_TASK /;"	d	language:C++
+LCD_1LINE	src/drivers/i2c/lcd.c	/^#define LCD_1LINE /;"	d	language:C	file:
+LCD_2LINE	src/drivers/i2c/lcd.c	/^#define LCD_2LINE /;"	d	language:C	file:
+LCD_4BITMODE	src/drivers/i2c/lcd.c	/^#define LCD_4BITMODE /;"	d	language:C	file:
+LCD_5x10DOTS	src/drivers/i2c/lcd.c	/^#define LCD_5x10DOTS /;"	d	language:C	file:
+LCD_5x8DOTS	src/drivers/i2c/lcd.c	/^#define LCD_5x8DOTS /;"	d	language:C	file:
+LCD_8BITMODE	src/drivers/i2c/lcd.c	/^#define LCD_8BITMODE /;"	d	language:C	file:
+LCD_BACKLIGHT	src/drivers/i2c/lcd.c	/^#define LCD_BACKLIGHT /;"	d	language:C	file:
+LCD_BLINKOFF	src/drivers/i2c/lcd.c	/^#define LCD_BLINKOFF /;"	d	language:C	file:
+LCD_BLINKON	src/drivers/i2c/lcd.c	/^#define LCD_BLINKON /;"	d	language:C	file:
+LCD_CLEARDISPLAY	src/drivers/i2c/lcd.c	/^#define LCD_CLEARDISPLAY /;"	d	language:C	file:
+LCD_CURSORMOVE	src/drivers/i2c/lcd.c	/^#define LCD_CURSORMOVE /;"	d	language:C	file:
+LCD_CURSOROFF	src/drivers/i2c/lcd.c	/^#define LCD_CURSOROFF /;"	d	language:C	file:
+LCD_CURSORON	src/drivers/i2c/lcd.c	/^#define LCD_CURSORON /;"	d	language:C	file:
+LCD_CURSORSHIFT	src/drivers/i2c/lcd.c	/^#define LCD_CURSORSHIFT /;"	d	language:C	file:
+LCD_DISPLAYCONTROL	src/drivers/i2c/lcd.c	/^#define LCD_DISPLAYCONTROL /;"	d	language:C	file:
+LCD_DISPLAYMOVE	src/drivers/i2c/lcd.c	/^#define LCD_DISPLAYMOVE /;"	d	language:C	file:
+LCD_DISPLAYOFF	src/drivers/i2c/lcd.c	/^#define LCD_DISPLAYOFF /;"	d	language:C	file:
+LCD_DISPLAYON	src/drivers/i2c/lcd.c	/^#define LCD_DISPLAYON /;"	d	language:C	file:
+LCD_ENTRYLEFT	src/drivers/i2c/lcd.c	/^#define LCD_ENTRYLEFT /;"	d	language:C	file:
+LCD_ENTRYMODESET	src/drivers/i2c/lcd.c	/^#define LCD_ENTRYMODESET /;"	d	language:C	file:
+LCD_ENTRYRIGHT	src/drivers/i2c/lcd.c	/^#define LCD_ENTRYRIGHT /;"	d	language:C	file:
+LCD_ENTRYSHIFTDECREMENT	src/drivers/i2c/lcd.c	/^#define LCD_ENTRYSHIFTDECREMENT /;"	d	language:C	file:
+LCD_ENTRYSHIFTINCREMENT	src/drivers/i2c/lcd.c	/^#define LCD_ENTRYSHIFTINCREMENT /;"	d	language:C	file:
+LCD_FUNCTIONSET	src/drivers/i2c/lcd.c	/^#define LCD_FUNCTIONSET /;"	d	language:C	file:
+LCD_MOVELEFT	src/drivers/i2c/lcd.c	/^#define LCD_MOVELEFT /;"	d	language:C	file:
+LCD_MOVERIGHT	src/drivers/i2c/lcd.c	/^#define LCD_MOVERIGHT /;"	d	language:C	file:
+LCD_NOBACKLIGHT	src/drivers/i2c/lcd.c	/^#define LCD_NOBACKLIGHT /;"	d	language:C	file:
+LCD_RETURNHOME	src/drivers/i2c/lcd.c	/^#define LCD_RETURNHOME /;"	d	language:C	file:
+LCD_SETCGRAMADDR	src/drivers/i2c/lcd.c	/^#define LCD_SETCGRAMADDR /;"	d	language:C	file:
+LCD_SETDDRAMADDR	src/drivers/i2c/lcd.c	/^#define LCD_SETDDRAMADDR /;"	d	language:C	file:
+LD_DECODE_MODE	include/led_display.h	/^    LD_DECODE_MODE,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT0	include/led_display.h	/^    LD_DIGIT0,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT1	include/led_display.h	/^    LD_DIGIT1,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT2	include/led_display.h	/^    LD_DIGIT2,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT3	include/led_display.h	/^    LD_DIGIT3,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT4	include/led_display.h	/^    LD_DIGIT4,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT5	include/led_display.h	/^    LD_DIGIT5,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT6	include/led_display.h	/^    LD_DIGIT6,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DIGIT7	include/led_display.h	/^    LD_DIGIT7,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_DISPLAYTEST	include/led_display.h	/^    LD_DISPLAYTEST = 15$/;"	e	language:C++	enum:__anonc820d8380103
+LD_INTENSITY	include/led_display.h	/^    LD_INTENSITY,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_NOOP	include/led_display.h	/^    LD_NOOP = 0,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_SCANLIMIT	include/led_display.h	/^    LD_SCANLIMIT,$/;"	e	language:C++	enum:__anonc820d8380103
+LD_SHUTDOWN	include/led_display.h	/^    LD_SHUTDOWN,$/;"	e	language:C++	enum:__anonc820d8380103
+LOW_MEMORY	include/mm.h	/^#define LOW_MEMORY /;"	d	language:C++
+MAIL_BUTTONS	src/drivers/mailbox/mailbox.c	/^#define MAIL_BUTTONS /;"	d	language:C	file:
+MAIL_COUNT	src/drivers/mailbox/mailbox.c	/^#define MAIL_COUNT /;"	d	language:C	file:
+MAIL_EMPTY	src/drivers/mailbox/mailbox.c	/^#define MAIL_EMPTY /;"	d	language:C	file:
+MAIL_FB	src/drivers/mailbox/mailbox.c	/^#define MAIL_FB /;"	d	language:C	file:
+MAIL_FULL	src/drivers/mailbox/mailbox.c	/^#define MAIL_FULL /;"	d	language:C	file:
+MAIL_LEDS	src/drivers/mailbox/mailbox.c	/^#define MAIL_LEDS /;"	d	language:C	file:
+MAIL_POWER	src/drivers/mailbox/mailbox.c	/^#define MAIL_POWER /;"	d	language:C	file:
+MAIL_TAGS	src/drivers/mailbox/mailbox.c	/^#define MAIL_TAGS /;"	d	language:C	file:
+MAIL_TOUCH	src/drivers/mailbox/mailbox.c	/^#define MAIL_TOUCH /;"	d	language:C	file:
+MAIL_VCHIQ	src/drivers/mailbox/mailbox.c	/^#define MAIL_VCHIQ /;"	d	language:C	file:
+MAIL_VUART	src/drivers/mailbox/mailbox.c	/^#define MAIL_VUART /;"	d	language:C	file:
+MAIR_EL1_VAL	src/mem/mem.c	/^#define MAIR_EL1_VAL /;"	d	language:C	file:
+MAIR_VALUE	include/mmu.h	/^#define MAIR_VALUE	/;"	d	language:C++
+MAIR_VALUENEW	include/mmu.h	/^#define MAIR_VALUENEW /;"	d	language:C++
+MATTR_DEVICE_nGnRnE	src/mem/mem.c	/^#define MATTR_DEVICE_nGnRnE /;"	d	language:C	file:
+MATTR_DEVICE_nGnRnE_INDEX	src/mem/mem.c	/^#define MATTR_DEVICE_nGnRnE_INDEX /;"	d	language:C	file:
+MATTR_NORMAL_NC	src/mem/mem.c	/^#define MATTR_NORMAL_NC /;"	d	language:C	file:
+MATTR_NORMAL_NC_INDEX	src/mem/mem.c	/^#define MATTR_NORMAL_NC_INDEX /;"	d	language:C	file:
+MAX_DEVS	src/drivers/shared/io.c	/^#define MAX_DEVS /;"	d	language:C	file:
+MAX_DEVS	src/kernel/kernel.c	/^#define MAX_DEVS /;"	d	language:C	file:
+MB	src/drivers/video/video.c	/^#define MB /;"	d	language:C	file:
+MBX	src/drivers/mailbox/mailbox.c	/^mailbox_regs *MBX() {$/;"	f	language:C	typeref:typename:mailbox_regs *	signature:()
+MMU_DEVICE_FLAGS	include/mmu.h	/^#define MMU_DEVICE_FLAGS	/;"	d	language:C++
+MMU_FLAGS	include/mmu.h	/^#define MMU_FLAGS	/;"	d	language:C++
+MMU_PTE_FLAGS	include/mmu.h	/^#define MMU_PTE_FLAGS	/;"	d	language:C++
+MM_ACCESS	include/mmu.h	/^#define MM_ACCESS	/;"	d	language:C++
+MM_ACCESS_PERMISSION	include/mmu.h	/^#define MM_ACCESS_PERMISSION	/;"	d	language:C++
+MM_TYPE_BLOCK	include/mmu.h	/^#define MM_TYPE_BLOCK	/;"	d	language:C++
+MM_TYPE_PAGE	include/mmu.h	/^#define MM_TYPE_PAGE /;"	d	language:C++
+MM_TYPE_PAGE_TABLE	include/mmu.h	/^#define MM_TYPE_PAGE_TABLE	/;"	d	language:C++
+MT_DEVICE_nGnRnE	include/mmu.h	/^#define MT_DEVICE_nGnRnE /;"	d	language:C++
+MT_DEVICE_nGnRnE_FLAGS	include/mmu.h	/^#define MT_DEVICE_nGnRnE_FLAGS	/;"	d	language:C++
+MT_NORMAL_NC	include/mmu.h	/^#define MT_NORMAL_NC	/;"	d	language:C++
+MT_NORMAL_NC_FLAGS	include/mmu.h	/^#define MT_NORMAL_NC_FLAGS /;"	d	language:C++
+NR_TASKS	include/sched.h	/^#define NR_TASKS	/;"	d	language:C++
+NULL	src/mem/mem.c	/^#define NULL /;"	d	language:C	file:
+OBJ_FILES	Makefile	/^OBJ_FILES = $(C_FILES:$(SRC_DIR)\/%.c=$(BUILD_DIR)\/%_c.o)$/;"	m	language:Make
+PACKED	include/common.h	/^#define PACKED /;"	d	language:C++
+PACKED	src/kernel/kernel.c	/^typedef struct PACKED {$/;"	s	language:C	file:
+PAGE_MASK	include/mm.h	/^#define PAGE_MASK /;"	d	language:C++
+PAGE_SHIFT	include/mm.h	/^#define PAGE_SHIFT /;"	d	language:C++
+PAGE_SIZE	include/mm.h	/^#define PAGE_SIZE /;"	d	language:C++
+PAGING_MEMORY	include/mm.h	/^#define PAGING_MEMORY /;"	d	language:C++
+PAGING_PAGES	include/mm.h	/^#define PAGING_PAGES /;"	d	language:C++
+PBASE	include/peripherals/base.h	/^#define PBASE /;"	d	language:C++
+PF_KTHREAD	include/sched.h	/^#define PF_KTHREAD	/;"	d	language:C++
+PGD_SHIFT	src/mem/mem.c	/^#define PGD_SHIFT /;"	d	language:C	file:
+PMD_SHIFT	src/mem/mem.c	/^#define PMD_SHIFT /;"	d	language:C	file:
+PSR_MODE_EL0t	include/fork.h	/^#define PSR_MODE_EL0t	/;"	d	language:C++
+PSR_MODE_EL1h	include/fork.h	/^#define PSR_MODE_EL1h	/;"	d	language:C++
+PSR_MODE_EL1t	include/fork.h	/^#define PSR_MODE_EL1t	/;"	d	language:C++
+PSR_MODE_EL2h	include/fork.h	/^#define PSR_MODE_EL2h	/;"	d	language:C++
+PSR_MODE_EL2t	include/fork.h	/^#define PSR_MODE_EL2t	/;"	d	language:C++
+PSR_MODE_EL3h	include/fork.h	/^#define PSR_MODE_EL3h	/;"	d	language:C++
+PSR_MODE_EL3t	include/fork.h	/^#define PSR_MODE_EL3t	/;"	d	language:C++
+PTE_AF	include/mem.h	/^#define PTE_AF /;"	d	language:C++
+PTE_ATTRINDX	include/mem.h	/^#define PTE_ATTRINDX(/;"	d	language:C++	signature:(x)
+PTE_BLOCK	include/mem.h	/^#define PTE_BLOCK /;"	d	language:C++
+PTE_NG	include/mem.h	/^#define PTE_NG /;"	d	language:C++
+PTE_PAGE	include/mem.h	/^#define PTE_PAGE /;"	d	language:C++
+PTE_RDONLY	include/mem.h	/^#define PTE_RDONLY /;"	d	language:C++
+PTE_RW	include/mem.h	/^#define PTE_RW /;"	d	language:C++
+PTE_SHARED	include/mem.h	/^#define PTE_SHARED /;"	d	language:C++
+PTE_SH_INNER	include/mem.h	/^#define PTE_SH_INNER /;"	d	language:C++
+PTE_SH_NONE	include/mem.h	/^#define PTE_SH_NONE /;"	d	language:C++
+PTE_SH_OUTER	include/mem.h	/^#define PTE_SH_OUTER /;"	d	language:C++
+PTE_TABLE	include/mem.h	/^#define PTE_TABLE /;"	d	language:C++
+PTE_TYPE_BLOCK	include/mem.h	/^#define PTE_TYPE_BLOCK /;"	d	language:C++
+PTE_TYPE_PAGE	include/mem.h	/^#define PTE_TYPE_PAGE /;"	d	language:C++
+PTE_TYPE_TABLE	include/mem.h	/^#define PTE_TYPE_TABLE /;"	d	language:C++
+PTE_USER	include/mem.h	/^#define PTE_USER /;"	d	language:C++
+PTE_USER_RW_FLAGS	include/mem.h	/^#define PTE_USER_RW_FLAGS /;"	d	language:C++
+PTE_VALID	include/mem.h	/^#define PTE_VALID /;"	d	language:C++
+PUD_ENTRY_MAP_SIZE	src/mem/mem.c	/^#define PUD_ENTRY_MAP_SIZE /;"	d	language:C	file:
+PUD_SHIFT	src/mem/mem.c	/^#define PUD_SHIFT /;"	d	language:C	file:
+REGS_AUX	include/peripherals/aux.h	/^#define REGS_AUX /;"	d	language:C++
+REGS_DMA	include/peripherals/dma.h	/^#define REGS_DMA(/;"	d	language:C++	signature:(channel)
+REGS_DMA_ENABLE	include/peripherals/dma.h	/^#define REGS_DMA_ENABLE /;"	d	language:C++
+REGS_DMA_INT_STATUS	include/peripherals/dma.h	/^#define REGS_DMA_INT_STATUS /;"	d	language:C++
+REGS_GPIO	include/peripherals/gpio.h	/^#define REGS_GPIO /;"	d	language:C++
+REGS_I2C	include/peripherals/i2c.h	/^#define REGS_I2C /;"	d	language:C++
+REGS_IRQ	include/peripherals/irq.h	/^#define REGS_IRQ /;"	d	language:C++
+REGS_SPI0	include/peripherals/spi.h	/^#define REGS_SPI0 /;"	d	language:C++
+REGS_TIMER	include/peripherals/timer.h	/^#define REGS_TIMER /;"	d	language:C++
+RES_CMD	include/peripherals/emmc.h	/^#define RES_CMD /;"	d	language:C++
+RPI_FIRMWARE_ALLOCATE_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_ALLOCATE_MEMORY =                        0x0003000c,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_EXECUTE_CODE	include/mailbox.h	/^	RPI_FIRMWARE_EXECUTE_CODE =                           0x00030010,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_EXECUTE_QPU	include/mailbox.h	/^	RPI_FIRMWARE_EXECUTE_QPU =                            0x00030011,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_ALLOCATE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_ALLOCATE =                   0x00040001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_BLANK	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_BLANK =                      0x00040002,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_ALPHA_MODE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_ALPHA_MODE =             0x00040007,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_DEPTH	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_DEPTH =                  0x00040005,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_GPIOVIRTBUF	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_GPIOVIRTBUF =            0x00040010,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_OVERSCAN	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_OVERSCAN =               0x0004000a,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_PALETTE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_PALETTE =                0x0004000b,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_PHYSICAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_PHYSICAL_WIDTH_HEIGHT =  0x00040003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_PITCH	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_PITCH =                  0x00040008,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_PIXEL_ORDER	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_PIXEL_ORDER =            0x00040006,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_TOUCHBUF	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_TOUCHBUF =               0x0004000f,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_VIRTUAL_OFFSET	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_VIRTUAL_OFFSET =         0x00040009,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_GET_VIRTUAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_GET_VIRTUAL_WIDTH_HEIGHT =   0x00040004,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_RELEASE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_RELEASE =                    0x00048001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_ALPHA_MODE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_ALPHA_MODE =             0x00048007,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_BACKLIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_BACKLIGHT =              0x0004800f,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_DEPTH	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_DEPTH =                  0x00048005,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_GPIOVIRTBUF	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_GPIOVIRTBUF =            0x00048020,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_OVERSCAN	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_OVERSCAN =               0x0004800a,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_PALETTE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_PALETTE =                0x0004800b,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_PHYSICAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_PHYSICAL_WIDTH_HEIGHT =  0x00048003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_PIXEL_ORDER	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_PIXEL_ORDER =            0x00048006,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_TOUCHBUF	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_TOUCHBUF =               0x0004801f,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_VIRTUAL_OFFSET	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_VIRTUAL_OFFSET =         0x00048009,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_VIRTUAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_VIRTUAL_WIDTH_HEIGHT =   0x00048004,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_SET_VSYNC	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_SET_VSYNC =                  0x0004800e,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_ALPHA_MODE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_ALPHA_MODE =            0x00044007,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_DEPTH	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_DEPTH =                 0x00044005,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_OVERSCAN	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_OVERSCAN =              0x0004400a,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_PALETTE	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_PALETTE =               0x0004400b,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_PHYSICAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_PHYSICAL_WIDTH_HEIGHT = 0x00044003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_PIXEL_ORDER	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_PIXEL_ORDER =           0x00044006,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_VIRTUAL_OFFSET	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_VIRTUAL_OFFSET =        0x00044009,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_VIRTUAL_WIDTH_HEIGHT	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_VIRTUAL_WIDTH_HEIGHT =  0x00044004,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_FRAMEBUFFER_TEST_VSYNC	include/mailbox.h	/^	RPI_FIRMWARE_FRAMEBUFFER_TEST_VSYNC =                 0x0004400e,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_ARM_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_GET_ARM_MEMORY =                         0x00010005,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_BOARD_MAC_ADDRESS	include/mailbox.h	/^	RPI_FIRMWARE_GET_BOARD_MAC_ADDRESS =                  0x00010003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_BOARD_MODEL	include/mailbox.h	/^	RPI_FIRMWARE_GET_BOARD_MODEL =                        0x00010001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_BOARD_REVISION	include/mailbox.h	/^	RPI_FIRMWARE_GET_BOARD_REVISION =                     0x00010002,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_BOARD_SERIAL	include/mailbox.h	/^	RPI_FIRMWARE_GET_BOARD_SERIAL =                       0x00010004,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_CLOCKS	include/mailbox.h	/^	RPI_FIRMWARE_GET_CLOCKS =                             0x00010007,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_CLOCK_RATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_CLOCK_RATE =                         0x00030002,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_CLOCK_STATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_CLOCK_STATE =                        0x00030001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_COMMAND_LINE	include/mailbox.h	/^	RPI_FIRMWARE_GET_COMMAND_LINE =                       0x00050001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_CUSTOMER_OTP	include/mailbox.h	/^	RPI_FIRMWARE_GET_CUSTOMER_OTP =                       0x00030021,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_DISPMANX_RESOURCE_MEM_HANDLE	include/mailbox.h	/^	RPI_FIRMWARE_GET_DISPMANX_RESOURCE_MEM_HANDLE =       0x00030014,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_DMA_CHANNELS	include/mailbox.h	/^	RPI_FIRMWARE_GET_DMA_CHANNELS =                       0x00060001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_DOMAIN_STATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_DOMAIN_STATE =                       0x00030030,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_EDID_BLOCK	include/mailbox.h	/^	RPI_FIRMWARE_GET_EDID_BLOCK =                         0x00030020,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_FIRMWARE_REVISION	include/mailbox.h	/^	RPI_FIRMWARE_GET_FIRMWARE_REVISION =                  0x00000001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_GPIO_CONFIG	include/mailbox.h	/^	RPI_FIRMWARE_GET_GPIO_CONFIG =                        0x00030043,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_GPIO_STATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_GPIO_STATE =                         0x00030041,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_MAX_CLOCK_RATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_MAX_CLOCK_RATE =                     0x00030004,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_MAX_TEMPERATURE	include/mailbox.h	/^	RPI_FIRMWARE_GET_MAX_TEMPERATURE =                    0x0003000a,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_MAX_VOLTAGE	include/mailbox.h	/^	RPI_FIRMWARE_GET_MAX_VOLTAGE =                        0x00030005,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_MIN_CLOCK_RATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_MIN_CLOCK_RATE =                     0x00030007,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_MIN_VOLTAGE	include/mailbox.h	/^	RPI_FIRMWARE_GET_MIN_VOLTAGE =                        0x00030008,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_PERIPH_REG	include/mailbox.h	/^	RPI_FIRMWARE_GET_PERIPH_REG =                         0x00030045,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_POWER_STATE	include/mailbox.h	/^	RPI_FIRMWARE_GET_POWER_STATE =                        0x00020001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_STC	include/mailbox.h	/^	RPI_FIRMWARE_GET_STC =                                0x0003000b,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_TEMPERATURE	include/mailbox.h	/^	RPI_FIRMWARE_GET_TEMPERATURE =                        0x00030006,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_TIMING	include/mailbox.h	/^	RPI_FIRMWARE_GET_TIMING =                             0x00020002,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_TURBO	include/mailbox.h	/^	RPI_FIRMWARE_GET_TURBO =                              0x00030009,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_VC_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_GET_VC_MEMORY =                          0x00010006,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_GET_VOLTAGE	include/mailbox.h	/^	RPI_FIRMWARE_GET_VOLTAGE =                            0x00030003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_LOCK_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_LOCK_MEMORY =                            0x0003000d,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_PROPERTY_END	include/mailbox.h	/^	RPI_FIRMWARE_PROPERTY_END =                           0,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_RELEASE_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_RELEASE_MEMORY =                         0x0003000f,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_CLOCK_RATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_CLOCK_RATE =                         0x00038002,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_CLOCK_STATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_CLOCK_STATE =                        0x00038001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_CURSOR_INFO	include/mailbox.h	/^	RPI_FIRMWARE_SET_CURSOR_INFO =                        0x00008010,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_CURSOR_STATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_CURSOR_STATE =                       0x00008011,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_CUSTOMER_OTP	include/mailbox.h	/^	RPI_FIRMWARE_SET_CUSTOMER_OTP =                       0x00038021,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_DOMAIN_STATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_DOMAIN_STATE =                       0x00038030,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_ENABLE_QPU	include/mailbox.h	/^	RPI_FIRMWARE_SET_ENABLE_QPU =                         0x00030012,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_GPIO_CONFIG	include/mailbox.h	/^	RPI_FIRMWARE_SET_GPIO_CONFIG =                        0x00038043,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_GPIO_STATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_GPIO_STATE =                         0x00038041,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_PERIPH_REG	include/mailbox.h	/^	RPI_FIRMWARE_SET_PERIPH_REG =                         0x00038045,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_POWER_STATE	include/mailbox.h	/^	RPI_FIRMWARE_SET_POWER_STATE =                        0x00028001,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_SDHOST_CLOCK	include/mailbox.h	/^	RPI_FIRMWARE_SET_SDHOST_CLOCK =                       0x00038042,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_TURBO	include/mailbox.h	/^	RPI_FIRMWARE_SET_TURBO =                              0x00038009,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_SET_VOLTAGE	include/mailbox.h	/^	RPI_FIRMWARE_SET_VOLTAGE =                            0x00038003,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_STATUS_ERROR	include/mailbox.h	/^	RPI_FIRMWARE_STATUS_ERROR =   0x80000001,$/;"	e	language:C++	enum:rpi_firmware_property_status
+RPI_FIRMWARE_STATUS_REQUEST	include/mailbox.h	/^	RPI_FIRMWARE_STATUS_REQUEST = 0,$/;"	e	language:C++	enum:rpi_firmware_property_status
+RPI_FIRMWARE_STATUS_SUCCESS	include/mailbox.h	/^	RPI_FIRMWARE_STATUS_SUCCESS = 0x80000000,$/;"	e	language:C++	enum:rpi_firmware_property_status
+RPI_FIRMWARE_UNLOCK_MEMORY	include/mailbox.h	/^	RPI_FIRMWARE_UNLOCK_MEMORY =                          0x0003000e,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_FIRMWARE_VCHIQ_INIT	include/mailbox.h	/^	RPI_FIRMWARE_VCHIQ_INIT =                             0x00048010,$/;"	e	language:C++	enum:rpi_firmware_property_tag
+RPI_POWER_DOMAIN_ARM	include/mailbox.h	/^#define RPI_POWER_DOMAIN_ARM	/;"	d	language:C++
+RPI_POWER_DOMAIN_CCP2RX	include/mailbox.h	/^#define RPI_POWER_DOMAIN_CCP2RX	/;"	d	language:C++
+RPI_POWER_DOMAIN_CCP2TX	include/mailbox.h	/^#define RPI_POWER_DOMAIN_CCP2TX	/;"	d	language:C++
+RPI_POWER_DOMAIN_CDP	include/mailbox.h	/^#define RPI_POWER_DOMAIN_CDP	/;"	d	language:C++
+RPI_POWER_DOMAIN_COUNT	include/mailbox.h	/^#define RPI_POWER_DOMAIN_COUNT	/;"	d	language:C++
+RPI_POWER_DOMAIN_CPI	include/mailbox.h	/^#define RPI_POWER_DOMAIN_CPI	/;"	d	language:C++
+RPI_POWER_DOMAIN_CSI2	include/mailbox.h	/^#define RPI_POWER_DOMAIN_CSI2	/;"	d	language:C++
+RPI_POWER_DOMAIN_DSI0	include/mailbox.h	/^#define RPI_POWER_DOMAIN_DSI0	/;"	d	language:C++
+RPI_POWER_DOMAIN_DSI1	include/mailbox.h	/^#define RPI_POWER_DOMAIN_DSI1	/;"	d	language:C++
+RPI_POWER_DOMAIN_H264	include/mailbox.h	/^#define RPI_POWER_DOMAIN_H264	/;"	d	language:C++
+RPI_POWER_DOMAIN_HDMI	include/mailbox.h	/^#define RPI_POWER_DOMAIN_HDMI	/;"	d	language:C++
+RPI_POWER_DOMAIN_I2C0	include/mailbox.h	/^#define RPI_POWER_DOMAIN_I2C0	/;"	d	language:C++
+RPI_POWER_DOMAIN_I2C1	include/mailbox.h	/^#define RPI_POWER_DOMAIN_I2C1	/;"	d	language:C++
+RPI_POWER_DOMAIN_I2C2	include/mailbox.h	/^#define RPI_POWER_DOMAIN_I2C2	/;"	d	language:C++
+RPI_POWER_DOMAIN_ISP	include/mailbox.h	/^#define RPI_POWER_DOMAIN_ISP	/;"	d	language:C++
+RPI_POWER_DOMAIN_JPEG	include/mailbox.h	/^#define RPI_POWER_DOMAIN_JPEG	/;"	d	language:C++
+RPI_POWER_DOMAIN_TRANSPOSER	include/mailbox.h	/^#define RPI_POWER_DOMAIN_TRANSPOSER	/;"	d	language:C++
+RPI_POWER_DOMAIN_UNICAM0	include/mailbox.h	/^#define RPI_POWER_DOMAIN_UNICAM0	/;"	d	language:C++
+RPI_POWER_DOMAIN_UNICAM1	include/mailbox.h	/^#define RPI_POWER_DOMAIN_UNICAM1	/;"	d	language:C++
+RPI_POWER_DOMAIN_USB	include/mailbox.h	/^#define RPI_POWER_DOMAIN_USB	/;"	d	language:C++
+RPI_POWER_DOMAIN_V3D	include/mailbox.h	/^#define RPI_POWER_DOMAIN_V3D	/;"	d	language:C++
+RPI_POWER_DOMAIN_VEC	include/mailbox.h	/^#define RPI_POWER_DOMAIN_VEC	/;"	d	language:C++
+RPI_POWER_DOMAIN_VIDEO_SCALER	include/mailbox.h	/^#define RPI_POWER_DOMAIN_VIDEO_SCALER	/;"	d	language:C++
+RPI_POWER_DOMAIN_VPU1	include/mailbox.h	/^#define RPI_POWER_DOMAIN_VPU1	/;"	d	language:C++
+RPI_VERSION	Makefile	/^RPI_VERSION ?= 3$/;"	m	language:Make
+RT136	include/peripherals/emmc.h	/^    RT136,$/;"	e	language:C++	enum:__anon6b67dcbe0203
+RT48	include/peripherals/emmc.h	/^    RT48,$/;"	e	language:C++	enum:__anon6b67dcbe0203
+RT48Busy	include/peripherals/emmc.h	/^    RT48Busy$/;"	e	language:C++	enum:__anon6b67dcbe0203
+RTNone	include/peripherals/emmc.h	/^    RTNone,$/;"	e	language:C++	enum:__anon6b67dcbe0203
+RXD	src/drivers/muart/mini_uart.c	/^#define RXD /;"	d	language:C	file:
+SCR_NS	include/sysregs.h	/^#define SCR_NS /;"	d	language:C++
+SCR_RESERVED	include/sysregs.h	/^#define SCR_RESERVED /;"	d	language:C++
+SCR_RW	include/sysregs.h	/^#define SCR_RW /;"	d	language:C++
+SCR_VALUE	include/sysregs.h	/^#define SCR_VALUE /;"	d	language:C++
+SCTLR_D_CACHE_DISABLED	include/sysregs.h	/^#define SCTLR_D_CACHE_DISABLED /;"	d	language:C++
+SCTLR_EE_LITTLE_ENDIAN	include/sysregs.h	/^#define SCTLR_EE_LITTLE_ENDIAN /;"	d	language:C++
+SCTLR_EL1_A	include/mmu.h	/^#define SCTLR_EL1_A	/;"	d	language:C++
+SCTLR_EL1_C	include/mmu.h	/^#define SCTLR_EL1_C	/;"	d	language:C++
+SCTLR_EL1_I	include/mmu.h	/^#define SCTLR_EL1_I	/;"	d	language:C++
+SCTLR_EL1_M	include/mmu.h	/^#define SCTLR_EL1_M	/;"	d	language:C++
+SCTLR_EL1_WXN	include/mmu.h	/^#define SCTLR_EL1_WXN	/;"	d	language:C++
+SCTLR_EOE_LITTLE_ENDIAN	include/sysregs.h	/^#define SCTLR_EOE_LITTLE_ENDIAN /;"	d	language:C++
+SCTLR_I_CACHE_DISABLED	include/sysregs.h	/^#define SCTLR_I_CACHE_DISABLED /;"	d	language:C++
+SCTLR_MMU_DISABLED	include/sysregs.h	/^#define SCTLR_MMU_DISABLED /;"	d	language:C++
+SCTLR_MMU_ENABLED	include/sysregs.h	/^#define SCTLR_MMU_ENABLED /;"	d	language:C++
+SCTLR_RESERVED	include/sysregs.h	/^#define SCTLR_RESERVED /;"	d	language:C++
+SCTLR_VALUE_MMU_DISABLED	include/sysregs.h	/^#define SCTLR_VALUE_MMU_DISABLED /;"	d	language:C++
+SDEADma	include/peripherals/emmc.h	/^    SDEADma,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDEAutoCmd12	include/peripherals/emmc.h	/^    SDEAutoCmd12,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDECommandCrc	include/peripherals/emmc.h	/^    SDECommandCrc,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDECommandEndBit	include/peripherals/emmc.h	/^    SDECommandEndBit,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDECommandIndex	include/peripherals/emmc.h	/^    SDECommandIndex,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDECommandTimeout	include/peripherals/emmc.h	/^    SDECommandTimeout,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDECurrentLimit	include/peripherals/emmc.h	/^    SDECurrentLimit,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDEDataCrc	include/peripherals/emmc.h	/^    SDEDataCrc,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDEDataEndBit	include/peripherals/emmc.h	/^    SDEDataEndBit,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDEDataTimeout	include/peripherals/emmc.h	/^    SDEDataTimeout,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDERsvd	include/peripherals/emmc.h	/^    SDERsvd$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SDETuning	include/peripherals/emmc.h	/^    SDETuning,$/;"	e	language:C++	enum:__anon6b67dcbe0503
+SD_BLOCK_GAP_EVENT	include/peripherals/emmc.h	/^#define SD_BLOCK_GAP_EVENT /;"	d	language:C++
+SD_BUFFER_READ_READY	include/peripherals/emmc.h	/^#define SD_BUFFER_READ_READY /;"	d	language:C++
+SD_BUFFER_WRITE_READY	include/peripherals/emmc.h	/^#define SD_BUFFER_WRITE_READY /;"	d	language:C++
+SD_CARD_INSERTION	include/peripherals/emmc.h	/^#define SD_CARD_INSERTION /;"	d	language:C++
+SD_CARD_INTERRUPT	include/peripherals/emmc.h	/^#define SD_CARD_INTERRUPT /;"	d	language:C++
+SD_CARD_REMOVAL	include/peripherals/emmc.h	/^#define SD_CARD_REMOVAL /;"	d	language:C++
+SD_CLOCK_100	include/peripherals/emmc.h	/^#define SD_CLOCK_100 /;"	d	language:C++
+SD_CLOCK_208	include/peripherals/emmc.h	/^#define SD_CLOCK_208 /;"	d	language:C++
+SD_CLOCK_HIGH	include/peripherals/emmc.h	/^#define SD_CLOCK_HIGH /;"	d	language:C++
+SD_CLOCK_ID	include/peripherals/emmc.h	/^#define SD_CLOCK_ID /;"	d	language:C++
+SD_CLOCK_NORMAL	include/peripherals/emmc.h	/^#define SD_CLOCK_NORMAL /;"	d	language:C++
+SD_COMMAND_COMPLETE	include/peripherals/emmc.h	/^#define SD_COMMAND_COMPLETE /;"	d	language:C++
+SD_DMA_INTERRUPT	include/peripherals/emmc.h	/^#define SD_DMA_INTERRUPT /;"	d	language:C++
+SD_TRANSFER_COMPLETE	include/peripherals/emmc.h	/^#define SD_TRANSFER_COMPLETE /;"	d	language:C++
+SECTION_SHIFT	include/mm.h	/^#define SECTION_SHIFT /;"	d	language:C++
+SECTION_SIZE	include/mm.h	/^#define SECTION_SIZE /;"	d	language:C++
+SPSR_EL1h	include/sysregs.h	/^#define SPSR_EL1h /;"	d	language:C++
+SPSR_EL2h	include/sysregs.h	/^#define SPSR_EL2h /;"	d	language:C++
+SPSR_EL3_A	include/sysregs.h	/^#define SPSR_EL3_A	/;"	d	language:C++
+SPSR_EL3_D	include/sysregs.h	/^#define SPSR_EL3_D	/;"	d	language:C++
+SPSR_EL3_F	include/sysregs.h	/^#define SPSR_EL3_F	/;"	d	language:C++
+SPSR_EL3_I	include/sysregs.h	/^#define SPSR_EL3_I	/;"	d	language:C++
+SPSR_EL3_MODE_EL1H	include/sysregs.h	/^#define SPSR_EL3_MODE_EL1H /;"	d	language:C++
+SPSR_EL3_MODE_EL3H	include/sysregs.h	/^#define SPSR_EL3_MODE_EL3H	/;"	d	language:C++
+SPSR_EL3_VAL	include/sysregs.h	/^#define SPSR_EL3_VAL /;"	d	language:C++
+SPSR_MASK_ALL	include/sysregs.h	/^#define SPSR_MASK_ALL /;"	d	language:C++
+SPSR_VALUE	include/sysregs.h	/^#define SPSR_VALUE /;"	d	language:C++
+SRC_DIR	Makefile	/^SRC_DIR = src$/;"	m	language:Make
+SYNC_ERROR	include/entry.h	/^#define SYNC_ERROR	/;"	d	language:C++
+SYNC_ERROR	src/boot/entry.S	/^#define SYNC_ERROR	/;"	d	language:CPreProcessor	file:
+SYNC_INVALID_EL0_32	include/entry.h	/^#define SYNC_INVALID_EL0_32	/;"	d	language:C++
+SYNC_INVALID_EL0_64	include/entry.h	/^#define SYNC_INVALID_EL0_64	/;"	d	language:C++
+SYNC_INVALID_EL1h	include/entry.h	/^#define SYNC_INVALID_EL1h	/;"	d	language:C++
+SYNC_INVALID_EL1t	include/entry.h	/^#define SYNC_INVALID_EL1t	/;"	d	language:C++
+SYSCALL_ERROR	include/entry.h	/^#define SYSCALL_ERROR	/;"	d	language:C++
+SYSCALL_ERROR	src/boot/entry.S	/^#define SYSCALL_ERROR	/;"	d	language:CPreProcessor	file:
+SYS_CLONE_NUMBER	include/sys.h	/^#define SYS_CLONE_NUMBER /;"	d	language:C++
+SYS_EXIT_NUMBER	include/sys.h	/^#define SYS_EXIT_NUMBER /;"	d	language:C++
+SYS_MALLOC_NUMBER	include/sys.h	/^#define SYS_MALLOC_NUMBER /;"	d	language:C++
+SYS_TIMER_IRQ_0	include/peripherals/irq.h	/^    SYS_TIMER_IRQ_0 = 1,$/;"	e	language:C++	enum:vc_irqs
+SYS_TIMER_IRQ_1	include/peripherals/irq.h	/^    SYS_TIMER_IRQ_1 = 2,$/;"	e	language:C++	enum:vc_irqs
+SYS_TIMER_IRQ_2	include/peripherals/irq.h	/^    SYS_TIMER_IRQ_2 = 4,$/;"	e	language:C++	enum:vc_irqs
+SYS_TIMER_IRQ_3	include/peripherals/irq.h	/^    SYS_TIMER_IRQ_3 = 8,$/;"	e	language:C++	enum:vc_irqs
+SYS_WRITE_NUMBER	include/sys.h	/^#define SYS_WRITE_NUMBER /;"	d	language:C++
+S_CLKT	include/peripherals/i2c.h	/^#define S_CLKT	/;"	d	language:C++
+S_DONE	include/peripherals/i2c.h	/^#define S_DONE	/;"	d	language:C++
+S_ERR	include/peripherals/i2c.h	/^#define S_ERR	/;"	d	language:C++
+S_FRAME_SIZE	include/entry.h	/^#define S_FRAME_SIZE	/;"	d	language:C++
+S_RXD	include/peripherals/i2c.h	/^#define S_RXD	/;"	d	language:C++
+S_RXF	include/peripherals/i2c.h	/^#define S_RXF	/;"	d	language:C++
+S_RXR	include/peripherals/i2c.h	/^#define S_RXR	/;"	d	language:C++
+S_TA	include/peripherals/i2c.h	/^#define S_TA	/;"	d	language:C++
+S_TXD	include/peripherals/i2c.h	/^#define S_TXD	/;"	d	language:C++
+S_TXE	include/peripherals/i2c.h	/^#define S_TXE	/;"	d	language:C++
+S_TXW	include/peripherals/i2c.h	/^#define S_TXW	/;"	d	language:C++
+S_X0	include/entry.h	/^#define S_X0	/;"	d	language:C++
+Spi0Regs	include/peripherals/spi.h	/^struct Spi0Regs {$/;"	s	language:C++
+TABLE_SHIFT	include/mm.h	/^#define TABLE_SHIFT /;"	d	language:C++
+TASK_RUNNING	include/sched.h	/^#define TASK_RUNNING	/;"	d	language:C++
+TASK_ZOMBIE	include/sched.h	/^#define TASK_ZOMBIE	/;"	d	language:C++
+TCR_EL1_VAL	include/sysregs.h	/^#define TCR_EL1_VAL /;"	d	language:C++
+TCR_T0SZ	include/mmu.h	/^#define TCR_T0SZ	/;"	d	language:C++
+TCR_T0SZ	include/sysregs.h	/^#define TCR_T0SZ /;"	d	language:C++
+TCR_T1SZ	include/mmu.h	/^#define TCR_T1SZ	/;"	d	language:C++
+TCR_T1SZ	include/sysregs.h	/^#define TCR_T1SZ /;"	d	language:C++
+TCR_TG0_4K	include/mmu.h	/^#define TCR_TG0_4K	/;"	d	language:C++
+TCR_TG0_4K	include/sysregs.h	/^#define TCR_TG0_4K /;"	d	language:C++
+TCR_TG1_4K	include/mmu.h	/^#define TCR_TG1_4K	/;"	d	language:C++
+TCR_TG1_4K	include/sysregs.h	/^#define TCR_TG1_4K /;"	d	language:C++
+TCR_VALUE	include/mmu.h	/^#define TCR_VALUE	/;"	d	language:C++
+TD_ACCESS	include/mem.h	/^#define TD_ACCESS /;"	d	language:C++
+TD_ACCESS	src/mem/mem.c	/^#define TD_ACCESS /;"	d	language:C	file:
+TD_BLOCK	src/mem/mem.c	/^#define TD_BLOCK /;"	d	language:C	file:
+TD_DEVICE_BLOCK_FLAGS	src/mem/mem.c	/^#define TD_DEVICE_BLOCK_FLAGS /;"	d	language:C	file:
+TD_INNER_SHARABLE	include/mem.h	/^#define TD_INNER_SHARABLE /;"	d	language:C++
+TD_INNER_SHARABLE	src/mem/mem.c	/^#define TD_INNER_SHARABLE /;"	d	language:C	file:
+TD_KERNEL_BLOCK_FLAGS	src/mem/mem.c	/^#define TD_KERNEL_BLOCK_FLAGS /;"	d	language:C	file:
+TD_KERNEL_PERMS	include/mem.h	/^#define TD_KERNEL_PERMS /;"	d	language:C++
+TD_KERNEL_PERMS	src/mem/mem.c	/^#define TD_KERNEL_PERMS /;"	d	language:C	file:
+TD_KERNEL_TABLE_FLAGS	include/mem.h	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C++
+TD_KERNEL_TABLE_FLAGS	src/mem/mem.c	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C	file:
+TD_TABLE	include/mem.h	/^#define TD_TABLE /;"	d	language:C++
+TD_TABLE	src/mem/mem.c	/^#define TD_TABLE /;"	d	language:C	file:
+TD_VALID	include/mem.h	/^#define TD_VALID /;"	d	language:C++
+TD_VALID	src/mem/mem.c	/^#define TD_VALID /;"	d	language:C	file:
+TEXT_COLOR	src/drivers/video/video.c	/^#define TEXT_COLOR /;"	d	language:C	file:
+THREAD_CPU_CONTEXT	include/sched.h	/^#define THREAD_CPU_CONTEXT	/;"	d	language:C++
+THREAD_CPU_CONTEXT	src/kernel/schedule.S	/^#define THREAD_CPU_CONTEXT	/;"	d	language:CPreProcessor	file:
+THREAD_SIZE	include/sched.h	/^#define THREAD_SIZE	/;"	d	language:C++
+TIMER_C0	include/peripherals/timer.h	/^#define TIMER_C0 /;"	d	language:C++
+TIMER_C1	include/peripherals/timer.h	/^#define TIMER_C1 /;"	d	language:C++
+TIMER_C2	include/peripherals/timer.h	/^#define TIMER_C2 /;"	d	language:C++
+TIMER_C3	include/peripherals/timer.h	/^#define TIMER_C3 /;"	d	language:C++
+TIMER_CHI	include/peripherals/timer.h	/^#define TIMER_CHI /;"	d	language:C++
+TIMER_CLO	include/peripherals/timer.h	/^#define TIMER_CLO /;"	d	language:C++
+TIMER_CS	include/peripherals/timer.h	/^#define TIMER_CS /;"	d	language:C++
+TIMER_CS_M0	include/peripherals/timer.h	/^#define TIMER_CS_M0	/;"	d	language:C++
+TIMER_CS_M1	include/peripherals/timer.h	/^#define TIMER_CS_M1	/;"	d	language:C++
+TIMER_CS_M2	include/peripherals/timer.h	/^#define TIMER_CS_M2	/;"	d	language:C++
+TIMER_CS_M3	include/peripherals/timer.h	/^#define TIMER_CS_M3	/;"	d	language:C++
+TI_BURST_LENGTH_SHIFT	include/peripherals/dma.h	/^#define TI_BURST_LENGTH_SHIFT	/;"	d	language:C++
+TI_DEST_DREQ	include/peripherals/dma.h	/^#define TI_DEST_DREQ	/;"	d	language:C++
+TI_DEST_INC	include/peripherals/dma.h	/^#define TI_DEST_INC	/;"	d	language:C++
+TI_DEST_WIDTH	include/peripherals/dma.h	/^#define TI_DEST_WIDTH	/;"	d	language:C++
+TI_INTEN	include/peripherals/dma.h	/^#define TI_INTEN	/;"	d	language:C++
+TI_PERMAP_SHIFT	include/peripherals/dma.h	/^#define TI_PERMAP_SHIFT	/;"	d	language:C++
+TI_SRC_DREQ	include/peripherals/dma.h	/^#define TI_SRC_DREQ	/;"	d	language:C++
+TI_SRC_IGNORE	include/peripherals/dma.h	/^#define TI_SRC_IGNORE	/;"	d	language:C++
+TI_SRC_INC	include/peripherals/dma.h	/^#define TI_SRC_INC	/;"	d	language:C++
+TI_SRC_WIDTH	include/peripherals/dma.h	/^#define TI_SRC_WIDTH	/;"	d	language:C++
+TI_TDMODE	include/peripherals/dma.h	/^#define TI_TDMODE	/;"	d	language:C++
+TI_WAIT_RESP	include/peripherals/dma.h	/^#define TI_WAIT_RESP	/;"	d	language:C++
+TO_REG	include/peripherals/emmc.h	/^#define TO_REG(/;"	d	language:C++	signature:(p)
+TXD	src/drivers/muart/mini_uart.c	/^#define TXD /;"	d	language:C	file:
+USER_STACK_BASE	include/mem.h	/^#define USER_STACK_BASE /;"	d	language:C++
+USER_STACK_SIZE	include/mem.h	/^#define USER_STACK_SIZE /;"	d	language:C++
+USER_STACK_TOP	include/mem.h	/^#define USER_STACK_TOP /;"	d	language:C++
+_FORK_H	include/fork.h	/^#define _FORK_H$/;"	d	language:C++
+_GpioFunc	include/gpio.h	/^typedef enum _GpioFunc {$/;"	g	language:C++
+_SCHED_H	include/sched.h	/^#define _SCHED_H$/;"	d	language:C++
+_SYS_H	include/sys.h	/^#define	_SYS_H$/;"	d	language:C++
+__NR_syscalls	include/sys.h	/^#define __NR_syscalls	/;"	d	language:C++
+__TFP_PRINTF__	include/printf.h	/^#define __TFP_PRINTF__$/;"	d	language:C++
+__anon2d99b2820108	src/drivers/mailbox/mailbox.c	/^typedef struct {$/;"	s	language:C	file:
+__anon2d99b2820208	src/drivers/mailbox/mailbox.c	/^typedef struct {$/;"	s	language:C	file:
+__anon4900576e0108	include/peripherals/dma.h	/^typedef struct {$/;"	s	language:C++
+__anon4900576e0208	include/peripherals/dma.h	/^typedef struct {$/;"	s	language:C++
+__anon6b67dcbe0108	include/peripherals/emmc.h	/^typedef struct {$/;"	s	language:C++
+__anon6b67dcbe0203	include/peripherals/emmc.h	/^typedef enum {$/;"	g	language:C++
+__anon6b67dcbe0303	include/peripherals/emmc.h	/^typedef enum {$/;"	g	language:C++
+__anon6b67dcbe0408	include/peripherals/emmc.h	/^typedef struct {$/;"	s	language:C++
+__anon6b67dcbe0503	include/peripherals/emmc.h	/^typedef enum {$/;"	g	language:C++
+__anon6b67dcbe0608	include/peripherals/emmc.h	/^typedef struct {$/;"	s	language:C++
+__anon6b67dcbe0708	include/peripherals/emmc.h	/^typedef struct  {$/;"	s	language:C++
+__anon89d52dda0108	include/mailbox.h	/^typedef struct {$/;"	s	language:C++
+__anon89d52dda0208	include/mailbox.h	/^typedef struct {$/;"	s	language:C++
+__anon89d52dda0308	include/mailbox.h	/^typedef struct {$/;"	s	language:C++
+__anon89d52dda0408	include/mailbox.h	/^typedef struct {$/;"	s	language:C++
+__anon89d52dda0508	include/mailbox.h	/^typedef struct {$/;"	s	language:C++
+__anon89d52dda0603	include/mailbox.h	/^typedef enum {$/;"	g	language:C++
+__anona519e2800108	include/dma.h	/^typedef struct {$/;"	s	language:C++
+__anona519e2800203	include/dma.h	/^typedef enum {$/;"	g	language:C++
+__anona5b88f0d0108	include/mem.h	/^typedef struct { pteval_t pte; } pte_t;$/;"	s	language:C++
+__anona5b88f0d0208	include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	s	language:C++
+__anona5b88f0d0308	include/mem.h	/^typedef struct { pteval_t pud; } pud_t;$/;"	s	language:C++
+__anona5b88f0d0408	include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	s	language:C++
+__anonc820d8380103	include/led_display.h	/^typedef enum {$/;"	g	language:C++
+__anond90cef580108	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
+__anond90cef580208	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
+__anond90cef580308	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
+__anond90cef580408	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
+__anond90cef580508	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
+__anond90cef580608	src/drivers/video/video.c	/^typedef struct  {$/;"	s	language:C	file:
+__pa	include/mem.h	/^#define __pa(/;"	d	language:C++	signature:(x)
+__pa	include/mm.h	/^#define __pa(/;"	d	language:C++	signature:(x)
+__pgd	include/mem.h	/^#define __pgd(/;"	d	language:C++	signature:(x)
+__pmd	include/mem.h	/^#define __pmd(/;"	d	language:C++	signature:(x)
+__pte	include/mem.h	/^#define __pte(/;"	d	language:C++	signature:(x)
+__pud	include/mem.h	/^#define __pud(/;"	d	language:C++	signature:(x)
+__ret_from_kernel_thread	src/kernel/sched.c	/^void __ret_from_kernel_thread(void) {$/;"	f	language:C	typeref:typename:void	signature:(void)
+__text_end	src/linker.ld	/^  __text_end = .;$/;"	s	language:LdScript	section:.text
+__text_start	src/linker.ld	/^  __text_start = .;$/;"	s	language:LdScript	section:.text
+__va	include/mem.h	/^#define __va(/;"	d	language:C++	signature:(x)
+_backlight	src/drivers/i2c/lcd.c	/^static u8 _backlight = LCD_BACKLIGHT;$/;"	v	language:C	typeref:typename:u8	file:
+_i2c_status	include/i2c.h	/^typedef enum _i2c_status {$/;"	g	language:C++
+_io_device	include/io.h	/^typedef struct _io_device {$/;"	s	language:C++
+_lcd_address	src/drivers/i2c/lcd.c	/^static u8 _lcd_address = 0;$/;"	v	language:C	typeref:typename:u8	file:
+_schedule	src/kernel/sched.c	/^void _schedule(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
+_start	armstub/src/armstub.S	/^_start:$/;"	l	language:Asm
+_start	src/boot/boot.S	/^_start:$/;"	l	language:Asm
+a2d	src/misc/printf.c	/^static int a2d(char ch)$/;"	f	language:C	typeref:typename:int	file:	signature:(char ch)
+a2i	src/misc/printf.c	/^static char a2i(char ch, char** src,int base,int* nump)$/;"	f	language:C	typeref:typename:char	file:	signature:(char ch,char ** src,int base,int * nump)
+all	Makefile	/^all : kernel8.img$/;"	t	language:Make
+alloc_page	src/mem/mem.c	/^void* alloc_page() {$/;"	f	language:C	typeref:typename:void *	signature:()
+allocate_channel	src/dma/dma.c	/^static u16 allocate_channel(u32 channel) {$/;"	f	language:C	typeref:typename:u16	file:	signature:(u32 channel)
+allocate_memory	src/mem/mem.c	/^void *allocate_memory(int bytes) {$/;"	f	language:C	typeref:typename:void *	signature:(int bytes)
+arg1	include/peripherals/emmc.h	/^    reg32 arg1;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+arg2	include/peripherals/emmc.h	/^    reg32 arg2;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+arm_irq_regs	include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2711 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2711
+arm_irq_regs	include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2837 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2837
+arm_irq_regs_2711	include/peripherals/irq.h	/^struct arm_irq_regs_2711 {$/;"	s	language:C++
+arm_irq_regs_2837	include/peripherals/irq.h	/^struct arm_irq_regs_2837 {$/;"	s	language:C++
+armstub	Makefile	/^armstub: armstub\/build\/armstub_s.o$/;"	t	language:Make
+armstub/build/armstub_s.o	Makefile	/^armstub\/build\/armstub_s.o: armstub\/src\/armstub.S$/;"	t	language:Make
+async_fe_detect	include/peripherals/gpio.h	/^    struct GpioPinData async_fe_detect;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+async_re_detect	include/peripherals/gpio.h	/^    struct GpioPinData async_re_detect;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+auto_command	include/peripherals/emmc.h	/^    u8 auto_command : 2;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:2
+base	src/drivers/video/video.c	/^    u32 base; $/;"	m	language:C	struct:__anond90cef580408	typeref:typename:u32	file:
+base_clock	include/peripherals/emmc.h	/^    u32 base_clock;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+bg32_buffer	src/drivers/video/video.c	/^static u32 *bg32_buffer;$/;"	v	language:C	typeref:typename:u32 *	file:
+bg8_buffer	src/drivers/video/video.c	/^static u32 *bg8_buffer;$/;"	v	language:C	typeref:typename:u32 *	file:
+block	include/dma.h	/^    dma_control_block *block;$/;"	m	language:C++	struct:__anona519e2800108	typeref:typename:dma_control_block *
+block	include/peripherals/dma.h	/^    dma_control_block block;$/;"	m	language:C++	struct:__anon4900576e0208	typeref:typename:dma_control_block
+block_count	include/peripherals/emmc.h	/^    u8 block_count : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+block_size	include/peripherals/emmc.h	/^    u32 block_size;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+block_size_count	include/peripherals/emmc.h	/^    reg32 block_size_count;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+bootCode	src/kernel/kernel.c	/^    u8 bootCode[0x1BE];$/;"	m	language:C	struct:PACKED	typeref:typename:u8[0x1BE]	file:
+bootSignature	src/kernel/kernel.c	/^    u16 bootSignature;$/;"	m	language:C	struct:PACKED	typeref:typename:u16	file:
+boot_timeout	include/peripherals/emmc.h	/^    reg32 boot_timeout;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+bpp	src/drivers/video/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__anond90cef580208	typeref:typename:u32	file:
+bss_begin	src/linker.ld	/^    bss_begin = .;$/;"	s	language:LdScript
+bss_end	src/linker.ld	/^    bss_end = .;$/;"	s	language:LdScript
+buff	src/drivers/video/video.c	/^    mailbox_fb_buffer buff;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_buffer	file:
+buffer	include/peripherals/emmc.h	/^    void *buffer;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:void *
+buffer_size	include/mailbox.h	/^    u32 buffer_size;$/;"	m	language:C++	struct:__anon89d52dda0108	typeref:typename:u32
+bus_widths	include/peripherals/emmc.h	/^    u32 bus_widths;$/;"	m	language:C++	struct:__anon6b67dcbe0408	typeref:typename:u32
+call_sys_clone	src/sys.S	/^call_sys_clone:$/;"	l	language:Asm
+call_sys_exit	src/sys.S	/^call_sys_exit:$/;"	l	language:Asm
+call_sys_malloc	src/sys.S	/^call_sys_malloc:$/;"	l	language:Asm
+call_sys_write	src/sys.S	/^call_sys_write:$/;"	l	language:Asm
+cap1	include/peripherals/emmc.h	/^    reg32 cap1;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+cap2	include/peripherals/emmc.h	/^    reg32 cap2;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+channel	include/dma.h	/^    u32 channel;$/;"	m	language:C++	struct:__anona519e2800108	typeref:typename:u32
+channel_map	src/dma/dma.c	/^static u16 channel_map = 0x1F35;$/;"	v	language:C	typeref:typename:u16	file:
+channels	src/dma/dma.c	/^dma_channel channels[15];$/;"	v	language:C	typeref:typename:dma_channel[15]
+check_ocr	src/drivers/emmc/emmc.c	/^static bool check_ocr() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+check_rca	src/drivers/emmc/emmc.c	/^static bool check_rca() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+check_sdhc_support	src/drivers/emmc/emmc.c	/^static bool check_sdhc_support(bool v2_card) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(bool v2_card)
+check_usable_card	src/drivers/emmc/emmc.c	/^static bool check_usable_card() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+check_v2_card	src/drivers/emmc/emmc.c	/^static bool check_v2_card() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+chs_address	src/kernel/kernel.c	/^} chs_address ;$/;"	t	language:C	typeref:struct:PACKED	file:
+clean	Makefile	/^clean :$/;"	t	language:Make
+clock	include/peripherals/spi.h	/^    reg32 clock;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+clock_stretch	include/peripherals/i2c.h	/^    reg32 clock_stretch;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+clock_type	include/mailbox.h	/^} clock_type;$/;"	t	language:C++	typeref:enum:__anon89d52dda0603
+close	include/io.h	/^    bool (*close)(struct _io_device *, void *);$/;"	m	language:C++	struct:_io_device	typeref:typename:bool (*)(struct _io_device *,void *)
+cmd_resp_type	include/peripherals/emmc.h	/^} cmd_resp_type;$/;"	t	language:C++	typeref:enum:__anon6b67dcbe0203
+cmd_type	include/peripherals/emmc.h	/^} cmd_type;$/;"	t	language:C++	typeref:enum:__anon6b67dcbe0303
+cmd_xfer_mode	include/peripherals/emmc.h	/^    reg32 cmd_xfer_mode;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+code	src/drivers/mailbox/mailbox.c	/^    u32 code;$/;"	m	language:C	struct:__anon2d99b2820208	typeref:typename:u32	file:
+commands	src/drivers/emmc/emmc.c	/^static const emmc_cmd commands[] = {$/;"	v	language:C	typeref:typename:const emmc_cmd[]	file:
+compare	include/peripherals/timer.h	/^    reg32 compare[4];$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32[4]
+config	src/drivers/mailbox/mailbox.c	/^    reg32 config;$/;"	m	language:C	struct:__anon2d99b2820108	typeref:typename:reg32	file:
+control	include/peripherals/dma.h	/^    u32 control;$/;"	m	language:C++	struct:__anon4900576e0208	typeref:typename:u32
+control	include/peripherals/emmc.h	/^    reg32 control[2];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[2]
+control	include/peripherals/i2c.h	/^    reg32 control;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+control2	include/peripherals/emmc.h	/^    reg32 control2;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+control_block_addr	include/peripherals/dma.h	/^    u32 control_block_addr;$/;"	m	language:C++	struct:__anon4900576e0208	typeref:typename:u32
+control_status	include/peripherals/timer.h	/^    reg32 control_status;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
+copy_process	src/kernel/fork.c	/^int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long s/;"	f	language:C	typeref:typename:int	signature:(unsigned long clone_flags,unsigned long fn,unsigned long arg,unsigned long stack)
+copy_process_inkernel	src/kernel/fork.c	/^int copy_process_inkernel(unsigned long fn, unsigned long arg)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long fn,unsigned long arg)
+counter	include/sched.h	/^	long counter;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
+counter_hi	include/peripherals/timer.h	/^    reg32 counter_hi;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
+counter_lo	include/peripherals/timer.h	/^    reg32 counter_lo;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
+cpu_context	include/sched.h	/^	struct cpu_context cpu_context;$/;"	m	language:C++	struct:task_struct	typeref:struct:cpu_context
+cpu_context	include/sched.h	/^struct cpu_context {$/;"	s	language:C++
+cpu_switch_to	src/kernel/schedule.S	/^cpu_switch_to:$/;"	l	language:Asm
+crc_enable	include/peripherals/emmc.h	/^    u8 crc_enable : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+create_block_map	src/mem/mem.c	/^void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {$/;"	f	language:C	typeref:typename:void	signature:(u64 pmd,u64 vstart,u64 vend,u64 pa)
+create_table_entry	src/mem/mem.c	/^void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 tbl,u64 next_tbl,u64 va,u64 shift,u64 flags)
+cs	include/peripherals/spi.h	/^    reg32 cs;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+cur_val_1	src/kernel/timer.c	/^u32 cur_val_1 = 0;$/;"	v	language:C	typeref:typename:u32
+cur_val_3	src/kernel/timer.c	/^u32 cur_val_3 = 0;$/;"	v	language:C	typeref:typename:u32
+current	src/kernel/sched.c	/^struct task_struct *current = &(init_task);$/;"	v	language:C	typeref:struct:task_struct *
+cylinder_hi	src/kernel/kernel.c	/^    u8 cylinder_hi : 2;$/;"	m	language:C	struct:PACKED	typeref:typename:u8:2	file:
+cylinder_lo	src/kernel/kernel.c	/^    u8 cylinder_lo;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
+data	include/io.h	/^    void *data;$/;"	m	language:C++	struct:_io_device	typeref:typename:void *
+data	include/peripherals/emmc.h	/^    reg32 data;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+data	include/peripherals/gpio.h	/^    reg32 data[2];$/;"	m	language:C++	struct:GpioPinData	typeref:typename:reg32[2]
+data_length	include/peripherals/i2c.h	/^    reg32 data_length;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+data_length	include/peripherals/spi.h	/^    reg32 data_length;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+dc	include/peripherals/spi.h	/^    reg32 dc;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+debug_config	include/peripherals/emmc.h	/^    reg32 debug_config;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+delay	include/peripherals/i2c.h	/^    reg32 delay;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+delay	src/misc/utils.S	/^delay:$/;"	l	language:Asm
+depth	src/drivers/video/video.c	/^    mailbox_fb_depth depth;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_depth	file:
+dest_addr	include/peripherals/dma.h	/^    u32 dest_addr;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+device	src/drivers/emmc/emmc.c	/^static emmc_device device = {0};$/;"	v	language:C	typeref:typename:emmc_device	file:
+devices	src/kernel/kernel.c	/^io_device *devices[MAX_DEVS] = {0};$/;"	v	language:C	typeref:typename:io_device * []
+direction	include/peripherals/emmc.h	/^    u8 direction : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+div	include/peripherals/i2c.h	/^    reg32 div;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+dma	src/drivers/video/video.c	/^static dma_channel *dma;$/;"	v	language:C	typeref:typename:dma_channel *	file:
+dma_channel	include/dma.h	/^} dma_channel;$/;"	t	language:C++	typeref:struct:__anona519e2800108
+dma_channel_regs	include/peripherals/dma.h	/^} dma_channel_regs;$/;"	t	language:C++	typeref:struct:__anon4900576e0208
+dma_channel_type	include/dma.h	/^} dma_channel_type;$/;"	t	language:C++	typeref:enum:__anona519e2800203
+dma_close_channel	src/dma/dma.c	/^void dma_close_channel(dma_channel *channel) {$/;"	f	language:C	typeref:typename:void	signature:(dma_channel * channel)
+dma_control_block	include/peripherals/dma.h	/^} dma_control_block;$/;"	t	language:C++	typeref:struct:__anon4900576e0108
+dma_open_channel	src/dma/dma.c	/^dma_channel *dma_open_channel(u32 channel) {$/;"	f	language:C	typeref:typename:dma_channel *	signature:(u32 channel)
+dma_setup_mem_copy	src/dma/dma.c	/^void dma_setup_mem_copy(dma_channel *channel, void *dest, void *src, u32 length, u32 burst_lengt/;"	f	language:C	typeref:typename:void	signature:(dma_channel * channel,void * dest,void * src,u32 length,u32 burst_length)
+dma_start	src/dma/dma.c	/^void dma_start(dma_channel *channel) {$/;"	f	language:C	typeref:typename:void	signature:(dma_channel * channel)
+dma_wait	src/dma/dma.c	/^bool dma_wait(dma_channel *channel) {$/;"	f	language:C	typeref:typename:bool	signature:(dma_channel * channel)
+do_data_command	src/drivers/emmc/emmc.c	/^bool do_data_command(bool write, u8 *b, u32 bsize, u32 block_no) {$/;"	f	language:C	typeref:typename:bool	signature:(bool write,u8 * b,u32 bsize,u32 block_no)
+do_data_transfer	src/drivers/emmc/emmc.c	/^static bool do_data_transfer(emmc_cmd cmd) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(emmc_cmd cmd)
+do_dma	src/drivers/video/video.c	/^void do_dma(void *dest, void *src, u32 total) {$/;"	f	language:C	typeref:typename:void	signature:(void * dest,void * src,u32 total)
+do_exit	src/kernel/sched.c	/^void do_exit(int error_code) {$/;"	f	language:C	typeref:typename:void	signature:(int error_code)
+do_read	src/drivers/emmc/emmc.c	/^int do_read(u8 *b, u32 bsize, u32 block_no) {$/;"	f	language:C	typeref:typename:int	signature:(u8 * b,u32 bsize,u32 block_no)
+el0_da	src/boot/entry.S	/^el0_da:$/;"	l	language:Asm
+el0_irq	src/boot/entry.S	/^el0_irq:$/;"	l	language:Asm
+el0_svc	src/boot/entry.S	/^el0_svc:$/;"	l	language:Asm
+el0_sync	src/boot/entry.S	/^el0_sync:$/;"	l	language:Asm
+el1_entry	src/boot/boot.S	/^el1_entry:$/;"	l	language:Asm
+emmc.h	.vscode/settings.json	/^        "emmc.h": "c"$/;"	s	language:JSON	object:files.associations
+emmc_app_command	src/drivers/emmc/emmc.c	/^bool emmc_app_command(u32 command, u32 arg, u32 timeout) {$/;"	f	language:C	typeref:typename:bool	signature:(u32 command,u32 arg,u32 timeout)
+emmc_card_reset	src/drivers/emmc/emmc.c	/^static bool emmc_card_reset() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+emmc_cmd	include/peripherals/emmc.h	/^} emmc_cmd;$/;"	t	language:C++	typeref:struct:__anon6b67dcbe0108
+emmc_command	src/drivers/emmc/emmc.c	/^static bool emmc_command(u32 command, u32 arg, u32 timeout) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(u32 command,u32 arg,u32 timeout)
+emmc_device	include/peripherals/emmc.h	/^} emmc_device;$/;"	t	language:C++	typeref:struct:__anon6b67dcbe0608
+emmc_init	src/drivers/emmc/emmc.c	/^bool emmc_init() {$/;"	f	language:C	typeref:typename:bool	signature:()
+emmc_io_device	src/drivers/emmc/emmc.c	/^static io_device emmc_io_device = {$/;"	v	language:C	typeref:typename:io_device	file:
+emmc_io_read	src/drivers/emmc/emmc.c	/^int emmc_io_read(io_device *dev, void *b, u32 size) {$/;"	f	language:C	typeref:typename:int	signature:(io_device * dev,void * b,u32 size)
+emmc_io_seek	src/drivers/emmc/emmc.c	/^void emmc_io_seek(io_device *dev, u64 offset) {$/;"	f	language:C	typeref:typename:void	signature:(io_device * dev,u64 offset)
+emmc_issue_command	src/drivers/emmc/emmc.c	/^static bool emmc_issue_command(emmc_cmd cmd, u32 arg, u32 timeout) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(emmc_cmd cmd,u32 arg,u32 timeout)
+emmc_read	src/drivers/emmc/emmc.c	/^int emmc_read(u8 *buffer, u32 size) {$/;"	f	language:C	typeref:typename:int	signature:(u8 * buffer,u32 size)
+emmc_regs	include/peripherals/emmc.h	/^} emmc_regs;$/;"	t	language:C++	typeref:struct:__anon6b67dcbe0708
+emmc_seek	src/drivers/emmc/emmc.c	/^void emmc_seek(u64 _offset) {$/;"	f	language:C	typeref:typename:void	signature:(u64 _offset)
+emmc_setup_clock	src/drivers/emmc/emmc_clock.c	/^bool emmc_setup_clock() {$/;"	f	language:C	typeref:typename:bool	signature:()
+enable_interrupt_controller	src/kernel/irq.c	/^void enable_interrupt_controller() {$/;"	f	language:C	typeref:typename:void	signature:()
+enables	include/peripherals/aux.h	/^    reg32 enables;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+entries	src/drivers/video/video.c	/^    u32 entries[8];$/;"	m	language:C	struct:__anond90cef580608	typeref:typename:u32[8]	file:
+entry_error_messages	src/kernel/irq.c	/^const char entry_error_messages[16][32] = {$/;"	v	language:C	typeref:typename:const char[16][32]
+err_hang	src/boot/entry.S	/^err_hang: b err_hang$/;"	l	language:Asm
+error_invalid_el0_32	src/boot/entry.S	/^error_invalid_el0_32:$/;"	l	language:Asm
+error_invalid_el0_64	src/boot/entry.S	/^error_invalid_el0_64:$/;"	l	language:Asm
+error_invalid_el1h	src/boot/entry.S	/^error_invalid_el1h:$/;"	l	language:Asm
+error_invalid_el1t	src/boot/entry.S	/^error_invalid_el1t:$/;"	l	language:Asm
+ev_detect_status	include/peripherals/gpio.h	/^    struct GpioPinData ev_detect_status;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+exit_process	src/kernel/sched.c	/^void exit_process(){$/;"	f	language:C	typeref:typename:void	signature:()
+ext_fifo_config	include/peripherals/emmc.h	/^    reg32 ext_fifo_config;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+ext_fifo_enable	include/peripherals/emmc.h	/^    reg32 ext_fifo_enable;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+extraheight	src/drivers/video/fontData.c	/^static const unsigned extraheight = 3;$/;"	v	language:C	typeref:typename:const unsigned	file:
+fb_req	src/drivers/video/video.c	/^static mailbox_fb_request fb_req;$/;"	v	language:C	typeref:typename:mailbox_fb_request	file:
+fe_detect_enable	include/peripherals/gpio.h	/^    struct GpioPinData fe_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+fifo	include/peripherals/i2c.h	/^    reg32 fifo;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+fifo	include/peripherals/spi.h	/^    reg32 fifo;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+files.associations	.vscode/settings.json	/^    "files.associations": {$/;"	o	language:JSON
+fiq_control	include/peripherals/irq.h	/^    reg32 fiq_control;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+fiq_invalid_el0_32	src/boot/entry.S	/^fiq_invalid_el0_32:$/;"	l	language:Asm
+fiq_invalid_el0_64	src/boot/entry.S	/^fiq_invalid_el0_64:$/;"	l	language:Asm
+fiq_invalid_el1h	src/boot/entry.S	/^fiq_invalid_el1h:$/;"	l	language:Asm
+fiq_invalid_el1t	src/boot/entry.S	/^fiq_invalid_el1t:$/;"	l	language:Asm
+first_lba_sector	src/kernel/kernel.c	/^    u32 first_lba_sector;$/;"	m	language:C	struct:PACKED	typeref:typename:u32	file:
+first_sector	src/kernel/kernel.c	/^    chs_address first_sector;$/;"	m	language:C	struct:PACKED	typeref:typename:chs_address	file:
+flags	include/sched.h	/^	unsigned long flags;$/;"	m	language:C++	struct:task_struct	typeref:typename:unsigned long
+flush_tlb	src/sys.c	/^  void flush_tlb(u64 va) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va)
+font_data	src/drivers/video/fontData.c	/^static const unsigned char font_data[224][16] =$/;"	v	language:C	typeref:typename:const unsigned char[224][16]	file:
+font_get_height	src/drivers/video/fontData.c	/^u32 font_get_height() {$/;"	f	language:C	typeref:typename:u32	signature:()
+font_get_pixel	src/drivers/video/fontData.c	/^bool font_get_pixel(char ch, u32 x, u32 y) {$/;"	f	language:C	typeref:typename:bool	signature:(char ch,u32 x,u32 y)
+font_get_width	src/drivers/video/fontData.c	/^u32 font_get_width() {$/;"	f	language:C	typeref:typename:u32	signature:()
+force_int	include/peripherals/emmc.h	/^    reg32 force_int;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+fp	include/sched.h	/^	unsigned long fp;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+free_memory	src/mem/mem.c	/^void free_memory(void *base) {$/;"	f	language:C	typeref:typename:void	signature:(void * base)
+free_page	src/mem/mem.c	/^void free_page(unsigned long p){$/;"	f	language:C	typeref:typename:void	signature:(unsigned long p)
+func_select	include/peripherals/gpio.h	/^    reg32 func_select[6];$/;"	m	language:C++	struct:GpioRegs	typeref:typename:reg32[6]
+get32	src/misc/utils.S	/^get32:$/;"	l	language:Asm
+get_clock_divider	src/drivers/emmc/emmc_clock.c	/^u32 get_clock_divider(u32 base_clock, u32 target_rate) {$/;"	f	language:C	typeref:typename:u32	signature:(u32 base_clock,u32 target_rate)
+get_el	src/misc/utils.S	/^get_el:$/;"	l	language:Asm
+get_free_pages	src/mem/mem.c	/^void *get_free_pages(int num_pages) {$/;"	f	language:C	typeref:typename:void *	signature:(int num_pages)
+gpio_pin_enable	src/drivers/gpio/gpio.c	/^void gpio_pin_enable(u8 pinNumber) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber)
+gpio_pin_set_func	src/drivers/gpio/gpio.c	/^void gpio_pin_set_func(u8 pinNumber, GpioFunc func) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber,GpioFunc func)
+handle_data_abort	src/sys.c	/^void handle_data_abort(u64 addr, u64 esr) {$/;"	f	language:C	typeref:typename:void	signature:(u64 addr,u64 esr)
+handle_el1_irq	src/boot/entry.S	/^handle_el1_irq:$/;"	l	language:Asm
+handle_invalid_entry	src/boot/entry.S	/^.macro handle_invalid_entry el,  type$/;"	m	language:Asm
+handle_irq	src/kernel/irq.c	/^void handle_irq() {$/;"	f	language:C	typeref:typename:void	signature:()
+handle_timer_1	src/kernel/timer.c	/^void handle_timer_1() {$/;"	f	language:C	typeref:typename:void	signature:()
+handle_timer_3	src/kernel/timer.c	/^void handle_timer_3() {$/;"	f	language:C	typeref:typename:void	signature:()
+handle_user_page_fault	src/sys.c	/^void handle_user_page_fault(u64 addr, u64 esr) {$/;"	f	language:C	typeref:typename:void	signature:(u64 addr,u64 esr)
+head	src/kernel/kernel.c	/^    u8 head;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
+height	src/drivers/video/fontData.c	/^static const unsigned height      = 16;$/;"	v	language:C	typeref:typename:const unsigned	file:
+hi_detect_enable	include/peripherals/gpio.h	/^    struct GpioPinData hi_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+i2a	src/misc/printf.c	/^static void i2a (int num, char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(int num,char * bf)
+i2c_init	src/drivers/i2c/i2c.c	/^void i2c_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+i2c_recv	src/drivers/i2c/i2c.c	/^i2c_status i2c_recv(u8 address, u8 *buffer, u32 size) {$/;"	f	language:C	typeref:typename:i2c_status	signature:(u8 address,u8 * buffer,u32 size)
+i2c_send	src/drivers/i2c/i2c.c	/^i2c_status i2c_send(u8 address, u8 *buffer, u32 size) {$/;"	f	language:C	typeref:typename:i2c_status	signature:(u8 address,u8 * buffer,u32 size)
+i2c_status	include/i2c.h	/^} i2c_status;$/;"	t	language:C++	typeref:enum:_i2c_status
+id	include/mailbox.h	/^    u32 id;$/;"	m	language:C++	struct:__anon89d52dda0108	typeref:typename:u32
+id	include/mailbox.h	/^    u32 id;$/;"	m	language:C++	struct:__anon89d52dda0308	typeref:typename:u32
+id	include/mailbox.h	/^    u32 id;$/;"	m	language:C++	struct:__anon89d52dda0408	typeref:typename:u32
+id	include/mailbox.h	/^    u32 id;$/;"	m	language:C++	struct:__anon89d52dda0508	typeref:typename:u32
+id_pgd	src/linker.ld	/^    id_pgd = .;$/;"	s	language:LdScript
+id_pgd_addr	src/boot/boot.S	/^id_pgd_addr:$/;"	l	language:Asm
+idx_enable	include/peripherals/emmc.h	/^    u8 idx_enable : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+index	include/peripherals/emmc.h	/^    u8 index : 6;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:6
+init_mmu	src/mem/mem.c	/^void init_mmu() {$/;"	f	language:C	typeref:typename:void	signature:()
+init_printf	src/misc/printf.c	/^void init_printf(void* putp, io_device *dev) {$/;"	f	language:C	typeref:typename:void	signature:(void * putp,io_device * dev)
+init_task	src/kernel/sched.c	/^static struct task_struct init_task = INIT_TASK;$/;"	v	language:C	typeref:struct:task_struct	file:
+int_enable	include/peripherals/emmc.h	/^    reg32 int_enable;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+int_flags	include/peripherals/emmc.h	/^    reg32 int_flags;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+int_mask	include/peripherals/emmc.h	/^    reg32 int_mask;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+interval_1	src/kernel/timer.c	/^const u32 interval_1 = CLOCKHZ;$/;"	v	language:C	typeref:typename:const u32
+interval_3	src/kernel/timer.c	/^const u32 interval_3 = CLOCKHZ \/ 4;$/;"	v	language:C	typeref:typename:const u32
+io_device	include/io.h	/^} io_device;$/;"	t	language:C++	typeref:struct:_io_device
+io_device_find	src/drivers/shared/io.c	/^io_device *io_device_find(char *name) {$/;"	f	language:C	typeref:typename:io_device *	signature:(char * name)
+io_device_register	src/drivers/shared/io.c	/^bool io_device_register(io_device *dev) {$/;"	f	language:C	typeref:typename:bool	signature:(io_device * dev)
+irq0_disable_0	include/peripherals/irq.h	/^    reg32 irq0_disable_0;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_disable_0	include/peripherals/irq.h	/^    reg32 irq0_disable_0;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_disable_1	include/peripherals/irq.h	/^    reg32 irq0_disable_1;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_disable_1	include/peripherals/irq.h	/^    reg32 irq0_disable_1;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_disable_2	include/peripherals/irq.h	/^    reg32 irq0_disable_2;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_disable_2	include/peripherals/irq.h	/^    reg32 irq0_disable_2;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_enable_0	include/peripherals/irq.h	/^    reg32 irq0_enable_0;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_enable_0	include/peripherals/irq.h	/^    reg32 irq0_enable_0;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_enable_1	include/peripherals/irq.h	/^    reg32 irq0_enable_1;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_enable_1	include/peripherals/irq.h	/^    reg32 irq0_enable_1;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_enable_2	include/peripherals/irq.h	/^    reg32 irq0_enable_2;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_enable_2	include/peripherals/irq.h	/^    reg32 irq0_enable_2;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_pending_0	include/peripherals/irq.h	/^    reg32 irq0_pending_0;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_pending_0	include/peripherals/irq.h	/^    reg32 irq0_pending_0;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_pending_1	include/peripherals/irq.h	/^    reg32 irq0_pending_1;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_pending_1	include/peripherals/irq.h	/^    reg32 irq0_pending_1;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq0_pending_2	include/peripherals/irq.h	/^    reg32 irq0_pending_2;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+irq0_pending_2	include/peripherals/irq.h	/^    reg32 irq0_pending_2;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+irq_disable	src/kernel/irq.S	/^irq_disable:$/;"	l	language:Asm
+irq_enable	src/kernel/irq.S	/^irq_enable:$/;"	l	language:Asm
+irq_init_vectors	src/kernel/irq.S	/^irq_init_vectors:$/;"	l	language:Asm
+irq_invalid_el0_32	src/boot/entry.S	/^irq_invalid_el0_32:$/;"	l	language:Asm
+irq_invalid_el0_64	src/boot/entry.S	/^irq_invalid_el0_64:$/;"	l	language:Asm
+irq_invalid_el1t	src/boot/entry.S	/^irq_invalid_el1t:$/;"	l	language:Asm
+irq_status	include/peripherals/aux.h	/^    reg32 irq_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+is_data	include/peripherals/emmc.h	/^    u8 is_data : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+kernel8.img	Makefile	/^kernel8.img: $(SRC_DIR)\/linker.ld $(OBJ_FILES)$/;"	t	language:Make
+kernel_entry	src/boot/entry.S	/^.macro kernel_entry, el$/;"	m	language:Asm
+kernel_entry32	armstub/src/armstub.S	/^kernel_entry32:$/;"	l	language:Asm
+kernel_exit	src/boot/entry.S	/^.macro kernel_exit ,el$/;"	m	language:Asm
+kernel_main	src/kernel/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
+kernel_process	src/kernel/kernel.c	/^void kernel_process(){$/;"	f	language:C	typeref:typename:void	signature:()
+last_command	include/peripherals/emmc.h	/^    emmc_cmd last_command;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:emmc_cmd
+last_command_value	include/peripherals/emmc.h	/^    reg32 last_command_value;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:reg32
+last_error	include/peripherals/emmc.h	/^    u32 last_error;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+last_interrupt	include/peripherals/emmc.h	/^    u32 last_interrupt;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+last_response	include/peripherals/emmc.h	/^    u32 last_response[4];$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32[4]
+last_sector	src/kernel/kernel.c	/^    chs_address last_sector;$/;"	m	language:C	struct:PACKED	typeref:typename:chs_address	file:
+last_success	include/peripherals/emmc.h	/^    bool last_success;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:bool
+lcd_backlight	src/drivers/i2c/lcd.c	/^void lcd_backlight(bool on) {$/;"	f	language:C	typeref:typename:void	signature:(bool on)
+lcd_command	src/drivers/i2c/lcd.c	/^void lcd_command(u8 command) {$/;"	f	language:C	typeref:typename:void	signature:(u8 command)
+lcd_init	src/drivers/i2c/lcd.c	/^void lcd_init(u8 address) {$/;"	f	language:C	typeref:typename:void	signature:(u8 address)
+lcd_print	src/drivers/i2c/lcd.c	/^void lcd_print(char *s) {$/;"	f	language:C	typeref:typename:void	signature:(char * s)
+lcd_send	src/drivers/i2c/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;"	f	language:C	typeref:typename:void	signature:(u8 data,u8 mode)
+led_display_clear	src/drivers/spi/led_display.c	/^void led_display_clear() {$/;"	f	language:C	typeref:typename:void	signature:()
+led_display_init	src/drivers/spi/led_display.c	/^void led_display_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+led_display_intensity	src/drivers/spi/led_display.c	/^void led_display_intensity(u8 value) {$/;"	f	language:C	typeref:typename:void	signature:(u8 value)
+led_display_opcodes	include/led_display.h	/^} led_display_opcodes;$/;"	t	language:C++	typeref:enum:__anonc820d8380103
+led_display_send_command	src/drivers/spi/led_display.c	/^void led_display_send_command(u8 opcode, u8 data) {$/;"	f	language:C	typeref:typename:void	signature:(u8 opcode,u8 data)
+led_display_set_digit	src/drivers/spi/led_display.c	/^void led_display_set_digit(u8 digit, u8 value, bool dot) {$/;"	f	language:C	typeref:typename:void	signature:(u8 digit,u8 value,bool dot)
+level	include/peripherals/gpio.h	/^    struct GpioPinData level;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+li2a	src/misc/printf.c	/^static void li2a (long num, char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(long num,char * bf)
+lli2a	src/misc/printf.c	/^static void lli2a(long long num, char *bf) {$/;"	f	language:C	typeref:typename:void	file:	signature:(long long num,char * bf)
+lo_detect_enable	include/peripherals/gpio.h	/^    struct GpioPinData lo_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+ltoh	include/peripherals/spi.h	/^    reg32 ltoh;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+mailbox_clock	include/mailbox.h	/^} mailbox_clock;$/;"	t	language:C++	typeref:struct:__anon89d52dda0508
+mailbox_clock_rate	src/drivers/mailbox/mailbox.c	/^u32 mailbox_clock_rate(clock_type ct) {$/;"	f	language:C	typeref:typename:u32	signature:(clock_type ct)
+mailbox_command	include/mailbox.h	/^} mailbox_command;$/;"	t	language:C++	typeref:struct:__anon89d52dda0208
+mailbox_fb_buffer	src/drivers/video/video.c	/^} mailbox_fb_buffer;$/;"	t	language:C	typeref:struct:__anond90cef580408	file:
+mailbox_fb_depth	src/drivers/video/video.c	/^} mailbox_fb_depth;$/;"	t	language:C	typeref:struct:__anond90cef580208	file:
+mailbox_fb_pitch	src/drivers/video/video.c	/^} mailbox_fb_pitch;$/;"	t	language:C	typeref:struct:__anond90cef580308	file:
+mailbox_fb_request	src/drivers/video/video.c	/^} mailbox_fb_request;$/;"	t	language:C	typeref:struct:__anond90cef580508	file:
+mailbox_fb_size	src/drivers/video/video.c	/^} mailbox_fb_size;$/;"	t	language:C	typeref:struct:__anond90cef580108	file:
+mailbox_generic	include/mailbox.h	/^} mailbox_generic;$/;"	t	language:C++	typeref:struct:__anon89d52dda0308
+mailbox_generic_command	src/drivers/mailbox/mailbox.c	/^bool mailbox_generic_command(u32 tag_id, u32 id, u32 *value) {$/;"	f	language:C	typeref:typename:bool	signature:(u32 tag_id,u32 id,u32 * value)
+mailbox_power	include/mailbox.h	/^} mailbox_power;$/;"	t	language:C++	typeref:struct:__anon89d52dda0408
+mailbox_power_check	src/drivers/mailbox/mailbox.c	/^bool mailbox_power_check(u32 type) {$/;"	f	language:C	typeref:typename:bool	signature:(u32 type)
+mailbox_process	src/drivers/mailbox/mailbox.c	/^bool mailbox_process(mailbox_tag *tag, u32 tag_size) {$/;"	f	language:C	typeref:typename:bool	signature:(mailbox_tag * tag,u32 tag_size)
+mailbox_read	src/drivers/mailbox/mailbox.c	/^static u32 mailbox_read(u8 channel) {$/;"	f	language:C	typeref:typename:u32	file:	signature:(u8 channel)
+mailbox_regs	src/drivers/mailbox/mailbox.c	/^} mailbox_regs;$/;"	t	language:C	typeref:struct:__anon2d99b2820108	file:
+mailbox_set_palette	src/drivers/video/video.c	/^} mailbox_set_palette;$/;"	t	language:C	typeref:struct:__anond90cef580608	file:
+mailbox_tag	include/mailbox.h	/^} mailbox_tag;$/;"	t	language:C++	typeref:struct:__anon89d52dda0108
+mailbox_write	src/drivers/mailbox/mailbox.c	/^static void mailbox_write(u8 channel, u32 data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u8 channel,u32 data)
+map_kernel_text	src/mem/mem.c	/^void map_kernel_text() {$/;"	f	language:C	typeref:typename:void	signature:()
+map_user_page	src/mem/mem.c	/^void map_user_page(u64 task_pgd,u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 task_pgd,u64 va,u64 pa,u64 flags)
+master	src/boot/boot.S	/^master:$/;"	l	language:Asm
+master_boot_record	src/kernel/kernel.c	/^} master_boot_record;$/;"	t	language:C	typeref:struct:PACKED	file:
+mem_map	src/mem/mem.c	/^static u16 mem_map [ PAGING_PAGES ] = {0,};$/;"	v	language:C	typeref:typename:u16[]	file:
+memcpy	src/mem/mem.c	/^void *memcpy(void *dest, const void *src, u32 n) {$/;"	f	language:C	typeref:typename:void *	signature:(void * dest,const void * src,u32 n)
+memzero	src/mem/mm.S	/^memzero:$/;"	l	language:Asm
+mode_2d_stride	include/peripherals/dma.h	/^    u32 mode_2d_stride;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+move_to_user_mode	src/kernel/fork.c	/^int move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
+mu_baud_rate	include/peripherals/aux.h	/^    reg32 mu_baud_rate;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_control	include/peripherals/aux.h	/^    reg32 mu_control;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_ier	include/peripherals/aux.h	/^    reg32 mu_ier;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_iir	include/peripherals/aux.h	/^    reg32 mu_iir;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_io	include/peripherals/aux.h	/^    reg32 mu_io;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_lcr	include/peripherals/aux.h	/^    reg32 mu_lcr;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_lsr	include/peripherals/aux.h	/^    reg32 mu_lsr;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_mcr	include/peripherals/aux.h	/^    reg32 mu_mcr;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_msr	include/peripherals/aux.h	/^    reg32 mu_msr;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_scratch	include/peripherals/aux.h	/^    reg32 mu_scratch;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+mu_status	include/peripherals/aux.h	/^    reg32 mu_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+muart_device	src/drivers/muart/mini_uart.c	/^io_device muart_device = {0};$/;"	v	language:C	typeref:typename:io_device
+muart_read	src/drivers/muart/mini_uart.c	/^int muart_read(struct _io_device *d, void *buff, u32 size) {$/;"	f	language:C	typeref:typename:int	signature:(struct _io_device * d,void * buff,u32 size)
+muart_write	src/drivers/muart/mini_uart.c	/^int muart_write(struct _io_device *d, void *buff, u32 size) {$/;"	f	language:C	typeref:typename:int	signature:(struct _io_device * d,void * buff,u32 size)
+multiblock	include/peripherals/emmc.h	/^    u8 multiblock : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+name	include/io.h	/^    char *name;$/;"	m	language:C++	struct:_io_device	typeref:typename:char *
+next_block_addr	include/peripherals/dma.h	/^    u32 next_block_addr;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+ni_sys	src/boot/entry.S	/^ni_sys:$/;"	l	language:Asm
+nr_tasks	src/kernel/sched.c	/^int nr_tasks = 1;$/;"	v	language:C	typeref:typename:int
+num_entries	src/drivers/video/video.c	/^    u32 num_entries;$/;"	m	language:C	struct:__anond90cef580608	typeref:typename:u32	file:
+num_sectors	src/kernel/kernel.c	/^    u32 num_sectors;$/;"	m	language:C	struct:PACKED	typeref:typename:u32	file:
+ocr	include/peripherals/emmc.h	/^    u16 ocr;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u16
+offset	include/peripherals/emmc.h	/^    u64 offset;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u64
+offset	src/drivers/video/video.c	/^    u32 offset;$/;"	m	language:C	struct:__anond90cef580608	typeref:typename:u32	file:
+old3_map_user_page	src/mem/mem.c	/^void old3_map_user_page(u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
+old4_map_user_page	src/mem/mem.c	/^void old4_map_user_page(u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
+old_map_user_page	src/mem/mem.c	/^void old_map_user_page(u64 va, u64 pa, u64 flags)$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
+old_move_to_user_mode	src/kernel/fork.c	/^int old_move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
+open	include/io.h	/^    bool (*open)(struct _io_device *, void *);$/;"	m	language:C++	struct:_io_device	typeref:typename:bool (*)(struct _io_device *,void *)
+output_clear	include/peripherals/gpio.h	/^    struct GpioPinData output_clear;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+output_set	include/peripherals/gpio.h	/^    struct GpioPinData output_set;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+partition_entry	src/kernel/kernel.c	/^} partition_entry ;$/;"	t	language:C	typeref:struct:PACKED	file:
+partitions	src/kernel/kernel.c	/^    partition_entry partitions[4];$/;"	m	language:C	struct:PACKED	typeref:typename:partition_entry[4]	file:
+pc	include/fork.h	/^	unsigned long pc;$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long
+pc	include/sched.h	/^	unsigned long pc;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+pgd	include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	m	language:C++	struct:__anona5b88f0d0408	typeref:typename:pteval_t
+pgd	include/sched.h	/^	u64* pgd;  \/\/ 自定义页表指针$/;"	m	language:C++	struct:task_struct	typeref:typename:u64 *
+pgd_t	include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	t	language:C++	typeref:struct:__anona5b88f0d0408
+pgd_val	include/mem.h	/^#define pgd_val(/;"	d	language:C++	signature:(x)
+pitch	src/drivers/video/video.c	/^    mailbox_fb_pitch pitch;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_pitch	file:
+pitch	src/drivers/video/video.c	/^    u32 pitch;$/;"	m	language:C	struct:__anond90cef580308	typeref:typename:u32	file:
+pmd	include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	m	language:C++	struct:__anona5b88f0d0208	typeref:typename:pteval_t
+pmd_t	include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	t	language:C++	typeref:struct:__anona5b88f0d0208
+pmd_val	include/mem.h	/^#define pmd_val(/;"	d	language:C++	signature:(x)
+preempt_count	include/sched.h	/^	long preempt_count;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
+preempt_disable	src/kernel/sched.c	/^void preempt_disable(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
+preempt_enable	src/kernel/sched.c	/^void preempt_enable(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
+printf	include/printf.h	/^#define printf /;"	d	language:C++
+printf_device	src/misc/printf.c	/^io_device *printf_device;$/;"	v	language:C	typeref:typename:io_device *
+priority	include/sched.h	/^	long priority;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
+proc_hang	src/boot/boot.S	/^proc_hang:$/;"	l	language:Asm
+process	src/kernel/kernel.c	/^void process(char *array)$/;"	f	language:C	typeref:typename:void	signature:(char * array)
+property_buffer	src/drivers/mailbox/mailbox.c	/^} property_buffer;$/;"	t	language:C	typeref:struct:__anon2d99b2820208	file:
+property_data	src/drivers/mailbox/mailbox.c	/^static u32 property_data[8192] __attribute__((aligned(16)));$/;"	v	language:C	typeref:typename:u32[8192]	file:
+pstate	include/fork.h	/^	unsigned long pstate;$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long
+pt_regs	include/fork.h	/^struct pt_regs {$/;"	s	language:C++
+pte	include/mem.h	/^typedef struct { pteval_t pte; } pte_t;$/;"	m	language:C++	struct:__anona5b88f0d0108	typeref:typename:pteval_t
+pte_t	include/mem.h	/^typedef struct { pteval_t pte; } pte_t;$/;"	t	language:C++	typeref:struct:__anona5b88f0d0108
+pte_val	include/mem.h	/^#define pte_val(/;"	d	language:C++	signature:(x)
+pteval_t	include/mem.h	/^typedef unsigned long pteval_t;$/;"	t	language:C++	typeref:typename:unsigned long
+pud	include/mem.h	/^typedef struct { pteval_t pud; } pud_t;$/;"	m	language:C++	struct:__anona5b88f0d0308	typeref:typename:pteval_t
+pud_t	include/mem.h	/^typedef struct { pteval_t pud; } pud_t;$/;"	t	language:C++	typeref:struct:__anona5b88f0d0308
+pud_val	include/mem.h	/^#define pud_val(/;"	d	language:C++	signature:(x)
+pulse	src/drivers/i2c/lcd.c	/^static void pulse(u8 data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u8 data)
+pupd_enable	include/peripherals/gpio.h	/^    reg32 pupd_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:typename:reg32
+pupd_enable_clocks	include/peripherals/gpio.h	/^    reg32 pupd_enable_clocks[2];$/;"	m	language:C++	struct:GpioRegs	typeref:typename:reg32[2]
+put32	src/misc/utils.S	/^put32:$/;"	l	language:Asm
+putc	src/kernel/kernel.c	/^void putc(void *p, char c) {$/;"	f	language:C	typeref:typename:void	signature:(void * p,char c)
+putcf	src/misc/printf.c	/^typedef void (*putcf) (void*,char);$/;"	t	language:C	typeref:typename:void (*)(void *,char)	file:
+putchw	src/misc/printf.c	/^static void putchw(void* putp,putcf putf,int n, char z, char* bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(void * putp,putcf putf,int n,char z,char * bf)
+putcp	src/misc/printf.c	/^static void putcp(void* p,char c)$/;"	f	language:C	typeref:typename:void	file:	signature:(void * p,char c)
+rate	include/mailbox.h	/^    u32 rate;$/;"	m	language:C++	struct:__anon89d52dda0508	typeref:typename:u32
+rca	include/peripherals/emmc.h	/^    u32 rca;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+re_detect_enable	include/peripherals/gpio.h	/^    struct GpioPinData re_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
+read	include/io.h	/^    int (*read)(struct _io_device *, void *, u32);$/;"	m	language:C++	struct:_io_device	typeref:typename:int (*)(struct _io_device *,void *,u32)
+read	src/drivers/mailbox/mailbox.c	/^    reg32 read;$/;"	m	language:C	struct:__anon2d99b2820108	typeref:typename:reg32	file:
+reg32	include/common.h	/^typedef volatile u32 reg32;$/;"	t	language:C++	typeref:typename:volatile u32
+regs	include/fork.h	/^	unsigned long regs[31];$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long[31]
+res	include/peripherals/dma.h	/^    u32 res[2];$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32[2]
+res	include/peripherals/irq.h	/^    reg32 res;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
+res	src/drivers/mailbox/mailbox.c	/^    reg32 res[5];$/;"	m	language:C	struct:__anon2d99b2820108	typeref:typename:reg32[5]	file:
+res	src/drivers/video/video.c	/^    mailbox_fb_size res;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_size	file:
+res0	include/peripherals/emmc.h	/^    reg32 res0[2];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[2]
+res0	include/peripherals/emmc.h	/^    u8 res0 : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+res0	include/peripherals/irq.h	/^    reg32 res0;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+res1	include/peripherals/emmc.h	/^    reg32 res1[7];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[7]
+res1	include/peripherals/emmc.h	/^    u8 res1 : 2;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:2
+res1	include/peripherals/irq.h	/^    reg32 res1;$/;"	m	language:C++	struct:arm_irq_regs_2711	typeref:typename:reg32
+res2	include/peripherals/emmc.h	/^    reg32 res2[2];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[2]
+res3	include/peripherals/emmc.h	/^    reg32 res3[23];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[23]
+res4	include/peripherals/emmc.h	/^    reg32 res4[2];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[2]
+reserved	include/peripherals/aux.h	/^    reg32 reserved[14];$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32[14]
+reserved	include/peripherals/gpio.h	/^    reg32 reserved;$/;"	m	language:C++	struct:GpioPinData	typeref:typename:reg32
+reserved	include/peripherals/gpio.h	/^    reg32 reserved;$/;"	m	language:C++	struct:GpioRegs	typeref:typename:reg32
+reset_command	src/drivers/emmc/emmc.c	/^static bool reset_command() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+resp_a	include/peripherals/emmc.h	/^    u8 resp_a : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+resp_b	include/peripherals/emmc.h	/^    u16 resp_b : 10;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u16:10
+response	include/peripherals/emmc.h	/^    reg32 response[4];$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32[4]
+response_type	include/peripherals/emmc.h	/^    u8 response_type : 2;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:2
+ret_from_fork	src/boot/entry.S	/^ret_from_fork:$/;"	l	language:Asm
+ret_from_kernel_thread	src/boot/entry.S	/^ret_from_kernel_thread:$/;"	l	language:Asm
+ret_from_syscall	src/boot/entry.S	/^ret_from_syscall:$/;"	l	language:Asm
+ret_to_user	src/boot/entry.S	/^ret_to_user:$/;"	l	language:Asm
+ret_to_user_error	src/boot/entry.S	/^ret_to_user_error:$/;"	l	language:Asm
+rpi_firmware_property_status	include/mailbox.h	/^enum rpi_firmware_property_status {$/;"	g	language:C++
+rpi_firmware_property_tag	include/mailbox.h	/^enum rpi_firmware_property_tag {$/;"	g	language:C++
+sc_nr	src/boot/entry.S	/^sc_nr	.req	x25					\/\/ number of system calls$/;"	l	language:Asm
+schedule	src/kernel/sched.c	/^void schedule(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
+schedule_tail	src/kernel/sched.c	/^void schedule_tail(void) {$/;"	f	language:C	typeref:typename:void	signature:(void)
+scno	src/boot/entry.S	/^scno	.req	x26					\/\/ syscall number$/;"	l	language:Asm
+scr	include/peripherals/emmc.h	/^    scr_register scr;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:scr_register
+scr	include/peripherals/emmc.h	/^    u32 scr[2];$/;"	m	language:C++	struct:__anon6b67dcbe0408	typeref:typename:u32[2]
+scr_register	include/peripherals/emmc.h	/^} scr_register;$/;"	t	language:C++	typeref:struct:__anon6b67dcbe0408
+screen_size	src/drivers/video/video.c	/^    u32 screen_size;$/;"	m	language:C	struct:__anond90cef580408	typeref:typename:u32	file:
+sd_error	include/peripherals/emmc.h	/^} sd_error;$/;"	t	language:C++	typeref:enum:__anon6b67dcbe0503
+sd_error_mask	src/drivers/emmc/emmc.c	/^static u32 sd_error_mask(sd_error err) {$/;"	f	language:C	typeref:typename:u32	file:	signature:(sd_error err)
+sdhc	include/peripherals/emmc.h	/^    bool sdhc;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:bool
+sector	src/kernel/kernel.c	/^    u8 sector : 6;$/;"	m	language:C	struct:PACKED	typeref:typename:u8:6	file:
+seek	include/io.h	/^    void (*seek)(struct _io_device *, u64);$/;"	m	language:C++	struct:_io_device	typeref:typename:void (*)(struct _io_device *,u64)
+select_card	src/drivers/emmc/emmc.c	/^static bool select_card() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+set_last_error	src/drivers/emmc/emmc.c	/^static void set_last_error(u32 intr_val) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u32 intr_val)
+set_scr	src/drivers/emmc/emmc.c	/^static bool set_scr() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
+show_invalid_entry_message	src/kernel/irq.c	/^void show_invalid_entry_message(u32 type, u64 esr, u64 address) {$/;"	f	language:C	typeref:typename:void	signature:(u32 type,u64 esr,u64 address)
+size	include/mailbox.h	/^    u32 size;$/;"	m	language:C++	struct:__anon89d52dda0208	typeref:typename:u32
+size	src/drivers/mailbox/mailbox.c	/^    u32 size;$/;"	m	language:C	struct:__anon2d99b2820208	typeref:typename:u32	file:
+slave_address	include/peripherals/i2c.h	/^    reg32 slave_address;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+slot_int_status	include/peripherals/emmc.h	/^    reg32 slot_int_status;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+sp	include/fork.h	/^	unsigned long sp;$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long
+sp	include/sched.h	/^	unsigned long sp;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+spi_init	src/drivers/spi/spi.c	/^void spi_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+spi_int_support	include/peripherals/emmc.h	/^    reg32 spi_int_support;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+spi_recv	src/drivers/spi/spi.c	/^void spi_recv(u8 chip_select, u8 *data, u32 size) {$/;"	f	language:C	typeref:typename:void	signature:(u8 chip_select,u8 * data,u32 size)
+spi_send	src/drivers/spi/spi.c	/^void spi_send(u8 chip_select, u8 *data, u32 size) {$/;"	f	language:C	typeref:typename:void	signature:(u8 chip_select,u8 * data,u32 size)
+spi_send_recv	src/drivers/spi/spi.c	/^void spi_send_recv(u8 chip_select, u8 *sbuffer, u8 *rbuffer, u32 size) {$/;"	f	language:C	typeref:typename:void	signature:(u8 chip_select,u8 * sbuffer,u8 * rbuffer,u32 size)
+sprintf	include/printf.h	/^#define sprintf /;"	d	language:C++
+src_addr	include/peripherals/dma.h	/^    u32 src_addr;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+stack	include/sched.h	/^	unsigned long stack; $/;"	m	language:C++	struct:task_struct	typeref:typename:unsigned long
+state	include/mailbox.h	/^    u32 state;$/;"	m	language:C++	struct:__anon89d52dda0408	typeref:typename:u32
+state	include/sched.h	/^	long state;	$/;"	m	language:C++	struct:task_struct	typeref:typename:long
+status	include/dma.h	/^    bool status;$/;"	m	language:C++	struct:__anona519e2800108	typeref:typename:bool
+status	include/peripherals/emmc.h	/^    reg32 status;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+status	include/peripherals/i2c.h	/^    reg32 status;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
+status	src/drivers/mailbox/mailbox.c	/^    reg32 status;$/;"	m	language:C	struct:__anon2d99b2820108	typeref:typename:reg32	file:
+status	src/kernel/kernel.c	/^    u8 status;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
+stbl	src/boot/entry.S	/^stbl	.req	x27					\/\/ syscall table pointer$/;"	l	language:Asm
+stdout_putf	src/misc/printf.c	/^static void stdout_putf(void *p, char c) {$/;"	f	language:C	typeref:typename:void	file:	signature:(void * p,char c)
+stdout_putp	src/misc/printf.c	/^static void* stdout_putp;$/;"	v	language:C	typeref:typename:void *	file:
+str_eq	src/misc/utils.c	/^bool str_eq(char *a, char *b) {$/;"	f	language:C	typeref:typename:bool	signature:(char * a,char * b)
+strcat	src/misc/utils.c	/^int strcat(char *dst, char *src) {$/;"	f	language:C	typeref:typename:int	signature:(char * dst,char * src)
+strcpy	src/misc/utils.c	/^int strcpy(char *dst, char *src) {$/;"	f	language:C	typeref:typename:int	signature:(char * dst,char * src)
+strlen	src/misc/utils.c	/^int strlen(char *s) {$/;"	f	language:C	typeref:typename:int	signature:(char * s)
+stub_magic	armstub/src/armstub.S	/^stub_magic:$/;"	l	language:Asm
+stub_version	armstub/src/armstub.S	/^stub_version:$/;"	l	language:Asm
+switch_clock_rate	src/drivers/emmc/emmc_clock.c	/^bool switch_clock_rate(u32 base_clock, u32 target_rate) {$/;"	f	language:C	typeref:typename:bool	signature:(u32 base_clock,u32 target_rate)
+switch_to	src/kernel/sched.c	/^void switch_to(struct task_struct * next) $/;"	f	language:C	typeref:typename:void	signature:(struct task_struct * next)
+sync_invalid_el0_32	src/boot/entry.S	/^sync_invalid_el0_32:$/;"	l	language:Asm
+sync_invalid_el0_64	src/boot/entry.S	/^sync_invalid_el0_64:$/;"	l	language:Asm
+sync_invalid_el1h	src/boot/entry.S	/^sync_invalid_el1h:$/;"	l	language:Asm
+sync_invalid_el1t	src/boot/entry.S	/^sync_invalid_el1t:$/;"	l	language:Asm
+sys_call_table	src/sys.c	/^void * const sys_call_table[] = {sys_write, sys_malloc, sys_clone, sys_exit};$/;"	v	language:C	typeref:typename:void * const[]
+sys_clone	src/sys.c	/^int sys_clone(unsigned long stack){$/;"	f	language:C	typeref:typename:int	signature:(unsigned long stack)
+sys_exit	src/sys.c	/^void sys_exit(){$/;"	f	language:C	typeref:typename:void	signature:()
+sys_malloc	src/sys.c	/^unsigned long sys_malloc(){$/;"	f	language:C	typeref:typename:unsigned long	signature:()
+sys_write	src/sys.c	/^void sys_write(char * buf){$/;"	f	language:C	typeref:typename:void	signature:(char * buf)
+tag	include/mailbox.h	/^    mailbox_tag tag;$/;"	m	language:C++	struct:__anon89d52dda0308	typeref:typename:mailbox_tag
+tag	include/mailbox.h	/^    mailbox_tag tag;$/;"	m	language:C++	struct:__anon89d52dda0408	typeref:typename:mailbox_tag
+tag	include/mailbox.h	/^    mailbox_tag tag;$/;"	m	language:C++	struct:__anon89d52dda0508	typeref:typename:mailbox_tag
+tag	include/mailbox.h	/^    void *tag;$/;"	m	language:C++	struct:__anon89d52dda0208	typeref:typename:void *
+tag	src/drivers/video/video.c	/^    mailbox_tag tag;$/;"	m	language:C	struct:__anond90cef580108	typeref:typename:mailbox_tag	file:
+tag	src/drivers/video/video.c	/^    mailbox_tag tag;$/;"	m	language:C	struct:__anond90cef580208	typeref:typename:mailbox_tag	file:
+tag	src/drivers/video/video.c	/^    mailbox_tag tag;$/;"	m	language:C	struct:__anond90cef580308	typeref:typename:mailbox_tag	file:
+tag	src/drivers/video/video.c	/^    mailbox_tag tag;$/;"	m	language:C	struct:__anond90cef580408	typeref:typename:mailbox_tag	file:
+tag	src/drivers/video/video.c	/^    mailbox_tag tag;$/;"	m	language:C	struct:__anond90cef580608	typeref:typename:mailbox_tag	file:
+tags	src/drivers/mailbox/mailbox.c	/^    u8 tags[0];$/;"	m	language:C	struct:__anon2d99b2820208	typeref:typename:u8[0]	file:
+task	src/kernel/sched.c	/^struct task_struct * task[NR_TASKS] = {&(init_task), };$/;"	v	language:C	typeref:struct:task_struct * []
+task_pt_regs	src/kernel/fork.c	/^struct pt_regs * task_pt_regs(struct task_struct *tsk){$/;"	f	language:C	typeref:struct:pt_regs *	signature:(struct task_struct * tsk)
+task_struct	include/sched.h	/^struct task_struct {$/;"	s	language:C++
+tfp_format	src/misc/printf.c	/^void tfp_format(void* putp,putcf putf,char *fmt, va_list va)$/;"	f	language:C	typeref:typename:void	signature:(void * putp,putcf putf,char * fmt,va_list va)
+tfp_printf	src/misc/printf.c	/^void tfp_printf(char *fmt, ...)$/;"	f	language:C	typeref:typename:void	signature:(char * fmt,...)
+tfp_sprintf	src/misc/printf.c	/^void tfp_sprintf(char* s,char *fmt, ...)$/;"	f	language:C	typeref:typename:void	signature:(char * s,char * fmt,...)
+thread_entry	src/kernel/kernel.c	/^void thread_entry(void* arg) {$/;"	f	language:C	typeref:typename:void	signature:(void * arg)
+thread_start	src/sys.S	/^thread_start:$/;"	l	language:Asm
+thread_switch	src/kernel/schedule.S	/^thread_switch:$/;"	l	language:Asm
+timer_get_ticks	src/kernel/timer.c	/^u64 timer_get_ticks() {$/;"	f	language:C	typeref:typename:u64	signature:()
+timer_init	src/kernel/timer.c	/^void timer_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+timer_regs	include/peripherals/timer.h	/^struct timer_regs {$/;"	s	language:C++
+timer_sleep	src/kernel/timer.c	/^void timer_sleep(u32 ms) {$/;"	f	language:C	typeref:typename:void	signature:(u32 ms)
+timer_tick	src/kernel/sched.c	/^void timer_tick()$/;"	f	language:C	typeref:typename:void	signature:()
+transfer_blocks	include/peripherals/emmc.h	/^    u32 transfer_blocks;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u32
+transfer_info	include/peripherals/dma.h	/^    u32 transfer_info;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+transfer_length	include/peripherals/dma.h	/^    u32 transfer_length;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
+tune_DDR	include/peripherals/emmc.h	/^    reg32 tune_DDR;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+tune_SDR	include/peripherals/emmc.h	/^    reg32 tune_SDR;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+tune_step	include/peripherals/emmc.h	/^    reg32 tune_step;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+type	include/peripherals/emmc.h	/^    u8 type : 2;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:2
+type	src/kernel/kernel.c	/^    u8 type;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
+typeinfo	.vscode/settings.json	/^        "typeinfo": "c",$/;"	s	language:JSON	object:files.associations
+u16	include/common.h	/^typedef uint16_t u16;$/;"	t	language:C++	typeref:typename:uint16_t
+u32	include/common.h	/^typedef uint32_t u32;$/;"	t	language:C++	typeref:typename:uint32_t
+u64	include/common.h	/^typedef uint64_t u64;$/;"	t	language:C++	typeref:typename:uint64_t
+u8	include/common.h	/^typedef uint8_t u8;$/;"	t	language:C++	typeref:typename:uint8_t
+uart_init	src/drivers/muart/mini_uart.c	/^void uart_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+uart_recv	src/drivers/muart/mini_uart.c	/^char uart_recv() {$/;"	f	language:C	typeref:typename:char	signature:()
+uart_send	src/drivers/muart/mini_uart.c	/^void uart_send(char c) {$/;"	f	language:C	typeref:typename:void	signature:(char c)
+uart_send_string	src/drivers/muart/mini_uart.c	/^void uart_send_string(char *str) {$/;"	f	language:C	typeref:typename:void	signature:(char * str)
+ui2a	src/misc/printf.c	/^static void ui2a(unsigned int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned int num,unsigned int base,int uc,char * bf)
+uli2a	src/misc/printf.c	/^static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long int num,unsigned int base,int uc,char * bf)
+ulli2a	src/misc/printf.c	/^static void ulli2a(unsigned long long num, unsigned int base, int uppercase, char *bf) {$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long long num,unsigned int base,int uppercase,char * bf)
+use_dma	src/drivers/video/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
+user_process	src/kernel/kernel.c	/^void user_process(){$/;"	f	language:C	typeref:typename:void	signature:()
+value	include/mailbox.h	/^    u32 value;$/;"	m	language:C++	struct:__anon89d52dda0308	typeref:typename:u32
+value_length	include/mailbox.h	/^    u32 value_length;$/;"	m	language:C++	struct:__anon89d52dda0108	typeref:typename:u32
+vc_irqs	include/peripherals/irq.h	/^enum vc_irqs {$/;"	g	language:C++
+vectors	src/boot/entry.S	/^vectors:$/;"	l	language:Asm
+ventry	src/boot/entry.S	/^.macro	ventry	label$/;"	m	language:Asm
+version	include/peripherals/emmc.h	/^    u32 version;$/;"	m	language:C++	struct:__anon6b67dcbe0408	typeref:typename:u32
+vid_buffer	src/drivers/video/video.c	/^static u8 *vid_buffer;$/;"	v	language:C	typeref:typename:u8 *	file:
+video_dma	src/drivers/video/video.c	/^void video_dma() {$/;"	f	language:C	typeref:typename:void	signature:()
+video_draw_char	src/drivers/video/video.c	/^void video_draw_char(char c, u32 pos_x, u32 pos_y) {$/;"	f	language:C	typeref:typename:void	signature:(char c,u32 pos_x,u32 pos_y)
+video_draw_pixel	src/drivers/video/video.c	/^void video_draw_pixel(u32 x, u32 y, u32 color) {$/;"	f	language:C	typeref:typename:void	signature:(u32 x,u32 y,u32 color)
+video_draw_string	src/drivers/video/video.c	/^void video_draw_string(char *s, u32 pos_x, u32 pos_y) {$/;"	f	language:C	typeref:typename:void	signature:(char * s,u32 pos_x,u32 pos_y)
+video_init	src/drivers/video/video.c	/^void video_init() {$/;"	f	language:C	typeref:typename:void	signature:()
+video_set_dma	src/drivers/video/video.c	/^void video_set_dma(bool b) {$/;"	f	language:C	typeref:typename:void	signature:(bool b)
+video_set_resolution	src/drivers/video/video.c	/^void video_set_resolution(u32 xres, u32 yres, u32 bpp) {$/;"	f	language:C	typeref:typename:void	signature:(u32 xres,u32 yres,u32 bpp)
+vres	src/drivers/video/video.c	/^    mailbox_fb_size vres; \/\/virtual resolution..$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_size	file:
+wait_reg_mask	src/drivers/emmc/emmc.c	/^bool wait_reg_mask(reg32 *reg, u32 mask, bool set, u32 timeout) {$/;"	f	language:C	typeref:typename:bool	signature:(reg32 * reg,u32 mask,bool set,u32 timeout)
+width	src/drivers/video/fontData.c	/^static const unsigned width       = 8;$/;"	v	language:C	typeref:typename:const unsigned	file:
+write	include/io.h	/^    int (*write)(struct _io_device *, void *, u32);$/;"	m	language:C++	struct:_io_device	typeref:typename:int (*)(struct _io_device *,void *,u32)
+write	src/drivers/mailbox/mailbox.c	/^    reg32 write;$/;"	m	language:C	struct:__anon2d99b2820108	typeref:typename:reg32	file:
+write_4bits	src/drivers/i2c/lcd.c	/^static void write_4bits(u8 data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u8 data)
+write_i2c	src/drivers/i2c/lcd.c	/^static void write_i2c(u8 data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u8 data)
+x19	include/sched.h	/^	unsigned long x19;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x20	include/sched.h	/^	unsigned long x20;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x21	include/sched.h	/^	unsigned long x21;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x22	include/sched.h	/^	unsigned long x22;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x23	include/sched.h	/^	unsigned long x23;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x24	include/sched.h	/^	unsigned long x24;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x25	include/sched.h	/^	unsigned long x25;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x26	include/sched.h	/^	unsigned long x26;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x27	include/sched.h	/^	unsigned long x27;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+x28	include/sched.h	/^	unsigned long x28;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+xres	src/drivers/video/video.c	/^    u32 xres;$/;"	m	language:C	struct:__anond90cef580108	typeref:typename:u32	file:
+yres	src/drivers/video/video.c	/^    u32 yres;$/;"	m	language:C	struct:__anond90cef580108	typeref:typename:u32	file:

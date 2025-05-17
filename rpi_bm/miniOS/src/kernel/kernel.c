@@ -12,8 +12,8 @@
 #include "peripherals/emmc.h"
 #include "fork.h"
 #include "sched.h"
-#include <pcb.h>
-
+#define MAX_DEVS 10
+io_device *devices[MAX_DEVS] = {0};
 void thread_entry(void* arg) {
     printf("Thread running with arg: %p\n", arg);
     while(1);
@@ -63,6 +63,46 @@ void process(char *array)
 		}
 	}
 }
+void user_process(){
+	char buf[30] = {0};
+	tfp_sprintf(buf, "User process started\n\r");
+	call_sys_write(buf);
+	unsigned long stack = call_sys_malloc();
+	if (stack < 0) {
+		printf("Error while allocating stack for process 1\n\r");
+		return;
+	}
+    /*
+    unsigned long a=123;
+	int err = call_sys_clone((unsigned long)&process, a, stack);
+	if (err < 0){
+		printf("Error while clonning process 1\n\r");
+		return;
+	} 
+	stack = call_sys_malloc();
+	if (stack < 0) {
+		printf("Error while allocating stack for process 1\n\r");
+		return;
+	}
+    unsigned long b=456;
+	err = call_sys_clone((unsigned long)&process, b, stack);
+	if (err < 0){
+		printf("Error while clonning process 2\n\r");
+		return;
+	} 
+        */
+	call_sys_exit();
+}
+
+void kernel_process(){
+	printf("Kernel process started. EL %d\r\n", get_el());
+    printf("user_process = 0x%lx\n", (unsigned long)&user_process);
+	int err = move_to_user_mode((unsigned long)&user_process);
+
+	if (err < 0){
+		printf("Error while moving process to user mode\n\r");
+	} 
+}
 
 void kernel_main() {
     uart_init();
@@ -95,7 +135,7 @@ void kernel_main() {
 
     master_boot_record mbr;
 
-    io_device *disk =io_device_find("disk");//devices[1];// 
+    io_device *disk =devices[1];// io_device_find("disk");
     
     int r = disk->read(disk, &mbr, sizeof(mbr));
 
@@ -116,41 +156,25 @@ void kernel_main() {
         printf("\t Status: %d\n", mbr.partitions[i].status);
         printf("\t Start: %X\n", mbr.partitions[i].first_lba_sector);
     }
-
-    int res = copy_process((unsigned long)&process, (unsigned long)"1234\n");
+    /*
+	int res = copy_process_inkernel((unsigned long)&process, (unsigned long)"abc\r\n");
 	if (res != 0) {
-		printf("error while starting process 1");
+		printf("error while starting process in kernel mode");
 		return;
 	}
-	res = copy_process((unsigned long)&process, (unsigned long)"abcde\n");
+*/
+    
+    int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res != 0) {
-		printf("error while starting process 2");
+		printf("error while starting from kernel_process to user process");
 		return;
 	}
 
 	while (1){
 		schedule();
 	}	
-/*
-        // Setup main thread context
-    thread_ctx_t main_ctx;
-    main_ctx.sp = (uint64_t)allocate_thread_stack() ;
-    
-    // Create new thread
-    uint64_t* stack = allocate_thread_stack();
-    thread_ctx_t* thread = create_thread(thread_entry, (void*)0x1234, stack);
-    
-    // First thread switch requires eret
-    first_thread_switch(thread);
-    
-    // If thread returns, we'll get here
-    printf("Should never reach here!\n");
-    */
-/*
-     uint64_t* stack = kmalloc(0x1000) + 0x1000;
-    thread_ctx_t* thread = create_thread(thread_entry, (void*)0x1234, stack);
-    thread_switch(&dummy_ctx, thread);
-    */
+
+
     /*
     timer_sleep(15000);
 

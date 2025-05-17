@@ -1,4 +1,4 @@
-#include "sched.h"
+#define THREAD_CPU_CONTEXT			0 		// offset of cpu_context in task_struct 
 
 .globl cpu_switch_to
 cpu_switch_to:
@@ -45,6 +45,8 @@ thread_switch:
     mov sp, x2
     
     ret
+
+
 
 /*
 jimmy old test 

@@ -1,18 +1,22 @@
 #ifndef _SCHED_H
 #define _SCHED_H
 
+#include "mem.h"
+
 #define THREAD_CPU_CONTEXT			0 		// offset of cpu_context in task_struct 
 
 #ifndef __ASSEMBLER__
 
 #define THREAD_SIZE				4096
 
-#define NR_TASKS				64 
+#define NR_TASKS				64/8
 
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
 
 #define TASK_RUNNING				0
+#define TASK_ZOMBIE				1
+#define PF_KTHREAD		            	0x00000002
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
@@ -40,6 +44,10 @@ struct task_struct {
 	long counter;
 	long priority;
 	long preempt_count;
+
+	unsigned long stack; 
+	unsigned long flags;
+	u64* pgd;  // 自定义页表指针
 };
 
 extern void sched_init(void);
@@ -55,6 +63,8 @@ extern void schedule(void);
 /*cpu_context*/	{ {0,0,0,0,0,0,0,0,0,0,0,0,0}, \
 /* state etc */	0,0,1, 0 \
 }
+
+
 
 #endif
 #endif

@@ -29,6 +29,27 @@ static void stdout_putf(void *p, char c) {
 
 #ifdef PRINTF_LONG_SUPPORT
 
+/* Convert unsigned long long to ASCII */
+static void ulli2a(unsigned long long num, unsigned int base, int uppercase, char *bf) {
+    const char *digits = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
+    char *p = bf;
+    do {
+        *p++ = digits[num % base];
+        num /= base;
+    } while (num != 0);
+    *p = '\0';
+    strrev(bf);  // Reverse the string (assuming strrev exists)
+}
+
+/* Convert long long to ASCII */
+static void lli2a(long long num, char *bf) {
+    if (num < 0) {
+        *bf++ = '-';
+        num = -num;
+    }
+    ulli2a(num, 10, 0, bf);
+}
+
 static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)
     {
     int n=0;
@@ -181,6 +202,8 @@ void tfp_format(void* putp,putcf putf,char *fmt, va_list va)
 #ifdef  PRINTF_LONG_SUPPORT
                     if (lng)
                         uli2a(va_arg(va, unsigned long int),16,(ch=='X'),bf);
+                    else if (lng == 2)
+                    ulli2a(va_arg(va, unsigned long long), 16, (ch == 'X'), bf);
                     else
 #endif
                     ui2a(va_arg(va, unsigned int),16,(ch=='X'),bf);

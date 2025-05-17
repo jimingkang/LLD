@@ -6,7 +6,7 @@ ARMGNU ?= aarch64-linux-gnu
 
 INIT_MMU ?= 1
 
-COPS = -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
+COPS =  -g -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
 	   -Iinclude -mgeneral-regs-only
 
 ASMOPS = -Iinclude
@@ -60,7 +60,7 @@ armstub/build/armstub_s.o: armstub/src/armstub.S
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 armstub: armstub/build/armstub_s.o
-	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o
+	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o -e _start
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
 	cp armstub-new.bin $(BOOTMNT)/
 	sync

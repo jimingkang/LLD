@@ -21,11 +21,17 @@
 #define FIQ_INVALID_EL0_32		14 
 #define ERROR_INVALID_EL0_32	15 
 
+#define SYNC_ERROR			16 
+#define SYSCALL_ERROR			17 
+
 //stack frame size
-#define S_FRAME_SIZE			256
+#define S_FRAME_SIZE			256+ 16
+
+#define S_X0				0		// offset of x0 register in saved stack frame
 
 #ifndef __ASSEMBLER__
 
 void ret_from_fork(void);
+void ret_from_kernel_thread();
 
 #endif

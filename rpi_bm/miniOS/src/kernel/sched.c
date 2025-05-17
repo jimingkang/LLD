@@ -79,9 +79,49 @@ void timer_tick()
 	irq_disable();
 }
 
-void ret_from_fork() {
+/*void ret_from_fork() {
     	preempt_enable();
     // 通常是调用 x19 作为函数指针，x20 作为参数
     ((void (*)(unsigned long))current->cpu_context.x19)(current->cpu_context.x20);
     // 最后应该调用 exit 结束任务（非此文件范围）
+}
+*/
+void __ret_from_kernel_thread(void) {
+    int (*fn)(void *) = (void *)current->cpu_context.x19;
+    void *arg = (void *)current->cpu_context.x20;
+    
+    int ret = fn(arg);
+    do_exit(ret);
+}
+void do_exit(int error_code) {
+    struct task_struct *tsk = current;
+    
+    // Mark task as zombie
+    tsk->state = TASK_ZOMBIE;
+    
+    // Free resources
+    if (tsk->stack && !(tsk->flags & PF_KTHREAD)) {
+      //  free_pages(tsk->stack, 1);
+    }
+    
+    // Schedule other tasks
+    schedule();
+    
+    // Should never reach here
+    //panic("Zombie task scheduled!\n");
+}
+
+void exit_process(){
+	preempt_disable();
+	for (int i = 0; i < NR_TASKS; i++){
+		if (task[i] == current) {
+			task[i]->state = TASK_ZOMBIE;
+			break;
+		}
+	}
+	if (current->stack) {
+		free_page(current->stack);
+	}
+	preempt_enable();
+	schedule();
 }
