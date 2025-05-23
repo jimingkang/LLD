@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch QEMU + GDB",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/miniOS/build/kernel8.elf",
+      "miDebuggerServerAddress": "localhost:1234",
+      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "MIMode": "gdb",
+      "targetArchitecture": "arm64",
+      "stopAtEntry": true,
+      "customLaunchSetupCommands": [
+        {
+          "text": "set architecture aarch64",
+          "ignoreFailures": false
+        },
+        {
+          "text": "target remote localhost:1234",
+          "ignoreFailures": false
+        }
+      ],
+      "preLaunchTask": "Start QEMU"  // ← Connects to tasks.json
+    }
+  ]
+}

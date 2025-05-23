@@ -4,7 +4,8 @@
 #include "fork.h"
 #include "entry.h"
 #include "printf.h"
-
+#define PF_KTHREAD		            	0x00000002
+extern pg_dir;
 int copy_process_inkernel(unsigned long fn, unsigned long arg)
 {
 	preempt_disable();
@@ -29,32 +30,48 @@ int copy_process_inkernel(unsigned long fn, unsigned long arg)
 }
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack)
 {
+	printf("first in copy_process%x\n\r",fn);
 	preempt_disable();
 	struct task_struct *p;
-
-	p = (struct task_struct *) get_free_pages(1);
+	unsigned long page = allocate_kernel_page();
+	printf("allocate_kernel_page in copy_process%x\n\r",page);
+	p = (struct task_struct *)page ;
 	if (!p) {
 		printf("Error while get_free_pages in copy_process\n\r");
 		return -1;
 	}
 
+	/**/
+	unsigned long kernel_stack = allocate_kernel_page(); // 分配内核栈
+    if (!kernel_stack) {
+        printf("Failed to allocate kernel stack\n\r");
+      //  free_kernel_page(page); // 释放已分配的task_struct
+        return -1;
+    }
+	p->stack = kernel_stack; // 所有任务都设置内核栈指针
+    printf("Allocated kernel stack at 0x%x\n\r", kernel_stack);
+	//p->mm = (struct mm_struct *)kzalloc(sizeof(*p->mm));
+    //if (!p->mm) goto bad_free_stack;
+
+
 	struct pt_regs *childregs = task_pt_regs(p);
 	memzero((unsigned long)childregs, sizeof(struct pt_regs));
 	memzero((unsigned long)&p->cpu_context, sizeof(struct cpu_context));
-
+	printf("after  memzero in copy_process\n\r");
+	
 	if (clone_flags & PF_KTHREAD) {
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
-
+printf("if in copy_process\n\r");
 	} else {
 		struct pt_regs * cur_regs = task_pt_regs(current);
 		*childregs=	*cur_regs; 	
 		childregs->regs[0] = 0;
 		childregs->sp = stack + PAGE_SIZE; 
 		p->stack = stack;
-		// p->cpu_context.x19 = 0;  // ✅ 关键点：让 ret_from_fork 进入 ret_to_user
-   // p->cpu_context.x20 = 0;
+		printf("else in copy_process\n\r");
 	}
+	printf("before setting p in copy_process\n\r");
 	p->flags = clone_flags;
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
@@ -65,55 +82,122 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	p->cpu_context.sp = (unsigned long)childregs;
 	int pid = nr_tasks++;
 	task[pid] = p;	
+	printf("before return in copy_process,ret_from_fork=%x,childregs=%x ,p=%x\r\n",ret_from_fork,childregs,p);
 	preempt_enable();
-
 
 	return pid;
 }
 
-int move_to_user_mode(unsigned long pc)
+/*
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
 	struct pt_regs *regs = task_pt_regs(current);
-	memzero((unsigned long)regs, sizeof(*regs));
-	regs->pc = pc;
 	regs->pstate = PSR_MODE_EL0t;
-
-	unsigned long phys_stack = get_free_pages(1); // 分配物理页
-	if (!phys_stack) {
-		printf("Error while get_free_pages in move_to_user_mode\n\r");
+	regs->pc = pc;
+	regs->sp = 2 *  PAGE_SIZE;  
+	unsigned long code_page = allocate_user_page(current, 0);
+	if (code_page == 0)	{
 		return -1;
 	}
+	memcpy(code_page, start, size);
+	set_pgd(current->mm.pgd);
+	return 0;
+}
+*/
+static inline bool is_aligned(unsigned long addr, unsigned long align)
+{
+    return !(addr & (align - 1));
+}
+
+/*
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
+{
+	//irq_disable();
+	printf(" in move_to_user_mode\r\n");
+	struct pt_regs *regs = task_pt_regs(current);
+	regs->pstate = PSR_MODE_EL0t;
+	regs->pc = pc;
+	regs->sp = 2 *  PAGE_SIZE;  
+	unsigned long code_page = allocate_user_page(current, 0);
+	printf(" code_page %x\r\n",code_page);
+	if (code_page == 0)	{
+		return -1;
+	}
+	memcpy(code_page, start, size);
+	printf(" before set_pgd\r\n");
+	printf("current->mm.pgd %x", current->mm.pgd);
+	if (!current->mm.pgd || !is_aligned(current->mm.pgd, PAGE_SIZE)) {
+    printf("Invalid pgd: %p", current->mm.pgd);
+	}
+
+	set_pgd(current->mm.pgd);
+		printf(" after set_pgd\r\n");
+//irq_enable();
+	return 0;
+}
+	*/
+
+int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
+{
 	
-	printf("user_process = 0x%x\n", pc);
+printf(" in move_to_user_mode\n\r");
+    
+    if (size > PAGE_SIZE || !start || !pc) {
+        return -1;
+    }
+  
+    struct pt_regs *regs = task_pt_regs(current);
+    
+ 
+    unsigned long code_page = allocate_user_page(current, pc & PAGE_MASK, PTE_VALID | PTE_USER  );
+    if (!code_page) {
+        return -1;
+    }
+    
+  
+    unsigned long stack_page = allocate_user_page(current, 0, PTE_VALID | PTE_USER | PTE_WRITE|PTE_UXN  ); // User-writable, no execute);
+    if (!stack_page) {
+        free_page(code_page - VA_START);
+        return -1;
+    }
+    //printf(" after  allocate stack_page %x \n\r",stack_page);
+ 
+    memcpy((void*)code_page, (void*)start, size);
+     
 
-	 printf("phys_stack %x\r\n ",phys_stack);
-	//map_user_page(USER_STACK_TOP, phys_stack, PTE_USER_RW_FLAGS);
+    regs->pstate = PSR_MODE_EL0t;  
+    regs->pc = pc;                
+    regs->sp = stack_page + USER_STACK_SIZE; 
 
-	// 设置用户态 SP 寄存器（虚拟地址）
-	regs->sp =USER_STACK_TOP+PAGE_SIZE;// USER_STACK_TOP;
-	current->stack = phys_stack;
-	current->flags &= ~PF_KTHREAD;
-    printf("EL1 → EL0 prepare: pc=0x%lx sp=0x%lx pstate=0x%lx\n", regs->pc, regs->sp, regs->pstate);
-	return 0;
+
+	//current->mm->pgd =pg_dir;
+	//copy_kernel_mappings(current->mm->pgd);
+    printf(" before set_pgd in allocate_user_page,current->mm.pgd %x\n\r",current->mm.pgd);
+	debug_pgd(current->mm.pgd);
+    set_pgd(current->mm.pgd);
+    return 0;
+}
+void copy_kernel_mappings(unsigned long pgd) {
+  //  pgd_t *user_pgd = phys_to_virt(pgd_phys);
+    
+    // 复制内核空间映射（高半部分）
+   //for (int i = KERNEL_PGD_INDEX; i < PTRS_PER_PGD; i++) {
+   //     user_pgd[i] = init_mm.pgd[i];
+    //}
+    
+    // 刷新TLB确保一致性
+   // flush_tlb_all();
+}
+void debug_pgd(pgd_t *pgd) {
+    for (int i = 0; i < 5; i++) { // 打印前5项
+        printf("pgd[%d] = 0x%x\n", i, pgd[i]);
+    }
 }
 
-int old_move_to_user_mode(unsigned long pc)
-{
-	struct pt_regs *regs = task_pt_regs(current);
-	memzero((unsigned long)regs, sizeof(*regs));
-	regs->pc = pc;
-	regs->pstate = PSR_MODE_EL0t;
-	unsigned long stack = get_free_pages(1); //alocate new user stack
-	if (!stack) {
-		printf("Error while get_free_pages in move_to_user_mode\n\r");
-		return -1;
-	}
-	regs->sp = stack + PAGE_SIZE; 
-	current->stack = stack;
-	return 0;
-}
+
 
 struct pt_regs * task_pt_regs(struct task_struct *tsk){
-	unsigned long p = (unsigned long)tsk + THREAD_SIZE - sizeof(struct pt_regs);
+	unsigned long p = (unsigned long)tsk->stack + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
+

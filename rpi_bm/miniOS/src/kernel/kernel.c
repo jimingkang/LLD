@@ -12,6 +12,8 @@
 #include "peripherals/emmc.h"
 #include "fork.h"
 #include "sched.h"
+#include "user.h"
+#define PF_KTHREAD		            	0x00000002
 #define MAX_DEVS 10
 io_device *devices[MAX_DEVS] = {0};
 void thread_entry(void* arg) {
@@ -59,26 +61,29 @@ void process(char *array)
 	while (1){
 		for (int i = 0; i < 5; i++){
 			uart_send(array[i]);
-			delay(100000);
+			delay(1000000);
 		}
 	}
 }
 void user_process(){
-	char buf[30] = {0};
-	tfp_sprintf(buf, "User process started\n\r");
-	call_sys_write(buf);
+    printf("int user_process ");
+	//char buf[30] = {0};
+	//tfp_sprintf(buf, "User process started\n\r");
+	//call_sys_write(buf);
 	unsigned long stack = call_sys_malloc();
 	if (stack < 0) {
 		printf("Error while allocating stack for process 1\n\r");
 		return;
 	}
-    /*
+        
+    
     unsigned long a=123;
 	int err = call_sys_clone((unsigned long)&process, a, stack);
 	if (err < 0){
 		printf("Error while clonning process 1\n\r");
 		return;
 	} 
+          /*
 	stack = call_sys_malloc();
 	if (stack < 0) {
 		printf("Error while allocating stack for process 1\n\r");
@@ -96,9 +101,11 @@ void user_process(){
 
 void kernel_process(){
 	printf("Kernel process started. EL %d\r\n", get_el());
-    printf("user_process = 0x%lx\n", (unsigned long)&user_process);
-	int err = move_to_user_mode((unsigned long)&user_process);
-
+    unsigned long begin = (unsigned long)&user_begin;
+	unsigned long end = (unsigned long)&user_end;
+	unsigned long process = (unsigned long)&user_process;
+	int err = move_to_user_mode(begin, end - begin, process - begin);
+    printf("after move_to_user_mode\r\n");
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
 	} 
@@ -135,7 +142,7 @@ void kernel_main() {
 
     master_boot_record mbr;
 
-    io_device *disk =devices[1];// io_device_find("disk");
+    io_device *disk = io_device_find("disk");
     
     int r = disk->read(disk, &mbr, sizeof(mbr));
 
@@ -156,21 +163,21 @@ void kernel_main() {
         printf("\t Status: %d\n", mbr.partitions[i].status);
         printf("\t Start: %X\n", mbr.partitions[i].first_lba_sector);
     }
-    /*
+
 	int res = copy_process_inkernel((unsigned long)&process, (unsigned long)"abc\r\n");
 	if (res != 0) {
 		printf("error while starting process in kernel mode");
 		return;
 	}
-*/
     
-    int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
-	if (res != 0) {
+     res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
 	}
 
 	while (1){
+        printf("beore schedule");
 		schedule();
 	}	
 

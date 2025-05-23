@@ -20,10 +20,12 @@ void preempt_enable(void)
 
 void _schedule(void)
 {
+	printf("enter _schedule\n\r");
 	preempt_disable();
 	int next,c;
 	struct task_struct * p;
 	while (1) {
+		printf("while _schedule\n\r");
 		c = -1;
 		next = 0;
 		for (int i = 0; i < NR_TASKS; i++){
@@ -38,11 +40,17 @@ void _schedule(void)
 		}
 		for (int i = 0; i < NR_TASKS; i++) {
 			p = task[i];
+			
 			if (p) {
-				p->counter = (p->counter >> 1) + p->priority;
+				
+			printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
+	
+				p->counter = (p->counter >> 1) + p->priority+1;
 			}
 		}
+		printf("quit while _schedule,next=%x\n\r",next);
 	}
+	printf("return from _schedule. next=%x,task=%x\r\n",next,task[next]);
 	switch_to(task[next]);
 	preempt_enable();
 }

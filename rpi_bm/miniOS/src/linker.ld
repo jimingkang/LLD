@@ -1,8 +1,15 @@
 
  SECTIONS
 {
-   . = 0x80000;
+   . =0xFFFF000000080000 ;
     .text.boot : { *(.text.boot) }
+. = ALIGN(0x00001000);
+    user_begin = .;
+	.text.user : { build/user* (.text) }
+	.rodata.user : { build/user* (.rodata) }
+	.data.user : { build/user* (.data) }
+	.bss.user : { build/user* (.bss) }
+	user_end = .;
   .text : {
   __text_start = .;
   *(.text)
@@ -17,4 +24,8 @@
     . = ALIGN(0x00001000);
     id_pgd = .;
     .data.id_pgd : { . += (6 * (1 << 12)); }
+    . = ALIGN(0x00001000);
+   pg_dir = .;
+	.data.pgd : { . += (3 * (1 << 12)); }
+
 }

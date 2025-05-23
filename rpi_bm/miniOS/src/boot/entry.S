@@ -2,6 +2,7 @@
 #include "sysregs.h"
 #include "sys.h"
 
+
 #define SYNC_ERROR			16 
 #define SYSCALL_ERROR			17 
 .extern schedule_tail
@@ -186,13 +187,7 @@ el0_sync:
 	handle_invalid_entry 0, 16
 
 
-el0_da:
-    mrs    x0, far_el1               // 读取 FAR_EL1（缺页地址）
-    mov    x1, x25                   // 传递 ESR_EL1（异常原因）
-    bl     handle_user_page_fault    // 调用 C 函数处理缺页
-    cmp    x0, #0                    // 检查返回值（0=成功）
-    b.ne   ret_to_user_error         // 失败则跳转到错误处理
-    b      ret_to_user               // 成功则返回用户态
+
 
 
 sc_nr	.req	x25					// number of system calls
@@ -216,21 +211,45 @@ el0_svc:
 ni_sys:
 	handle_invalid_entry 0, 17
 
-.globl err_hang
-err_hang: b err_hang
+
 
 ret_from_syscall:
 	bl	irq_disable				
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
+	/*
+el0_da:
+	bl	irq_enable
+	mrs	x0, far_el1
+	mrs	x1, esr_el1			
+	bl	do_mem_abort
+	cmp x0, 0
+	b.eq 1f
+	handle_invalid_entry 0, DATA_ABORT_ERROR
+1:
+	bl irq_disable			
+	kernel_exit 0
+
+*/
+el0_da:
+    mrs    x0, far_el1               // 读取 FAR_EL1（缺页地址）
+    mov    x1, x25                   // 传递 ESR_EL1（异常原因）
+    bl     handle_user_page_fault    // 调用 C 函数处理缺页
+    cmp    x0, #0                    // 检查返回值（0=成功）
+    b.ne   ret_to_user_error         // 失败则跳转到错误处理
+    b      ret_to_user               // 成功则返回用户态
+
 .globl ret_from_fork
 ret_from_fork:
+	ldr x0, =strr
+	bl uart_send_string
 	bl	schedule_tail
 	cbz	x19, ret_to_user			// not a kernel thread
 	mov	x0, x20
 	blr	x19
 ret_to_user:
+
 	bl irq_disable				
 	kernel_exit 0
 //ret_to_user:
@@ -261,3 +280,9 @@ ret_from_kernel_thread:
 //mov     x0, x20              // Move arg (x20) to x0 (first parameter)
 //blr     x19                  // Call kernel thread function (address in x19)
 //bl      do_exit               // If function returns, exit the thread
+
+.globl err_hang
+err_hang: b err_hang
+
+.data
+	strr:   .string  "in return user"

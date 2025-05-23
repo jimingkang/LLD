@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start QEMU",
+      "type": "shell",
+      "command": "qemu-system-aarch64",
+      "args": [
+        "-M", "raspi3",
+        "-kernel", "/home/rlk/Downloads/LLD/rpi_bm/miniOS/build/kernel8.elf",
+        "-serial", "stdio",
+        "-s", "-S"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

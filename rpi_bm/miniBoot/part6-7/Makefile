@@ -1,10 +1,10 @@
-RPI_VERSION ?= 4
+RPI_VERSION ?= 3
 
-BOOTMNT ?= /media/parallels/boot
+BOOTMNT ?= /media/rlk/bootfs
 
 ARMGNU ?= aarch64-linux-gnu
 
-COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \
+COPS = -g -O0 -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \
 	   -Iinclude -mgeneral-regs-only
 
 ASMOPS = -Iinclude

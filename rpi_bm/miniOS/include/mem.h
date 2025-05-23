@@ -50,7 +50,9 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define PTE_NG             (1UL << 11)
 #define PTE_USER           (1UL << 6)  // User-accessible
 #define PTE_RDONLY         (1UL << 7)  // Read-only
+#define PTE_WRITE      (1UL << 55)   // Writable (if not RDONLY)
 #define PTE_SHARED         (3UL << 8)  // Inner shareable
+#define PTE_UXN        (1UL << 54)   // User Execute Never
 #define PTE_ATTRINDX(x)    ((x) << 2)  // Normal memory
 
 #define PTE_SH_NONE   (0UL << 8)
@@ -74,4 +76,7 @@ extern char __text_end[];
 void *get_free_pages(int num_pages);
 void *allocate_memory(int bytes);
 void free_memory(void *base);
+unsigned long allocate_kernel_page(); 
+
+
 

@@ -29,7 +29,7 @@ const char entry_error_messages[16][32] = {
 };
 
 void show_invalid_entry_message(u32 type, u64 esr, u64 address) {
-    printf("ERROR CAUGHT: %d, ESR: %X, Address: %X, %s \n", 
+    printf("ERROR CAUGHT: %d, ESR: %x, Address: %x, %s \n", 
         type, esr, address,entry_error_messages[type]);
         
 }

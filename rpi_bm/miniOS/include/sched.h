@@ -17,6 +17,7 @@
 #define TASK_RUNNING				0
 #define TASK_ZOMBIE				1
 #define PF_KTHREAD		            	0x00000002
+#define MAX_PROCESS_PAGES			16	
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
@@ -38,16 +39,31 @@ struct cpu_context {
 	unsigned long pc;
 };
 
+
+struct user_page {
+	unsigned long phys_addr;
+	unsigned long virt_addr;
+};
+
+struct mm_struct {
+	unsigned long pgd;
+	int user_pages_count;
+	struct user_page user_pages[MAX_PROCESS_PAGES];
+	int kernel_pages_count;
+	unsigned long kernel_pages[MAX_PROCESS_PAGES];
+};
 struct task_struct {
 	struct cpu_context cpu_context;
+	unsigned long stack; 
 	long state;	
 	long counter;
 	long priority;
 	long preempt_count;
 
-	unsigned long stack; 
+
 	unsigned long flags;
-	u64* pgd;  // 自定义页表指针
+    // virtual mem
+	struct mm_struct mm;
 };
 
 extern void sched_init(void);

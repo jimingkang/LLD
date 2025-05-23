@@ -8,11 +8,16 @@
 $(BUILD_DIR)/%_c.o	Makefile	/^$(BUILD_DIR)\/%_c.o: $(SRC_DIR)\/%.c$/;"	t	language:Make
 $(BUILD_DIR)/%_s.o	Makefile	/^$(BUILD_DIR)\/%_s.o: $(SRC_DIR)\/%.S$/;"	t	language:Make
 .bss	src/linker.ld	/^    .bss : { *(.bss*) }$/;"	S	language:LdScript
+.bss.user	src/linker.ld	/^	.bss.user : { build\/user* (.bss) }$/;"	S	language:LdScript
 .data	src/linker.ld	/^    .data : { *(.data) }$/;"	S	language:LdScript
 .data.id_pgd	src/linker.ld	/^    .data.id_pgd : { . += (6 * (1 << 12)); }$/;"	S	language:LdScript
+.data.pgd	src/linker.ld	/^	.data.pgd : { . += (3 * (1 << 12)); }$/;"	S	language:LdScript
+.data.user	src/linker.ld	/^	.data.user : { build\/user* (.data) }$/;"	S	language:LdScript
 .rodata	src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
+.rodata.user	src/linker.ld	/^	.rodata.user : { build\/user* (.rodata) }$/;"	S	language:LdScript
 .text	src/linker.ld	/^  .text : {$/;"	S	language:LdScript
 .text.boot	src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
+.text.user	src/linker.ld	/^	.text.user : { build\/user* (.text) }$/;"	S	language:LdScript
 ARMGNU	Makefile	/^ARMGNU ?= aarch64-linux-gnu$/;"	m	language:Make
 ASMOPS	Makefile	/^ASMOPS = -Iinclude$/;"	m	language:Make
 ASM_FILES	Makefile	/^ASM_FILES = $(wildcard $(SRC_DIR)\/*.S)$/;"	m	language:Make
@@ -31,7 +36,7 @@ BUS_ADDR	src/drivers/video/video.c	/^#define BUS_ADDR(/;"	d	language:C	file:	sig
 BUS_ADDRESS	include/mem.h	/^#define BUS_ADDRESS(/;"	d	language:C++	signature:(addr)
 CHARCOUNT	src/drivers/video/fontData.c	/^#define CHARCOUNT	/;"	d	language:C	file:
 CLOCKHZ	include/peripherals/timer.h	/^#define CLOCKHZ /;"	d	language:C++
-COPS	Makefile	/^COPS =  -g -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nosta/;"	m	language:Make
+COPS	Makefile	/^COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -n/;"	m	language:Make
 CORE_CLOCK_SPEED	include/peripherals/base.h	/^#define CORE_CLOCK_SPEED /;"	d	language:C++
 CPACR_EL1_FPEN	include/sysregs.h	/^#define CPACR_EL1_FPEN /;"	d	language:C++
 CPACR_EL1_VAL	include/sysregs.h	/^#define CPACR_EL1_VAL /;"	d	language:C++
@@ -101,6 +106,7 @@ DEFAULT_BURST_LENGTH	include/peripherals/dma.h	/^#define DEFAULT_BURST_LENGTH	/;
 DEFAULT_PANIC_PRIORITY	include/peripherals/dma.h	/^    #define DEFAULT_PANIC_PRIORITY	/;"	d	language:C++
 DEFAULT_PRIORITY	include/peripherals/dma.h	/^    #define DEFAULT_PRIORITY	/;"	d	language:C++
 DEP_FILES	Makefile	/^DEP_FILES = $(OBJ_FILES:%.o=%.d)$/;"	m	language:Make
+DEVICE_BASE	src/boot/boot.S	/^#define DEVICE_BASE /;"	d	language:CPreProcessor	file:
 DEVICE_START	include/peripherals/base.h	/^#define DEVICE_START /;"	d	language:C++
 DIGIT_TABLE	src/drivers/spi/led_display.c	/^const static u8 DIGIT_TABLE [] = {$/;"	v	language:C	typeref:typename:const u8[]	file:
 DMABUFFER	src/drivers/video/video.c	/^#define DMABUFFER /;"	d	language:C	file:
@@ -177,6 +183,7 @@ IRQ_INVALID_EL0_64	include/entry.h	/^#define IRQ_INVALID_EL0_64	/;"	d	language:C
 IRQ_INVALID_EL1h	include/entry.h	/^#define IRQ_INVALID_EL1h	/;"	d	language:C++
 IRQ_INVALID_EL1t	include/entry.h	/^#define IRQ_INVALID_EL1t	/;"	d	language:C++
 KERNEL_EXEC_FLAGS	include/mem.h	/^#define KERNEL_EXEC_FLAGS /;"	d	language:C++
+KERNEL_PGD_INDEX	include/mm.h	/^#define KERNEL_PGD_INDEX /;"	d	language:C++
 KERNEL_VIRT_OFFSET	include/mm.h	/^#define KERNEL_VIRT_OFFSET /;"	d	language:C++
 LASTCHAR	src/drivers/video/fontData.c	/^#define LASTCHAR	/;"	d	language:C	file:
 LAST_TASK	include/sched.h	/^#define LAST_TASK /;"	d	language:C++
@@ -245,6 +252,7 @@ MATTR_NORMAL_NC	src/mem/mem.c	/^#define MATTR_NORMAL_NC /;"	d	language:C	file:
 MATTR_NORMAL_NC_INDEX	src/mem/mem.c	/^#define MATTR_NORMAL_NC_INDEX /;"	d	language:C	file:
 MAX_DEVS	src/drivers/shared/io.c	/^#define MAX_DEVS /;"	d	language:C	file:
 MAX_DEVS	src/kernel/kernel.c	/^#define MAX_DEVS /;"	d	language:C	file:
+MAX_PROCESS_PAGES	include/sched.h	/^#define MAX_PROCESS_PAGES	/;"	d	language:C++
 MB	src/drivers/video/video.c	/^#define MB /;"	d	language:C	file:
 MBX	src/drivers/mailbox/mailbox.c	/^mailbox_regs *MBX() {$/;"	f	language:C	typeref:typename:mailbox_regs *	signature:()
 MMU_DEVICE_FLAGS	include/mmu.h	/^#define MMU_DEVICE_FLAGS	/;"	d	language:C++
@@ -271,7 +279,17 @@ PAGING_MEMORY	include/mm.h	/^#define PAGING_MEMORY /;"	d	language:C++
 PAGING_PAGES	include/mm.h	/^#define PAGING_PAGES /;"	d	language:C++
 PBASE	include/peripherals/base.h	/^#define PBASE /;"	d	language:C++
 PF_KTHREAD	include/sched.h	/^#define PF_KTHREAD	/;"	d	language:C++
+PF_KTHREAD	src/kernel/fork.c	/^#define PF_KTHREAD	/;"	d	language:C	file:
+PF_KTHREAD	src/kernel/kernel.c	/^#define PF_KTHREAD	/;"	d	language:C	file:
+PGD_SHIFT	include/mm.h	/^#define PGD_SHIFT	/;"	d	language:C++
+PGD_SHIFT	src/boot/boot.S	/^#define PGD_SHIFT	/;"	d	language:CPreProcessor	file:
 PGD_SHIFT	src/mem/mem.c	/^#define PGD_SHIFT /;"	d	language:C	file:
+PG_DIR_SIZE	include/mm.h	/^#define PG_DIR_SIZE	/;"	d	language:C++
+PG_DIR_SIZE	src/boot/boot.S	/^#define PG_DIR_SIZE	/;"	d	language:CPreProcessor	file:
+PHYS_MEMORY_SIZE	include/mm.h	/^#define PHYS_MEMORY_SIZE /;"	d	language:C++
+PHYS_MEMORY_SIZE	src/boot/boot.S	/^#define PHYS_MEMORY_SIZE /;"	d	language:CPreProcessor	file:
+PMD_SHIFT	include/mm.h	/^#define PMD_SHIFT	/;"	d	language:C++
+PMD_SHIFT	src/boot/boot.S	/^#define PMD_SHIFT	/;"	d	language:CPreProcessor	file:
 PMD_SHIFT	src/mem/mem.c	/^#define PMD_SHIFT /;"	d	language:C	file:
 PSR_MODE_EL0t	include/fork.h	/^#define PSR_MODE_EL0t	/;"	d	language:C++
 PSR_MODE_EL1h	include/fork.h	/^#define PSR_MODE_EL1h	/;"	d	language:C++
@@ -297,8 +315,15 @@ PTE_TYPE_PAGE	include/mem.h	/^#define PTE_TYPE_PAGE /;"	d	language:C++
 PTE_TYPE_TABLE	include/mem.h	/^#define PTE_TYPE_TABLE /;"	d	language:C++
 PTE_USER	include/mem.h	/^#define PTE_USER /;"	d	language:C++
 PTE_USER_RW_FLAGS	include/mem.h	/^#define PTE_USER_RW_FLAGS /;"	d	language:C++
+PTE_UXN	include/mem.h	/^#define PTE_UXN /;"	d	language:C++
 PTE_VALID	include/mem.h	/^#define PTE_VALID /;"	d	language:C++
+PTE_WRITE	include/mem.h	/^#define PTE_WRITE /;"	d	language:C++
+PTRS_PER_PGD	include/mm.h	/^#define PTRS_PER_PGD /;"	d	language:C++
+PTRS_PER_TABLE	include/mm.h	/^#define PTRS_PER_TABLE	/;"	d	language:C++
+PTRS_PER_TABLE	src/boot/boot.S	/^#define PTRS_PER_TABLE	/;"	d	language:CPreProcessor	file:
 PUD_ENTRY_MAP_SIZE	src/mem/mem.c	/^#define PUD_ENTRY_MAP_SIZE /;"	d	language:C	file:
+PUD_SHIFT	include/mm.h	/^#define PUD_SHIFT	/;"	d	language:C++
+PUD_SHIFT	src/boot/boot.S	/^#define PUD_SHIFT	/;"	d	language:CPreProcessor	file:
 PUD_SHIFT	src/mem/mem.c	/^#define PUD_SHIFT /;"	d	language:C	file:
 REGS_AUX	include/peripherals/aux.h	/^#define REGS_AUX /;"	d	language:C++
 REGS_DMA	include/peripherals/dma.h	/^#define REGS_DMA(/;"	d	language:C++	signature:(channel)
@@ -576,10 +601,14 @@ TXD	src/drivers/muart/mini_uart.c	/^#define TXD /;"	d	language:C	file:
 USER_STACK_BASE	include/mem.h	/^#define USER_STACK_BASE /;"	d	language:C++
 USER_STACK_SIZE	include/mem.h	/^#define USER_STACK_SIZE /;"	d	language:C++
 USER_STACK_TOP	include/mem.h	/^#define USER_STACK_TOP /;"	d	language:C++
+VA_BITS	include/mm.h	/^#define VA_BITS /;"	d	language:C++
+VA_START	include/mm.h	/^#define VA_START /;"	d	language:C++
+VA_START	src/boot/boot.S	/^#define VA_START /;"	d	language:CPreProcessor	file:
 _FORK_H	include/fork.h	/^#define _FORK_H$/;"	d	language:C++
 _GpioFunc	include/gpio.h	/^typedef enum _GpioFunc {$/;"	g	language:C++
 _SCHED_H	include/sched.h	/^#define _SCHED_H$/;"	d	language:C++
 _SYS_H	include/sys.h	/^#define	_SYS_H$/;"	d	language:C++
+_USER_H	include/user.h	/^#define	_USER_H$/;"	d	language:C++
 __NR_syscalls	include/sys.h	/^#define __NR_syscalls	/;"	d	language:C++
 __TFP_PRINTF__	include/printf.h	/^#define __TFP_PRINTF__$/;"	d	language:C++
 __anon2d99b2820108	src/drivers/mailbox/mailbox.c	/^typedef struct {$/;"	s	language:C	file:
@@ -612,6 +641,7 @@ __anond90cef580308	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C
 __anond90cef580408	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
 __anond90cef580508	src/drivers/video/video.c	/^typedef struct {$/;"	s	language:C	file:
 __anond90cef580608	src/drivers/video/video.c	/^typedef struct  {$/;"	s	language:C	file:
+__create_page_tables	src/boot/boot.S	/^__create_page_tables:$/;"	l	language:Asm
 __pa	include/mem.h	/^#define __pa(/;"	d	language:C++	signature:(x)
 __pa	include/mm.h	/^#define __pa(/;"	d	language:C++	signature:(x)
 __pgd	include/mem.h	/^#define __pgd(/;"	d	language:C++	signature:(x)
@@ -634,7 +664,9 @@ a2i	src/misc/printf.c	/^static char a2i(char ch, char** src,int base,int* nump)$
 all	Makefile	/^all : kernel8.img$/;"	t	language:Make
 alloc_page	src/mem/mem.c	/^void* alloc_page() {$/;"	f	language:C	typeref:typename:void *	signature:()
 allocate_channel	src/dma/dma.c	/^static u16 allocate_channel(u32 channel) {$/;"	f	language:C	typeref:typename:u16	file:	signature:(u32 channel)
+allocate_kernel_page	src/mem/mem.c	/^unsigned long allocate_kernel_page() {$/;"	f	language:C	typeref:typename:unsigned long	signature:()
 allocate_memory	src/mem/mem.c	/^void *allocate_memory(int bytes) {$/;"	f	language:C	typeref:typename:void *	signature:(int bytes)
+allocate_user_page	src/mem/mem.c	/^unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {$/;"	f	language:C	typeref:typename:unsigned long	signature:(struct task_struct * task,unsigned long va,int prot)
 arg1	include/peripherals/emmc.h	/^    reg32 arg1;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
 arg2	include/peripherals/emmc.h	/^    reg32 arg2;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
 arm_irq_regs	include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2711 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2711
@@ -659,6 +691,7 @@ bootCode	src/kernel/kernel.c	/^    u8 bootCode[0x1BE];$/;"	m	language:C	struct:P
 bootSignature	src/kernel/kernel.c	/^    u16 bootSignature;$/;"	m	language:C	struct:PACKED	typeref:typename:u16	file:
 boot_timeout	include/peripherals/emmc.h	/^    reg32 boot_timeout;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
 bpp	src/drivers/video/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__anond90cef580208	typeref:typename:u32	file:
+br	src/boot/boot.S	/^br 	x2$/;"	l	language:Asm
 bss_begin	src/linker.ld	/^    bss_begin = .;$/;"	s	language:LdScript
 bss_end	src/linker.ld	/^    bss_end = .;$/;"	s	language:LdScript
 buff	src/drivers/video/video.c	/^    mailbox_fb_buffer buff;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_buffer	file:
@@ -698,6 +731,7 @@ control	include/peripherals/i2c.h	/^    reg32 control;$/;"	m	language:C++	struct
 control2	include/peripherals/emmc.h	/^    reg32 control2;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
 control_block_addr	include/peripherals/dma.h	/^    u32 control_block_addr;$/;"	m	language:C++	struct:__anon4900576e0208	typeref:typename:u32
 control_status	include/peripherals/timer.h	/^    reg32 control_status;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
+copy_kernel_mappings	src/kernel/fork.c	/^void copy_kernel_mappings(unsigned long pgd) {$/;"	f	language:C	typeref:typename:void	signature:(unsigned long pgd)
 copy_process	src/kernel/fork.c	/^int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long s/;"	f	language:C	typeref:typename:int	signature:(unsigned long clone_flags,unsigned long fn,unsigned long arg,unsigned long stack)
 copy_process_inkernel	src/kernel/fork.c	/^int copy_process_inkernel(unsigned long fn, unsigned long arg)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long fn,unsigned long arg)
 counter	include/sched.h	/^	long counter;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
@@ -707,7 +741,10 @@ cpu_context	include/sched.h	/^	struct cpu_context cpu_context;$/;"	m	language:C+
 cpu_context	include/sched.h	/^struct cpu_context {$/;"	s	language:C++
 cpu_switch_to	src/kernel/schedule.S	/^cpu_switch_to:$/;"	l	language:Asm
 crc_enable	include/peripherals/emmc.h	/^    u8 crc_enable : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+create_block_map	src/boot/boot.S	/^	.macro	create_block_map, tbl, phys, start, end, flags, tmp1$/;"	m	language:Asm
 create_block_map	src/mem/mem.c	/^void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {$/;"	f	language:C	typeref:typename:void	signature:(u64 pmd,u64 vstart,u64 vend,u64 pa)
+create_pgd_entry	src/boot/boot.S	/^.macro	create_pgd_entry, tbl, virt, tmp1, tmp2$/;"	m	language:Asm
+create_table_entry	src/boot/boot.S	/^	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2$/;"	m	language:Asm
 create_table_entry	src/mem/mem.c	/^void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 tbl,u64 next_tbl,u64 va,u64 shift,u64 flags)
 cs	include/peripherals/spi.h	/^    reg32 cs;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
 cur_val_1	src/kernel/timer.c	/^u32 cur_val_1 = 0;$/;"	v	language:C	typeref:typename:u32
@@ -721,7 +758,9 @@ data	include/peripherals/gpio.h	/^    reg32 data[2];$/;"	m	language:C++	struct:G
 data_length	include/peripherals/i2c.h	/^    reg32 data_length;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
 data_length	include/peripherals/spi.h	/^    reg32 data_length;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
 dc	include/peripherals/spi.h	/^    reg32 dc;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+debug	Makefile	/^debug:$/;"	t	language:Make
 debug_config	include/peripherals/emmc.h	/^    reg32 debug_config;$/;"	m	language:C++	struct:__anon6b67dcbe0708	typeref:typename:reg32
+debug_pgd	src/kernel/fork.c	/^void debug_pgd(pgd_t *pgd) {$/;"	f	language:C	typeref:typename:void	signature:(pgd_t * pgd)
 delay	include/peripherals/i2c.h	/^    reg32 delay;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
 delay	src/misc/utils.S	/^delay:$/;"	l	language:Asm
 depth	src/drivers/video/video.c	/^    mailbox_fb_depth depth;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_depth	file:
@@ -744,6 +783,7 @@ do_data_command	src/drivers/emmc/emmc.c	/^bool do_data_command(bool write, u8 *b
 do_data_transfer	src/drivers/emmc/emmc.c	/^static bool do_data_transfer(emmc_cmd cmd) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(emmc_cmd cmd)
 do_dma	src/drivers/video/video.c	/^void do_dma(void *dest, void *src, u32 total) {$/;"	f	language:C	typeref:typename:void	signature:(void * dest,void * src,u32 total)
 do_exit	src/kernel/sched.c	/^void do_exit(int error_code) {$/;"	f	language:C	typeref:typename:void	signature:(int error_code)
+do_mem_abort	src/sys.c	/^int do_mem_abort(unsigned long addr, unsigned long esr) {$/;"	f	language:C	typeref:typename:int	signature:(unsigned long addr,unsigned long esr)
 do_read	src/drivers/emmc/emmc.c	/^int do_read(u8 *b, u32 bsize, u32 block_no) {$/;"	f	language:C	typeref:typename:int	signature:(u8 * b,u32 bsize,u32 block_no)
 el0_da	src/boot/entry.S	/^el0_da:$/;"	l	language:Asm
 el0_irq	src/boot/entry.S	/^el0_irq:$/;"	l	language:Asm
@@ -805,7 +845,9 @@ func_select	include/peripherals/gpio.h	/^    reg32 func_select[6];$/;"	m	languag
 get32	src/misc/utils.S	/^get32:$/;"	l	language:Asm
 get_clock_divider	src/drivers/emmc/emmc_clock.c	/^u32 get_clock_divider(u32 base_clock, u32 target_rate) {$/;"	f	language:C	typeref:typename:u32	signature:(u32 base_clock,u32 target_rate)
 get_el	src/misc/utils.S	/^get_el:$/;"	l	language:Asm
+get_free_page	src/mem/mem.c	/^unsigned long get_free_page()$/;"	f	language:C	typeref:typename:unsigned long	signature:()
 get_free_pages	src/mem/mem.c	/^void *get_free_pages(int num_pages) {$/;"	f	language:C	typeref:typename:void *	signature:(int num_pages)
+get_pgd	src/misc/utils.S	/^get_pgd:$/;"	l	language:Asm
 gpio_pin_enable	src/drivers/gpio/gpio.c	/^void gpio_pin_enable(u8 pinNumber) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber)
 gpio_pin_set_func	src/drivers/gpio/gpio.c	/^void gpio_pin_set_func(u8 pinNumber, GpioFunc func) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber,GpioFunc func)
 handle_data_abort	src/sys.c	/^void handle_data_abort(u64 addr, u64 esr) {$/;"	f	language:C	typeref:typename:void	signature:(u64 addr,u64 esr)
@@ -830,6 +872,7 @@ id	include/mailbox.h	/^    u32 id;$/;"	m	language:C++	struct:__anon89d52dda0508	
 id_pgd	src/linker.ld	/^    id_pgd = .;$/;"	s	language:LdScript
 id_pgd_addr	src/boot/boot.S	/^id_pgd_addr:$/;"	l	language:Asm
 idx_enable	include/peripherals/emmc.h	/^    u8 idx_enable : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
+ind	src/sys.c	/^static int ind = 1;$/;"	v	language:C	typeref:typename:int	file:
 index	include/peripherals/emmc.h	/^    u8 index : 6;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:6
 init_mmu	src/mem/mem.c	/^void init_mmu() {$/;"	f	language:C	typeref:typename:void	signature:()
 init_printf	src/misc/printf.c	/^void init_printf(void* putp, io_device *dev) {$/;"	f	language:C	typeref:typename:void	signature:(void * putp,io_device * dev)
@@ -867,12 +910,15 @@ irq_invalid_el0_32	src/boot/entry.S	/^irq_invalid_el0_32:$/;"	l	language:Asm
 irq_invalid_el0_64	src/boot/entry.S	/^irq_invalid_el0_64:$/;"	l	language:Asm
 irq_invalid_el1t	src/boot/entry.S	/^irq_invalid_el1t:$/;"	l	language:Asm
 irq_status	include/peripherals/aux.h	/^    reg32 irq_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+is_aligned	src/kernel/fork.c	/^static inline bool is_aligned(unsigned long addr, unsigned long align)$/;"	f	language:C	typeref:typename:bool	file:	signature:(unsigned long addr,unsigned long align)
 is_data	include/peripherals/emmc.h	/^    u8 is_data : 1;$/;"	m	language:C++	struct:__anon6b67dcbe0108	typeref:typename:u8:1
 kernel8.img	Makefile	/^kernel8.img: $(SRC_DIR)\/linker.ld $(OBJ_FILES)$/;"	t	language:Make
 kernel_entry	src/boot/entry.S	/^.macro kernel_entry, el$/;"	m	language:Asm
 kernel_entry32	armstub/src/armstub.S	/^kernel_entry32:$/;"	l	language:Asm
 kernel_exit	src/boot/entry.S	/^.macro kernel_exit ,el$/;"	m	language:Asm
 kernel_main	src/kernel/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
+kernel_pages	include/sched.h	/^	unsigned long kernel_pages[MAX_PROCESS_PAGES];$/;"	m	language:C++	struct:mm_struct	typeref:typename:unsigned long[]
+kernel_pages_count	include/sched.h	/^	int kernel_pages_count;$/;"	m	language:C++	struct:mm_struct	typeref:typename:int
 kernel_process	src/kernel/kernel.c	/^void kernel_process(){$/;"	f	language:C	typeref:typename:void	signature:()
 last_command	include/peripherals/emmc.h	/^    emmc_cmd last_command;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:emmc_cmd
 last_command_value	include/peripherals/emmc.h	/^    reg32 last_command_value;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:reg32
@@ -886,6 +932,7 @@ lcd_command	src/drivers/i2c/lcd.c	/^void lcd_command(u8 command) {$/;"	f	languag
 lcd_init	src/drivers/i2c/lcd.c	/^void lcd_init(u8 address) {$/;"	f	language:C	typeref:typename:void	signature:(u8 address)
 lcd_print	src/drivers/i2c/lcd.c	/^void lcd_print(char *s) {$/;"	f	language:C	typeref:typename:void	signature:(char * s)
 lcd_send	src/drivers/i2c/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;"	f	language:C	typeref:typename:void	signature:(u8 data,u8 mode)
+ldr	src/boot/boot.S	/^ldr	x2, =kernel_main$/;"	l	language:Asm
 led_display_clear	src/drivers/spi/led_display.c	/^void led_display_clear() {$/;"	f	language:C	typeref:typename:void	signature:()
 led_display_init	src/drivers/spi/led_display.c	/^void led_display_init() {$/;"	f	language:C	typeref:typename:void	signature:()
 led_display_intensity	src/drivers/spi/led_display.c	/^void led_display_intensity(u8 value) {$/;"	f	language:C	typeref:typename:void	signature:(u8 value)
@@ -915,15 +962,18 @@ mailbox_regs	src/drivers/mailbox/mailbox.c	/^} mailbox_regs;$/;"	t	language:C	ty
 mailbox_set_palette	src/drivers/video/video.c	/^} mailbox_set_palette;$/;"	t	language:C	typeref:struct:__anond90cef580608	file:
 mailbox_tag	include/mailbox.h	/^} mailbox_tag;$/;"	t	language:C++	typeref:struct:__anon89d52dda0108
 mailbox_write	src/drivers/mailbox/mailbox.c	/^static void mailbox_write(u8 channel, u32 data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u8 channel,u32 data)
-map_kernel_text	src/mem/mem.c	/^void map_kernel_text() {$/;"	f	language:C	typeref:typename:void	signature:()
-map_user_page	src/mem/mem.c	/^void map_user_page(u64 task_pgd,u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 task_pgd,u64 va,u64 pa,u64 flags)
+map_page	src/mem/mem.c	/^void map_page(struct task_struct *task, unsigned long va, unsigned long page){$/;"	f	language:C	typeref:typename:void	signature:(struct task_struct * task,unsigned long va,unsigned long page)
+map_table	src/mem/mem.c	/^unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_ta/;"	f	language:C	typeref:typename:unsigned long	signature:(unsigned long * table,unsigned long shift,unsigned long va,int * new_table)
+map_table_entry	src/mem/mem.c	/^void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {$/;"	f	language:C	typeref:typename:void	signature:(unsigned long * pte,unsigned long va,unsigned long pa)
 master	src/boot/boot.S	/^master:$/;"	l	language:Asm
 master_boot_record	src/kernel/kernel.c	/^} master_boot_record;$/;"	t	language:C	typeref:struct:PACKED	file:
 mem_map	src/mem/mem.c	/^static u16 mem_map [ PAGING_PAGES ] = {0,};$/;"	v	language:C	typeref:typename:u16[]	file:
 memcpy	src/mem/mem.c	/^void *memcpy(void *dest, const void *src, u32 n) {$/;"	f	language:C	typeref:typename:void *	signature:(void * dest,const void * src,u32 n)
 memzero	src/mem/mm.S	/^memzero:$/;"	l	language:Asm
+mm	include/sched.h	/^	struct mm_struct mm;$/;"	m	language:C++	struct:task_struct	typeref:struct:mm_struct
+mm_struct	include/sched.h	/^struct mm_struct {$/;"	s	language:C++
 mode_2d_stride	include/peripherals/dma.h	/^    u32 mode_2d_stride;$/;"	m	language:C++	struct:__anon4900576e0108	typeref:typename:u32
-move_to_user_mode	src/kernel/fork.c	/^int move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
+move_to_user_mode	src/kernel/fork.c	/^int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long start,unsigned long size,unsigned long pc)
 mu_baud_rate	include/peripherals/aux.h	/^    reg32 mu_baud_rate;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 mu_control	include/peripherals/aux.h	/^    reg32 mu_control;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 mu_ier	include/peripherals/aux.h	/^    reg32 mu_ier;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
@@ -948,10 +998,6 @@ num_sectors	src/kernel/kernel.c	/^    u32 num_sectors;$/;"	m	language:C	struct:P
 ocr	include/peripherals/emmc.h	/^    u16 ocr;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u16
 offset	include/peripherals/emmc.h	/^    u64 offset;$/;"	m	language:C++	struct:__anon6b67dcbe0608	typeref:typename:u64
 offset	src/drivers/video/video.c	/^    u32 offset;$/;"	m	language:C	struct:__anond90cef580608	typeref:typename:u32	file:
-old3_map_user_page	src/mem/mem.c	/^void old3_map_user_page(u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
-old4_map_user_page	src/mem/mem.c	/^void old4_map_user_page(u64 va, u64 pa, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
-old_map_user_page	src/mem/mem.c	/^void old_map_user_page(u64 va, u64 pa, u64 flags)$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
-old_move_to_user_mode	src/kernel/fork.c	/^int old_move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
 open	include/io.h	/^    bool (*open)(struct _io_device *, void *);$/;"	m	language:C++	struct:_io_device	typeref:typename:bool (*)(struct _io_device *,void *)
 output_clear	include/peripherals/gpio.h	/^    struct GpioPinData output_clear;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
 output_set	include/peripherals/gpio.h	/^    struct GpioPinData output_set;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
@@ -959,10 +1005,12 @@ partition_entry	src/kernel/kernel.c	/^} partition_entry ;$/;"	t	language:C	typer
 partitions	src/kernel/kernel.c	/^    partition_entry partitions[4];$/;"	m	language:C	struct:PACKED	typeref:typename:partition_entry[4]	file:
 pc	include/fork.h	/^	unsigned long pc;$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long
 pc	include/sched.h	/^	unsigned long pc;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
+pg_dir	src/linker.ld	/^   pg_dir = .;$/;"	s	language:LdScript
 pgd	include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	m	language:C++	struct:__anona5b88f0d0408	typeref:typename:pteval_t
-pgd	include/sched.h	/^	u64* pgd;  \/\/ 自定义页表指针$/;"	m	language:C++	struct:task_struct	typeref:typename:u64 *
+pgd	include/sched.h	/^	unsigned long pgd;$/;"	m	language:C++	struct:mm_struct	typeref:typename:unsigned long
 pgd_t	include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	t	language:C++	typeref:struct:__anona5b88f0d0408
 pgd_val	include/mem.h	/^#define pgd_val(/;"	d	language:C++	signature:(x)
+phys_addr	include/sched.h	/^	unsigned long phys_addr;$/;"	m	language:C++	struct:user_page	typeref:typename:unsigned long
 pitch	src/drivers/video/video.c	/^    mailbox_fb_pitch pitch;$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_pitch	file:
 pitch	src/drivers/video/video.c	/^    u32 pitch;$/;"	m	language:C	struct:__anond90cef580308	typeref:typename:u32	file:
 pmd	include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	m	language:C++	struct:__anona5b88f0d0208	typeref:typename:pteval_t
@@ -1030,6 +1078,7 @@ ret_to_user	src/boot/entry.S	/^ret_to_user:$/;"	l	language:Asm
 ret_to_user_error	src/boot/entry.S	/^ret_to_user_error:$/;"	l	language:Asm
 rpi_firmware_property_status	include/mailbox.h	/^enum rpi_firmware_property_status {$/;"	g	language:C++
 rpi_firmware_property_tag	include/mailbox.h	/^enum rpi_firmware_property_tag {$/;"	g	language:C++
+run	Makefile	/^run:$/;"	t	language:Make
 sc_nr	src/boot/entry.S	/^sc_nr	.req	x25					\/\/ number of system calls$/;"	l	language:Asm
 schedule	src/kernel/sched.c	/^void schedule(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
 schedule_tail	src/kernel/sched.c	/^void schedule_tail(void) {$/;"	f	language:C	typeref:typename:void	signature:(void)
@@ -1045,6 +1094,7 @@ sector	src/kernel/kernel.c	/^    u8 sector : 6;$/;"	m	language:C	struct:PACKED	t
 seek	include/io.h	/^    void (*seek)(struct _io_device *, u64);$/;"	m	language:C++	struct:_io_device	typeref:typename:void (*)(struct _io_device *,u64)
 select_card	src/drivers/emmc/emmc.c	/^static bool select_card() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
 set_last_error	src/drivers/emmc/emmc.c	/^static void set_last_error(u32 intr_val) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u32 intr_val)
+set_pgd	src/misc/utils.S	/^set_pgd:$/;"	l	language:Asm
 set_scr	src/drivers/emmc/emmc.c	/^static bool set_scr() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
 show_invalid_entry_message	src/kernel/irq.c	/^void show_invalid_entry_message(u32 type, u64 esr, u64 address) {$/;"	f	language:C	typeref:typename:void	signature:(u32 type,u64 esr,u64 address)
 size	include/mailbox.h	/^    u32 size;$/;"	m	language:C++	struct:__anon89d52dda0208	typeref:typename:u32
@@ -1075,6 +1125,7 @@ str_eq	src/misc/utils.c	/^bool str_eq(char *a, char *b) {$/;"	f	language:C	typer
 strcat	src/misc/utils.c	/^int strcat(char *dst, char *src) {$/;"	f	language:C	typeref:typename:int	signature:(char * dst,char * src)
 strcpy	src/misc/utils.c	/^int strcpy(char *dst, char *src) {$/;"	f	language:C	typeref:typename:int	signature:(char * dst,char * src)
 strlen	src/misc/utils.c	/^int strlen(char *s) {$/;"	f	language:C	typeref:typename:int	signature:(char * s)
+strr	src/boot/entry.S	/^	strr:   .string  "in return user"/;"	l	language:Asm
 stub_magic	armstub/src/armstub.S	/^stub_magic:$/;"	l	language:Asm
 stub_version	armstub/src/armstub.S	/^stub_version:$/;"	l	language:Asm
 switch_clock_rate	src/drivers/emmc/emmc_clock.c	/^bool switch_clock_rate(u32 base_clock, u32 target_rate) {$/;"	f	language:C	typeref:typename:bool	signature:(u32 base_clock,u32 target_rate)
@@ -1133,6 +1184,11 @@ ui2a	src/misc/printf.c	/^static void ui2a(unsigned int num, unsigned int base, i
 uli2a	src/misc/printf.c	/^static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long int num,unsigned int base,int uc,char * bf)
 ulli2a	src/misc/printf.c	/^static void ulli2a(unsigned long long num, unsigned int base, int uppercase, char *bf) {$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long long num,unsigned int base,int uppercase,char * bf)
 use_dma	src/drivers/video/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
+user_begin	src/linker.ld	/^    user_begin = .;$/;"	s	language:LdScript
+user_end	src/linker.ld	/^	user_end = .;$/;"	s	language:LdScript
+user_page	include/sched.h	/^struct user_page {$/;"	s	language:C++
+user_pages	include/sched.h	/^	struct user_page user_pages[MAX_PROCESS_PAGES];$/;"	m	language:C++	struct:mm_struct	typeref:struct:user_page[]
+user_pages_count	include/sched.h	/^	int user_pages_count;$/;"	m	language:C++	struct:mm_struct	typeref:typename:int
 user_process	src/kernel/kernel.c	/^void user_process(){$/;"	f	language:C	typeref:typename:void	signature:()
 value	include/mailbox.h	/^    u32 value;$/;"	m	language:C++	struct:__anon89d52dda0308	typeref:typename:u32
 value_length	include/mailbox.h	/^    u32 value_length;$/;"	m	language:C++	struct:__anon89d52dda0108	typeref:typename:u32
@@ -1148,6 +1204,7 @@ video_draw_string	src/drivers/video/video.c	/^void video_draw_string(char *s, u3
 video_init	src/drivers/video/video.c	/^void video_init() {$/;"	f	language:C	typeref:typename:void	signature:()
 video_set_dma	src/drivers/video/video.c	/^void video_set_dma(bool b) {$/;"	f	language:C	typeref:typename:void	signature:(bool b)
 video_set_resolution	src/drivers/video/video.c	/^void video_set_resolution(u32 xres, u32 yres, u32 bpp) {$/;"	f	language:C	typeref:typename:void	signature:(u32 xres,u32 yres,u32 bpp)
+virt_addr	include/sched.h	/^	unsigned long virt_addr;$/;"	m	language:C++	struct:user_page	typeref:typename:unsigned long
 vres	src/drivers/video/video.c	/^    mailbox_fb_size vres; \/\/virtual resolution..$/;"	m	language:C	struct:__anond90cef580508	typeref:typename:mailbox_fb_size	file:
 wait_reg_mask	src/drivers/emmc/emmc.c	/^bool wait_reg_mask(reg32 *reg, u32 mask, bool set, u32 timeout) {$/;"	f	language:C	typeref:typename:bool	signature:(reg32 * reg,u32 mask,bool set,u32 timeout)
 width	src/drivers/video/fontData.c	/^static const unsigned width       = 8;$/;"	v	language:C	typeref:typename:const unsigned	file:

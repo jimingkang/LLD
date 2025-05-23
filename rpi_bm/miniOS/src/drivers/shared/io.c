@@ -1,7 +1,6 @@
 #include <io.h>
 
 #define MAX_DEVS 10
-
 extern io_device *devices[MAX_DEVS] ;
 bool io_device_register(io_device *dev) {
     for (int i=0; i<MAX_DEVS; i++) {

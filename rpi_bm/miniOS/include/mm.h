@@ -13,8 +13,8 @@
 #define PAGING_PAGES 			(PAGING_MEMORY/PAGE_SIZE)
 
 #define BLOCK_SIZE 0x40000000
-//#define KERNEL_VIRT_OFFSET 0xFFFF000000000000UL  // 高地址映射
-#define KERNEL_VIRT_OFFSET 0x0UL
+#define KERNEL_VIRT_OFFSET 0xFFFF000000000000UL  // 高地址映射
+//#define KERNEL_VIRT_OFFSET 0x0UL
 #define ENTRIES_PER_TABLE 512
 
 #define __pa(x)    ((u64)(x) - KERNEL_VIRT_OFFSET)  // 假设你内核高映射
@@ -23,7 +23,28 @@
 #define PAGE_MASK  (~(PAGE_SIZE - 1))
 #ifndef __ASSEMBLER__
 
-void memzero(unsigned long src, unsigned int n);
+void memzero(unsigned long src, unsigned long n);
+//void memcpy(unsigned long dst, unsigned long src, unsigned long n);
+//user vir mem
+
+#define PTRS_PER_PGD      512  // PGD 条目总数
+#define VA_BITS           48   // 虚拟地址位数
+// 内核空间起始索引（高位地址）
+#define KERNEL_PGD_INDEX  (PTRS_PER_PGD / 2)  // 通常为 256
+
+#define PHYS_MEMORY_SIZE 		0x40000000	
+#define VA_START 			KERNEL_VIRT_OFFSET
+#define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
+
+#define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
+#define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
+#define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+
+#define PG_DIR_SIZE			(3 * PAGE_SIZE)
+
+
+unsigned long get_free_page();
+void free_page(unsigned long p);
 
 
 #endif

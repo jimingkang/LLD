@@ -50,7 +50,7 @@ void handle_user_page_fault(u64 addr, u64 esr) {
         if (!phys_page) printf("Out of memory");
         
         // 2. 映射到用户页表（使用进程的 pgd）
-        map_user_page(current->pgd, addr & PAGE_MASK, phys_page, PTE_USER_RW_FLAGS);
+       // map_user_page(current->pgd, addr & PAGE_MASK, phys_page, PTE_USER_RW_FLAGS);
         
         // 3. 刷新 TLB
         flush_tlb(addr);
@@ -62,4 +62,23 @@ void handle_user_page_fault(u64 addr, u64 esr) {
     asm volatile("tlbi vale1is, %0" : : "r" (va >> 12));  // 使指定 VA 的 TLB 条目失效
     asm volatile("dsb ish");  // 数据同步屏障，确保 TLB 操作完成
     asm volatile("isb");      // 指令同步屏障，确保后续指令看到更改
+}
+
+static int ind = 1;
+
+int do_mem_abort(unsigned long addr, unsigned long esr) {
+	unsigned long dfs = (esr & 0b111111);
+	if ((dfs & 0b111100) == 0b100) {
+		unsigned long page = get_free_page();
+		if (page == 0) {
+			return -1;
+		}
+		map_page(current, addr & PAGE_MASK, page);
+		ind++;
+		if (ind > 2){
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
 }

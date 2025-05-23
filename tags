@@ -102,6 +102,7 @@ $(TARGET)	linux_os/part9/src/printargs/Makefile	/^$(TARGET): $(OBJECTS)$/;"	t	la
 .bss	rpi_bm/miniBoot/part8/src/linker.ld	/^    .bss : { *(.bss*) }$/;"	S	language:LdScript
 .bss	rpi_bm/miniBoot/part9/src/linker.ld	/^    .bss : { *(.bss*) }$/;"	S	language:LdScript
 .bss	rpi_bm/miniOS/src/linker.ld	/^    .bss : { *(.bss*) }$/;"	S	language:LdScript
+.bss.user	rpi_bm/miniOS/src/linker.ld	/^	.bss.user : { build\/user* (.bss) }$/;"	S	language:LdScript
 .data	rpi_bm/miniBoot/part1-5/src/linker.ld	/^    .data : { *(.data) }$/;"	S	language:LdScript
 .data	rpi_bm/miniBoot/part10/src/linker.ld	/^    .data : { *(.data) }$/;"	S	language:LdScript
 .data	rpi_bm/miniBoot/part11/src/linker.ld	/^    .data : { *(.data) }$/;"	S	language:LdScript
@@ -118,6 +119,8 @@ $(TARGET)	linux_os/part9/src/printargs/Makefile	/^$(TARGET): $(OBJECTS)$/;"	t	la
 .data.id_pgd	rpi_bm/miniBoot/part16/src/linker.ld	/^    .data.id_pgd : { . += (6 * (1 << 12)); }$/;"	S	language:LdScript
 .data.id_pgd	rpi_bm/miniBoot/part17/src/linker.ld	/^    .data.id_pgd : { . += (6 * (1 << 12)); }$/;"	S	language:LdScript
 .data.id_pgd	rpi_bm/miniOS/src/linker.ld	/^    .data.id_pgd : { . += (6 * (1 << 12)); }$/;"	S	language:LdScript
+.data.pgd	rpi_bm/miniOS/src/linker.ld	/^	.data.pgd : { . += (3 * (1 << 12)); }$/;"	S	language:LdScript
+.data.user	rpi_bm/miniOS/src/linker.ld	/^	.data.user : { build\/user* (.data) }$/;"	S	language:LdScript
 .rodata	rpi_bm/miniBoot/part1-5/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
 .rodata	rpi_bm/miniBoot/part10/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
 .rodata	rpi_bm/miniBoot/part11/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
@@ -131,6 +134,7 @@ $(TARGET)	linux_os/part9/src/printargs/Makefile	/^$(TARGET): $(OBJECTS)$/;"	t	la
 .rodata	rpi_bm/miniBoot/part8/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
 .rodata	rpi_bm/miniBoot/part9/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
 .rodata	rpi_bm/miniOS/src/linker.ld	/^    .rodata : { *(.rodata) }$/;"	S	language:LdScript
+.rodata.user	rpi_bm/miniOS/src/linker.ld	/^	.rodata.user : { build\/user* (.rodata) }$/;"	S	language:LdScript
 .text	rpi_bm/miniBoot/part1-5/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
 .text	rpi_bm/miniBoot/part10/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
 .text	rpi_bm/miniBoot/part11/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
@@ -143,7 +147,7 @@ $(TARGET)	linux_os/part9/src/printargs/Makefile	/^$(TARGET): $(OBJECTS)$/;"	t	la
 .text	rpi_bm/miniBoot/part6-7/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
 .text	rpi_bm/miniBoot/part8/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
 .text	rpi_bm/miniBoot/part9/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
-.text	rpi_bm/miniOS/src/linker.ld	/^    .text : { *(.text) }$/;"	S	language:LdScript
+.text	rpi_bm/miniOS/src/linker.ld	/^  .text : {$/;"	S	language:LdScript
 .text.boot	rpi_bm/miniBoot/part1-5/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
 .text.boot	rpi_bm/miniBoot/part10/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
 .text.boot	rpi_bm/miniBoot/part11/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
@@ -157,6 +161,19 @@ $(TARGET)	linux_os/part9/src/printargs/Makefile	/^$(TARGET): $(OBJECTS)$/;"	t	la
 .text.boot	rpi_bm/miniBoot/part8/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
 .text.boot	rpi_bm/miniBoot/part9/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
 .text.boot	rpi_bm/miniOS/src/linker.ld	/^    .text.boot : { *(.text.boot) }$/;"	S	language:LdScript
+.text.user	rpi_bm/miniOS/src/linker.ld	/^	.text.user : { build\/user* (.text) }$/;"	S	language:LdScript
+0	.vscode/launch.json	/^        {$/;"	o	language:JSON	array:configurations.0.customLaunchSetupCommands
+0	.vscode/launch.json	/^    {$/;"	o	language:JSON	array:configurations
+0	.vscode/task.json	/^        "-M", "raspi3",$/;"	s	language:JSON	array:tasks.0.args
+0	.vscode/task.json	/^    {$/;"	o	language:JSON	array:tasks
+1	.vscode/launch.json	/^        {$/;"	o	language:JSON	array:configurations.0.customLaunchSetupCommands
+1	.vscode/task.json	/^        "-M", "raspi3",$/;"	s	language:JSON	array:tasks.0.args
+2	.vscode/task.json	/^        "-kernel", "\/home\/rlk\/Downloads\/LLD\/rpi_bm\/miniOS\/build\/kernel8.elf",$/;"	s	language:JSON	array:tasks.0.args
+3	.vscode/task.json	/^        "-kernel", "\/home\/rlk\/Downloads\/LLD\/rpi_bm\/miniOS\/build\/kernel8.elf",$/;"	s	language:JSON	array:tasks.0.args
+4	.vscode/task.json	/^        "-serial", "stdio",$/;"	s	language:JSON	array:tasks.0.args
+5	.vscode/task.json	/^        "-serial", "stdio",$/;"	s	language:JSON	array:tasks.0.args
+6	.vscode/task.json	/^        "-s", "-S"$/;"	s	language:JSON	array:tasks.0.args
+7	.vscode/task.json	/^        "-s", "-S"$/;"	s	language:JSON	array:tasks.0.args
 ADDR_TO_2BYTES	pico/6502_part1/test.c	/^#define ADDR_TO_2BYTES(/;"	d	language:C	file:	signature:(a)
 ARMGNU	rpi_bm/miniBoot/part1-5/Makefile	/^ARMGNU ?= aarch64-linux-gnu$/;"	m	language:Make
 ARMGNU	rpi_bm/miniBoot/part10/Makefile	/^ARMGNU ?= aarch64-linux-gnu$/;"	m	language:Make
@@ -283,7 +300,7 @@ BINDIR	linux_os/part9/src/mylib/Makefile	/^BINDIR = $(PREFIX)\/lib$/;"	m	languag
 BINDIR	linux_os/part9/src/printargs/Makefile	/^BINDIR = $(PREFIX)\/bin$/;"	m	language:Make
 BLOCK_SIZE	rpi_bm/miniBoot/part16/src/mem.c	/^#define BLOCK_SIZE /;"	d	language:C	file:
 BLOCK_SIZE	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define BLOCK_SIZE /;"	d	language:C	file:
-BLOCK_SIZE	rpi_bm/miniOS/src/mem/mem.c	/^#define BLOCK_SIZE /;"	d	language:C	file:
+BLOCK_SIZE	rpi_bm/miniOS/include/mm.h	/^#define BLOCK_SIZE /;"	d	language:C++
 BOOTMNT	rpi_bm/miniBoot/part1-5/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part10/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part11/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
@@ -293,7 +310,7 @@ BOOTMNT	rpi_bm/miniBoot/part14/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;
 BOOTMNT	rpi_bm/miniBoot/part15/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part16/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part17/Makefile	/^BOOTMNT ?= \/media\/rlk\/bootfs$/;"	m	language:Make
-BOOTMNT	rpi_bm/miniBoot/part6-7/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
+BOOTMNT	rpi_bm/miniBoot/part6-7/Makefile	/^BOOTMNT ?= \/media\/rlk\/bootfs$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part8/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniBoot/part9/Makefile	/^BOOTMNT ?= \/media\/parallels\/boot$/;"	m	language:Make
 BOOTMNT	rpi_bm/miniOS/Makefile	/^BOOTMNT ?= \/media\/rlk\/bootfs$/;"	m	language:Make
@@ -357,10 +374,10 @@ COPS	rpi_bm/miniBoot/part14/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall
 COPS	rpi_bm/miniBoot/part15/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \\$/;"	m	language:Make
 COPS	rpi_bm/miniBoot/part16/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -nostdlib -nostartfiles -ffrees/;"	m	language:Make
 COPS	rpi_bm/miniBoot/part17/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfi/;"	m	language:Make
-COPS	rpi_bm/miniBoot/part6-7/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \\$/;"	m	language:Make
+COPS	rpi_bm/miniBoot/part6-7/Makefile	/^COPS = -O0 -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \\$/;"	m	language:Make
 COPS	rpi_bm/miniBoot/part8/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \\$/;"	m	language:Make
 COPS	rpi_bm/miniBoot/part9/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \\$/;"	m	language:Make
-COPS	rpi_bm/miniOS/Makefile	/^COPS = -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfi/;"	m	language:Make
+COPS	rpi_bm/miniOS/Makefile	/^COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -n/;"	m	language:Make
 CORE_CLOCK_SPEED	rpi_bm/miniBoot/part10/include/peripherals/base.h	/^#define CORE_CLOCK_SPEED /;"	d	language:C++
 CORE_CLOCK_SPEED	rpi_bm/miniBoot/part11/include/peripherals/base.h	/^#define CORE_CLOCK_SPEED /;"	d	language:C++
 CORE_CLOCK_SPEED	rpi_bm/miniBoot/part12/include/peripherals/base.h	/^#define CORE_CLOCK_SPEED /;"	d	language:C++
@@ -798,6 +815,7 @@ DESTDIR	linux_os/part6/src/base.mk	/^DESTDIR ?= \/mnt\/myos$/;"	m	language:Make
 DESTDIR	linux_os/part7/src/base.mk	/^DESTDIR ?= \/mnt\/myos$/;"	m	language:Make
 DESTDIR	linux_os/part8/src/base.mk	/^DESTDIR ?= \/mnt\/myos$/;"	m	language:Make
 DESTDIR	linux_os/part9/src/base.mk	/^DESTDIR ?= \/mnt\/myos$/;"	m	language:Make
+DEVICE_BASE	rpi_bm/miniOS/src/boot/boot.S	/^#define DEVICE_BASE /;"	d	language:CPreProcessor	file:
 DEVICE_START	rpi_bm/miniBoot/part16/include/peripherals/base.h	/^#define DEVICE_START /;"	d	language:C++
 DEVICE_START	rpi_bm/miniBoot/part17/include/peripherals/base.h	/^#define DEVICE_START /;"	d	language:C++
 DEVICE_START	rpi_bm/miniOS/include/peripherals/base.h	/^#define DEVICE_START /;"	d	language:C++
@@ -857,6 +875,7 @@ EMMC_STATUS_DAT_INHIBIT	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^#def
 EMMC_STATUS_DAT_INHIBIT	rpi_bm/miniOS/include/peripherals/emmc.h	/^#define EMMC_STATUS_DAT_INHIBIT /;"	d	language:C++
 ENTRIES_PER_TABLE	rpi_bm/miniBoot/part16/src/mem.c	/^#define ENTRIES_PER_TABLE /;"	d	language:C	file:
 ENTRIES_PER_TABLE	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define ENTRIES_PER_TABLE /;"	d	language:C	file:
+ENTRIES_PER_TABLE	rpi_bm/miniOS/include/mm.h	/^#define ENTRIES_PER_TABLE /;"	d	language:C++
 ENTRIES_PER_TABLE	rpi_bm/miniOS/src/mem/mem.c	/^#define ENTRIES_PER_TABLE /;"	d	language:C	file:
 ERROR_INVALID_EL0_32	rpi_bm/miniBoot/part10/include/entry.h	/^#define ERROR_INVALID_EL0_32	/;"	d	language:C++
 ERROR_INVALID_EL0_32	rpi_bm/miniBoot/part11/include/entry.h	/^#define ERROR_INVALID_EL0_32	/;"	d	language:C++
@@ -1369,6 +1388,9 @@ IRQ_INVALID_EL1t	rpi_bm/miniBoot/part17/include/entry.h	/^#define IRQ_INVALID_EL
 IRQ_INVALID_EL1t	rpi_bm/miniBoot/part8/include/entry.h	/^#define IRQ_INVALID_EL1t	/;"	d	language:C++
 IRQ_INVALID_EL1t	rpi_bm/miniBoot/part9/include/entry.h	/^#define IRQ_INVALID_EL1t	/;"	d	language:C++
 IRQ_INVALID_EL1t	rpi_bm/miniOS/include/entry.h	/^#define IRQ_INVALID_EL1t	/;"	d	language:C++
+KERNEL_EXEC_FLAGS	rpi_bm/miniOS/include/mem.h	/^#define KERNEL_EXEC_FLAGS /;"	d	language:C++
+KERNEL_PGD_INDEX	rpi_bm/miniOS/include/mm.h	/^#define KERNEL_PGD_INDEX /;"	d	language:C++
+KERNEL_VIRT_OFFSET	rpi_bm/miniOS/include/mm.h	/^#define KERNEL_VIRT_OFFSET /;"	d	language:C++
 LASTCHAR	rpi_bm/miniBoot/part14/src/fontData.c	/^#define LASTCHAR	/;"	d	language:C	file:
 LASTCHAR	rpi_bm/miniBoot/part15/src/fontData.c	/^#define LASTCHAR	/;"	d	language:C	file:
 LASTCHAR	rpi_bm/miniBoot/part16/src/fontData.c	/^#define LASTCHAR	/;"	d	language:C	file:
@@ -1855,6 +1877,8 @@ MATTR_NORMAL_NC_INDEX	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define MATTR_NORMA
 MATTR_NORMAL_NC_INDEX	rpi_bm/miniOS/src/mem/mem.c	/^#define MATTR_NORMAL_NC_INDEX /;"	d	language:C	file:
 MAX_DEVS	rpi_bm/miniBoot/part17/src/drivers/shared/io.c	/^#define MAX_DEVS /;"	d	language:C	file:
 MAX_DEVS	rpi_bm/miniOS/src/drivers/shared/io.c	/^#define MAX_DEVS /;"	d	language:C	file:
+MAX_DEVS	rpi_bm/miniOS/src/kernel/kernel.c	/^#define MAX_DEVS /;"	d	language:C	file:
+MAX_PROCESS_PAGES	rpi_bm/miniOS/include/sched.h	/^#define MAX_PROCESS_PAGES	/;"	d	language:C++
 MB	rpi_bm/miniBoot/part15/src/video.c	/^#define MB /;"	d	language:C	file:
 MB	rpi_bm/miniBoot/part16/src/video.c	/^#define MB /;"	d	language:C	file:
 MB	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^#define MB /;"	d	language:C	file:
@@ -1866,6 +1890,7 @@ MBX	rpi_bm/miniBoot/part16/src/mailbox.c	/^mailbox_regs *MBX() {$/;"	f	language:
 MBX	rpi_bm/miniBoot/part17/src/drivers/mailbox/mailbox.c	/^mailbox_regs *MBX() {$/;"	f	language:C	typeref:typename:mailbox_regs *	signature:()
 MBX	rpi_bm/miniOS/src/drivers/mailbox/mailbox.c	/^mailbox_regs *MBX() {$/;"	f	language:C	typeref:typename:mailbox_regs *	signature:()
 MEM	pico/6502_part1/test.c	/^static unsigned char MEM[] = {0, 0, 0, 0, 0, 0, 0, 0};$/;"	v	language:C	typeref:typename:unsigned char[]	file:
+MIMode	.vscode/launch.json	/^      "MIMode": "gdb",$/;"	s	language:JSON	object:configurations.0
 MMAP_THRESHOLD	linux_os/part10/src/mylib/mem.c	/^static const int MMAP_THRESHOLD = 128 * 1024;$/;"	v	language:C	typeref:typename:const int	file:
 MMAP_THRESHOLD	linux_os/part6/src/mylib/mem.c	/^static const int MMAP_THRESHOLD = 128 * 1024;$/;"	v	language:C	typeref:typename:const int	file:
 MMAP_THRESHOLD	linux_os/part7/src/mylib/mem.c	/^static const int MMAP_THRESHOLD = 128 * 1024;$/;"	v	language:C	typeref:typename:const int	file:
@@ -2031,9 +2056,17 @@ PBASE	rpi_bm/miniBoot/part8/include/peripherals/base.h	/^#define PBASE /;"	d	lan
 PBASE	rpi_bm/miniBoot/part9/include/peripherals/base.h	/^#define PBASE /;"	d	language:C++
 PBASE	rpi_bm/miniOS/include/peripherals/base.h	/^#define PBASE /;"	d	language:C++
 PF_KTHREAD	rpi_bm/miniOS/include/sched.h	/^#define PF_KTHREAD	/;"	d	language:C++
+PF_KTHREAD	rpi_bm/miniOS/src/kernel/fork.c	/^#define PF_KTHREAD	/;"	d	language:C	file:
+PF_KTHREAD	rpi_bm/miniOS/src/kernel/kernel.c	/^#define PF_KTHREAD	/;"	d	language:C	file:
 PGD_SHIFT	rpi_bm/miniBoot/part16/src/mem.c	/^#define PGD_SHIFT /;"	d	language:C	file:
 PGD_SHIFT	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define PGD_SHIFT /;"	d	language:C	file:
+PGD_SHIFT	rpi_bm/miniOS/include/mm.h	/^#define PGD_SHIFT	/;"	d	language:C++
+PGD_SHIFT	rpi_bm/miniOS/src/boot/boot.S	/^#define PGD_SHIFT	/;"	d	language:CPreProcessor	file:
 PGD_SHIFT	rpi_bm/miniOS/src/mem/mem.c	/^#define PGD_SHIFT /;"	d	language:C	file:
+PG_DIR_SIZE	rpi_bm/miniOS/include/mm.h	/^#define PG_DIR_SIZE	/;"	d	language:C++
+PG_DIR_SIZE	rpi_bm/miniOS/src/boot/boot.S	/^#define PG_DIR_SIZE	/;"	d	language:CPreProcessor	file:
+PHYS_MEMORY_SIZE	rpi_bm/miniOS/include/mm.h	/^#define PHYS_MEMORY_SIZE /;"	d	language:C++
+PHYS_MEMORY_SIZE	rpi_bm/miniOS/src/boot/boot.S	/^#define PHYS_MEMORY_SIZE /;"	d	language:CPreProcessor	file:
 PICO_SDK_FETCH_FROM_GIT	pico/6502_part1/pico_sdk_import.cmake	/^    set(PICO_SDK_FETCH_FROM_GIT $ENV{PICO_SDK_FETCH_FROM_GIT})$/;"	v	language:CMake
 PICO_SDK_FETCH_FROM_GIT	pico/6502_part1/pico_sdk_import.cmake	/^set(PICO_SDK_FETCH_FROM_GIT "${PICO_SDK_FETCH_FROM_GIT}" CACHE BOOL "Set to ON to fetch copy of /;"	v	language:CMake
 PICO_SDK_FETCH_FROM_GIT_PATH	pico/6502_part1/pico_sdk_import.cmake	/^    set(PICO_SDK_FETCH_FROM_GIT_PATH $ENV{PICO_SDK_FETCH_FROM_GIT_PATH})$/;"	v	language:CMake
@@ -2045,6 +2078,8 @@ PICO_SDK_PATH	pico/6502_part1/pico_sdk_import.cmake	/^set(PICO_SDK_PATH "${PICO_
 PICO_SDK_PATH	pico/6502_part1/pico_sdk_import.cmake	/^set(PICO_SDK_PATH ${PICO_SDK_PATH} CACHE PATH "Path to the Raspberry Pi Pico SDK" FORCE)$/;"	v	language:CMake
 PMD_SHIFT	rpi_bm/miniBoot/part16/src/mem.c	/^#define PMD_SHIFT /;"	d	language:C	file:
 PMD_SHIFT	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define PMD_SHIFT /;"	d	language:C	file:
+PMD_SHIFT	rpi_bm/miniOS/include/mm.h	/^#define PMD_SHIFT	/;"	d	language:C++
+PMD_SHIFT	rpi_bm/miniOS/src/boot/boot.S	/^#define PMD_SHIFT	/;"	d	language:CPreProcessor	file:
 PMD_SHIFT	rpi_bm/miniOS/src/mem/mem.c	/^#define PMD_SHIFT /;"	d	language:C	file:
 PREFIX	linux_os/part10/src/base.mk	/^PREFIX ?= $(DESTDIR)$/;"	m	language:Make
 PREFIX	linux_os/part2/src/base.mk	/^PREFIX ?= $(DESTDIR)$/;"	m	language:Make
@@ -2075,6 +2110,7 @@ PTE_BLOCK	rpi_bm/miniOS/include/mem.h	/^#define PTE_BLOCK /;"	d	language:C++
 PTE_NG	rpi_bm/miniOS/include/mem.h	/^#define PTE_NG /;"	d	language:C++
 PTE_PAGE	rpi_bm/miniOS/include/mem.h	/^#define PTE_PAGE /;"	d	language:C++
 PTE_RDONLY	rpi_bm/miniOS/include/mem.h	/^#define PTE_RDONLY /;"	d	language:C++
+PTE_RW	rpi_bm/miniOS/include/mem.h	/^#define PTE_RW /;"	d	language:C++
 PTE_SHARED	rpi_bm/miniOS/include/mem.h	/^#define PTE_SHARED /;"	d	language:C++
 PTE_SH_INNER	rpi_bm/miniOS/include/mem.h	/^#define PTE_SH_INNER /;"	d	language:C++
 PTE_SH_NONE	rpi_bm/miniOS/include/mem.h	/^#define PTE_SH_NONE /;"	d	language:C++
@@ -2085,12 +2121,19 @@ PTE_TYPE_PAGE	rpi_bm/miniOS/include/mem.h	/^#define PTE_TYPE_PAGE /;"	d	language
 PTE_TYPE_TABLE	rpi_bm/miniOS/include/mem.h	/^#define PTE_TYPE_TABLE /;"	d	language:C++
 PTE_USER	rpi_bm/miniOS/include/mem.h	/^#define PTE_USER /;"	d	language:C++
 PTE_USER_RW_FLAGS	rpi_bm/miniOS/include/mem.h	/^#define PTE_USER_RW_FLAGS /;"	d	language:C++
+PTE_UXN	rpi_bm/miniOS/include/mem.h	/^#define PTE_UXN /;"	d	language:C++
 PTE_VALID	rpi_bm/miniOS/include/mem.h	/^#define PTE_VALID /;"	d	language:C++
+PTE_WRITE	rpi_bm/miniOS/include/mem.h	/^#define PTE_WRITE /;"	d	language:C++
+PTRS_PER_PGD	rpi_bm/miniOS/include/mm.h	/^#define PTRS_PER_PGD /;"	d	language:C++
+PTRS_PER_TABLE	rpi_bm/miniOS/include/mm.h	/^#define PTRS_PER_TABLE	/;"	d	language:C++
+PTRS_PER_TABLE	rpi_bm/miniOS/src/boot/boot.S	/^#define PTRS_PER_TABLE	/;"	d	language:CPreProcessor	file:
 PUD_ENTRY_MAP_SIZE	rpi_bm/miniBoot/part16/src/mem.c	/^#define PUD_ENTRY_MAP_SIZE /;"	d	language:C	file:
 PUD_ENTRY_MAP_SIZE	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define PUD_ENTRY_MAP_SIZE /;"	d	language:C	file:
 PUD_ENTRY_MAP_SIZE	rpi_bm/miniOS/src/mem/mem.c	/^#define PUD_ENTRY_MAP_SIZE /;"	d	language:C	file:
 PUD_SHIFT	rpi_bm/miniBoot/part16/src/mem.c	/^#define PUD_SHIFT /;"	d	language:C	file:
 PUD_SHIFT	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define PUD_SHIFT /;"	d	language:C	file:
+PUD_SHIFT	rpi_bm/miniOS/include/mm.h	/^#define PUD_SHIFT	/;"	d	language:C++
+PUD_SHIFT	rpi_bm/miniOS/src/boot/boot.S	/^#define PUD_SHIFT	/;"	d	language:CPreProcessor	file:
 PUD_SHIFT	rpi_bm/miniOS/src/mem/mem.c	/^#define PUD_SHIFT /;"	d	language:C	file:
 P_AS_U32	linux_os/part10/src/mylib/mem.c	/^#define P_AS_U32(/;"	d	language:C	file:	signature:(p)
 P_AS_U32	linux_os/part6/src/mylib/mem.c	/^#define P_AS_U32(/;"	d	language:C	file:	signature:(p)
@@ -2872,7 +2915,7 @@ RPI_VERSION	rpi_bm/miniBoot/part14/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Ma
 RPI_VERSION	rpi_bm/miniBoot/part15/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Make
 RPI_VERSION	rpi_bm/miniBoot/part16/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Make
 RPI_VERSION	rpi_bm/miniBoot/part17/Makefile	/^RPI_VERSION ?= 3$/;"	m	language:Make
-RPI_VERSION	rpi_bm/miniBoot/part6-7/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Make
+RPI_VERSION	rpi_bm/miniBoot/part6-7/Makefile	/^RPI_VERSION ?= 3$/;"	m	language:Make
 RPI_VERSION	rpi_bm/miniBoot/part8/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Make
 RPI_VERSION	rpi_bm/miniBoot/part9/Makefile	/^RPI_VERSION ?= 4$/;"	m	language:Make
 RPI_VERSION	rpi_bm/miniOS/Makefile	/^RPI_VERSION ?= 3$/;"	m	language:Make
@@ -3526,6 +3569,7 @@ TCR_VALUE	rpi_bm/miniBoot/part17/include/mmu.h	/^#define TCR_VALUE	/;"	d	languag
 TCR_VALUE	rpi_bm/miniOS/include/mmu.h	/^#define TCR_VALUE	/;"	d	language:C++
 TD_ACCESS	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_ACCESS /;"	d	language:C	file:
 TD_ACCESS	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_ACCESS /;"	d	language:C	file:
+TD_ACCESS	rpi_bm/miniOS/include/mem.h	/^#define TD_ACCESS /;"	d	language:C++
 TD_ACCESS	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_ACCESS /;"	d	language:C	file:
 TD_BLOCK	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_BLOCK /;"	d	language:C	file:
 TD_BLOCK	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_BLOCK /;"	d	language:C	file:
@@ -3535,21 +3579,26 @@ TD_DEVICE_BLOCK_FLAGS	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_DEVICE_B
 TD_DEVICE_BLOCK_FLAGS	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_DEVICE_BLOCK_FLAGS /;"	d	language:C	file:
 TD_INNER_SHARABLE	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_INNER_SHARABLE /;"	d	language:C	file:
 TD_INNER_SHARABLE	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_INNER_SHARABLE /;"	d	language:C	file:
+TD_INNER_SHARABLE	rpi_bm/miniOS/include/mem.h	/^#define TD_INNER_SHARABLE /;"	d	language:C++
 TD_INNER_SHARABLE	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_INNER_SHARABLE /;"	d	language:C	file:
 TD_KERNEL_BLOCK_FLAGS	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_KERNEL_BLOCK_FLAGS /;"	d	language:C	file:
 TD_KERNEL_BLOCK_FLAGS	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_KERNEL_BLOCK_FLAGS /;"	d	language:C	file:
 TD_KERNEL_BLOCK_FLAGS	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_KERNEL_BLOCK_FLAGS /;"	d	language:C	file:
 TD_KERNEL_PERMS	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_KERNEL_PERMS /;"	d	language:C	file:
 TD_KERNEL_PERMS	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_KERNEL_PERMS /;"	d	language:C	file:
+TD_KERNEL_PERMS	rpi_bm/miniOS/include/mem.h	/^#define TD_KERNEL_PERMS /;"	d	language:C++
 TD_KERNEL_PERMS	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_KERNEL_PERMS /;"	d	language:C	file:
 TD_KERNEL_TABLE_FLAGS	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C	file:
 TD_KERNEL_TABLE_FLAGS	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C	file:
+TD_KERNEL_TABLE_FLAGS	rpi_bm/miniOS/include/mem.h	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C++
 TD_KERNEL_TABLE_FLAGS	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_KERNEL_TABLE_FLAGS /;"	d	language:C	file:
 TD_TABLE	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_TABLE /;"	d	language:C	file:
 TD_TABLE	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_TABLE /;"	d	language:C	file:
+TD_TABLE	rpi_bm/miniOS/include/mem.h	/^#define TD_TABLE /;"	d	language:C++
 TD_TABLE	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_TABLE /;"	d	language:C	file:
 TD_VALID	rpi_bm/miniBoot/part16/src/mem.c	/^#define TD_VALID /;"	d	language:C	file:
 TD_VALID	rpi_bm/miniBoot/part17/src/mem/mem.c	/^#define TD_VALID /;"	d	language:C	file:
+TD_VALID	rpi_bm/miniOS/include/mem.h	/^#define TD_VALID /;"	d	language:C++
 TD_VALID	rpi_bm/miniOS/src/mem/mem.c	/^#define TD_VALID /;"	d	language:C	file:
 TEXT_COLOR	rpi_bm/miniBoot/part14/src/video.c	/^#define TEXT_COLOR /;"	d	language:C	file:
 TEXT_COLOR	rpi_bm/miniBoot/part15/src/video.c	/^#define TEXT_COLOR /;"	d	language:C	file:
@@ -3557,6 +3606,7 @@ TEXT_COLOR	rpi_bm/miniBoot/part16/src/video.c	/^#define TEXT_COLOR /;"	d	languag
 TEXT_COLOR	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^#define TEXT_COLOR /;"	d	language:C	file:
 TEXT_COLOR	rpi_bm/miniOS/src/drivers/video/video.c	/^#define TEXT_COLOR /;"	d	language:C	file:
 THREAD_CPU_CONTEXT	rpi_bm/miniOS/include/sched.h	/^#define THREAD_CPU_CONTEXT	/;"	d	language:C++
+THREAD_CPU_CONTEXT	rpi_bm/miniOS/src/kernel/schedule.S	/^#define THREAD_CPU_CONTEXT	/;"	d	language:CPreProcessor	file:
 THREAD_SIZE	rpi_bm/miniOS/include/sched.h	/^#define THREAD_SIZE	/;"	d	language:C++
 TIMER_C0	rpi_bm/miniOS/include/peripherals/timer.h	/^#define TIMER_C0 /;"	d	language:C++
 TIMER_C1	rpi_bm/miniOS/include/peripherals/timer.h	/^#define TIMER_C1 /;"	d	language:C++
@@ -3635,6 +3685,9 @@ TXD	rpi_bm/miniOS/src/drivers/muart/mini_uart.c	/^#define TXD /;"	d	language:C	f
 USER_STACK_BASE	rpi_bm/miniOS/include/mem.h	/^#define USER_STACK_BASE /;"	d	language:C++
 USER_STACK_SIZE	rpi_bm/miniOS/include/mem.h	/^#define USER_STACK_SIZE /;"	d	language:C++
 USER_STACK_TOP	rpi_bm/miniOS/include/mem.h	/^#define USER_STACK_TOP /;"	d	language:C++
+VA_BITS	rpi_bm/miniOS/include/mm.h	/^#define VA_BITS /;"	d	language:C++
+VA_START	rpi_bm/miniOS/include/mm.h	/^#define VA_START /;"	d	language:C++
+VA_START	rpi_bm/miniOS/src/boot/boot.S	/^#define VA_START /;"	d	language:CPreProcessor	file:
 VB_MEM_LOCATION	rpi_bm/miniBoot/part15/src/video.c	/^#define VB_MEM_LOCATION /;"	d	language:C	file:
 VB_MEM_LOCATION	rpi_bm/miniBoot/part16/src/video.c	/^#define VB_MEM_LOCATION /;"	d	language:C	file:
 _FORK_H	rpi_bm/miniOS/include/fork.h	/^#define _FORK_H$/;"	d	language:C++
@@ -3653,6 +3706,7 @@ _GpioFunc	rpi_bm/miniBoot/part9/include/gpio.h	/^typedef enum _GpioFunc {$/;"	g	
 _GpioFunc	rpi_bm/miniOS/include/gpio.h	/^typedef enum _GpioFunc {$/;"	g	language:C++
 _SCHED_H	rpi_bm/miniOS/include/sched.h	/^#define _SCHED_H$/;"	d	language:C++
 _SYS_H	rpi_bm/miniOS/include/sys.h	/^#define	_SYS_H$/;"	d	language:C++
+_USER_H	rpi_bm/miniOS/include/user.h	/^#define	_USER_H$/;"	d	language:C++
 __NR_syscalls	rpi_bm/miniOS/include/sys.h	/^#define __NR_syscalls	/;"	d	language:C++
 __TFP_PRINTF__	linux_os/part10/src/include/printf.h	/^#define __TFP_PRINTF__$/;"	d	language:C++
 __TFP_PRINTF__	linux_os/part4/src/include/printf.h	/^#define __TFP_PRINTF__$/;"	d	language:C++
@@ -3791,14 +3845,20 @@ __anone964b2be0408	rpi_bm/miniBoot/part15/include/mailbox.h	/^typedef struct {$/
 __anone964b2be0508	rpi_bm/miniBoot/part15/include/mailbox.h	/^typedef struct {$/;"	s	language:C++
 __anone964b2be0603	rpi_bm/miniBoot/part15/include/mailbox.h	/^typedef enum {$/;"	g	language:C++
 __anonf3ba905b0103	rpi_bm/miniBoot/part14/include/led_display.h	/^typedef enum {$/;"	g	language:C++
+__create_page_tables	rpi_bm/miniOS/src/boot/boot.S	/^__create_page_tables:$/;"	l	language:Asm
 __errno_location	linux_os/part10/src/mylib/util.c	/^int *__errno_location() {$/;"	f	language:C	typeref:typename:int *	signature:()
 __errno_location	linux_os/part8/src/mylib/util.c	/^int *__errno_location() {$/;"	f	language:C	typeref:typename:int *	signature:()
 __errno_location	linux_os/part9/src/mylib/util.c	/^int *__errno_location() {$/;"	f	language:C	typeref:typename:int *	signature:()
+__pa	rpi_bm/miniOS/include/mem.h	/^#define __pa(/;"	d	language:C++	signature:(x)
+__pa	rpi_bm/miniOS/include/mm.h	/^#define __pa(/;"	d	language:C++	signature:(x)
 __pgd	rpi_bm/miniOS/include/mem.h	/^#define __pgd(/;"	d	language:C++	signature:(x)
 __pmd	rpi_bm/miniOS/include/mem.h	/^#define __pmd(/;"	d	language:C++	signature:(x)
 __pte	rpi_bm/miniOS/include/mem.h	/^#define __pte(/;"	d	language:C++	signature:(x)
 __pud	rpi_bm/miniOS/include/mem.h	/^#define __pud(/;"	d	language:C++	signature:(x)
 __ret_from_kernel_thread	rpi_bm/miniOS/src/kernel/sched.c	/^void __ret_from_kernel_thread(void) {$/;"	f	language:C	typeref:typename:void	signature:(void)
+__text_end	rpi_bm/miniOS/src/linker.ld	/^  __text_end = .;$/;"	s	language:LdScript	section:.text
+__text_start	rpi_bm/miniOS/src/linker.ld	/^  __text_start = .;$/;"	s	language:LdScript	section:.text
+__va	rpi_bm/miniOS/include/mem.h	/^#define __va(/;"	d	language:C++	signature:(x)
 _backlight	rpi_bm/miniBoot/part11/src/lcd.c	/^static u8 _backlight = LCD_BACKLIGHT;$/;"	v	language:C	typeref:typename:u8	file:
 _backlight	rpi_bm/miniBoot/part12/src/lcd.c	/^static u8 _backlight = LCD_BACKLIGHT;$/;"	v	language:C	typeref:typename:u8	file:
 _backlight	rpi_bm/miniBoot/part13/src/lcd.c	/^static u8 _backlight = LCD_BACKLIGHT;$/;"	v	language:C	typeref:typename:u8	file:
@@ -3989,13 +4049,16 @@ allocate_channel	rpi_bm/miniBoot/part15/src/dma.c	/^static u16 allocate_channel(
 allocate_channel	rpi_bm/miniBoot/part16/src/dma.c	/^static u16 allocate_channel(u32 channel) {$/;"	f	language:C	typeref:typename:u16	file:	signature:(u32 channel)
 allocate_channel	rpi_bm/miniBoot/part17/src/dma/dma.c	/^static u16 allocate_channel(u32 channel) {$/;"	f	language:C	typeref:typename:u16	file:	signature:(u32 channel)
 allocate_channel	rpi_bm/miniOS/src/dma/dma.c	/^static u16 allocate_channel(u32 channel) {$/;"	f	language:C	typeref:typename:u16	file:	signature:(u32 channel)
+allocate_kernel_page	rpi_bm/miniOS/src/mem/mem.c	/^unsigned long allocate_kernel_page() {$/;"	f	language:C	typeref:typename:unsigned long	signature:()
 allocate_memory	rpi_bm/miniBoot/part16/src/mem.c	/^void *allocate_memory(int bytes) {$/;"	f	language:C	typeref:typename:void *	signature:(int bytes)
 allocate_memory	rpi_bm/miniBoot/part17/src/mem/mem.c	/^void *allocate_memory(int bytes) {$/;"	f	language:C	typeref:typename:void *	signature:(int bytes)
 allocate_memory	rpi_bm/miniOS/src/mem/mem.c	/^void *allocate_memory(int bytes) {$/;"	f	language:C	typeref:typename:void *	signature:(int bytes)
+allocate_user_page	rpi_bm/miniOS/src/mem/mem.c	/^unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {$/;"	f	language:C	typeref:typename:unsigned long	signature:(struct task_struct * task,unsigned long va,int prot)
 arg1	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 arg1;$/;"	m	language:C++	struct:__anoncd4d20e40708	typeref:typename:reg32
 arg1	rpi_bm/miniOS/include/peripherals/emmc.h	/^    reg32 arg1;$/;"	m	language:C++	struct:__anon21fa8ec40708	typeref:typename:reg32
 arg2	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 arg2;$/;"	m	language:C++	struct:__anoncd4d20e40708	typeref:typename:reg32
 arg2	rpi_bm/miniOS/include/peripherals/emmc.h	/^    reg32 arg2;$/;"	m	language:C++	struct:__anon21fa8ec40708	typeref:typename:reg32
+args	.vscode/task.json	/^      "args": [$/;"	a	language:JSON	object:tasks.0
 arm_irq_regs	rpi_bm/miniBoot/part10/include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2711 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2711
 arm_irq_regs	rpi_bm/miniBoot/part10/include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2837 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2837
 arm_irq_regs	rpi_bm/miniBoot/part11/include/peripherals/irq.h	/^    typedef struct arm_irq_regs_2711 arm_irq_regs;$/;"	t	language:C++	typeref:struct:arm_irq_regs_2711
@@ -4135,6 +4198,7 @@ bpp	rpi_bm/miniBoot/part15/src/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__
 bpp	rpi_bm/miniBoot/part16/src/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__anonb9ffcf090208	typeref:typename:u32	file:
 bpp	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__anon67a746be0208	typeref:typename:u32	file:
 bpp	rpi_bm/miniOS/src/drivers/video/video.c	/^    u32 bpp;$/;"	m	language:C	struct:__anon436e789e0208	typeref:typename:u32	file:
+br	rpi_bm/miniOS/src/boot/boot.S	/^br 	x2$/;"	l	language:Asm
 bss_begin	rpi_bm/miniBoot/part1-5/src/linker.ld	/^    bss_begin = .;$/;"	s	language:LdScript
 bss_begin	rpi_bm/miniBoot/part10/src/linker.ld	/^    bss_begin = .;$/;"	s	language:LdScript
 bss_begin	rpi_bm/miniBoot/part11/src/linker.ld	/^    bss_begin = .;$/;"	s	language:LdScript
@@ -4304,6 +4368,7 @@ code	rpi_bm/miniBoot/part15/src/mailbox.c	/^    u32 code;$/;"	m	language:C	struc
 code	rpi_bm/miniBoot/part16/src/mailbox.c	/^    u32 code;$/;"	m	language:C	struct:__anon4f31271e0208	typeref:typename:u32	file:
 code	rpi_bm/miniBoot/part17/src/drivers/mailbox/mailbox.c	/^    u32 code;$/;"	m	language:C	struct:__anona6bd4ce80208	typeref:typename:u32	file:
 code	rpi_bm/miniOS/src/drivers/mailbox/mailbox.c	/^    u32 code;$/;"	m	language:C	struct:__anon948a6ec80208	typeref:typename:u32	file:
+command	.vscode/task.json	/^      "command": "qemu-system-aarch64",$/;"	s	language:JSON	object:tasks.0
 commands	rpi_bm/miniBoot/part17/src/drivers/emmc/emmc.c	/^static const emmc_cmd commands[] = {$/;"	v	language:C	typeref:typename:const emmc_cmd[]	file:
 commands	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^static const emmc_cmd commands[] = {$/;"	v	language:C	typeref:typename:const emmc_cmd[]	file:
 compare	rpi_bm/miniBoot/part10/include/peripherals/timer.h	/^    reg32 compare[4];$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32[4]
@@ -4322,6 +4387,7 @@ config	rpi_bm/miniBoot/part15/src/mailbox.c	/^    reg32 config;$/;"	m	language:C
 config	rpi_bm/miniBoot/part16/src/mailbox.c	/^    reg32 config;$/;"	m	language:C	struct:__anon4f31271e0108	typeref:typename:reg32	file:
 config	rpi_bm/miniBoot/part17/src/drivers/mailbox/mailbox.c	/^    reg32 config;$/;"	m	language:C	struct:__anona6bd4ce80108	typeref:typename:reg32	file:
 config	rpi_bm/miniOS/src/drivers/mailbox/mailbox.c	/^    reg32 config;$/;"	m	language:C	struct:__anon948a6ec80108	typeref:typename:reg32	file:
+configurations	.vscode/launch.json	/^  "configurations": [$/;"	a	language:JSON
 conlog	ooc/log_console.c	/^logger conlog = {$/;"	v	language:C	typeref:typename:logger
 console_close	ooc/log_console.c	/^void console_close(logger *self) {$/;"	f	language:C	typeref:typename:void	signature:(logger * self)
 console_error	ooc/log_console.c	/^void console_error(logger *self, char *str) {$/;"	f	language:C	typeref:typename:void	signature:(logger * self,char * str)
@@ -4391,6 +4457,7 @@ control_status	rpi_bm/miniBoot/part16/include/peripherals/timer.h	/^    reg32 co
 control_status	rpi_bm/miniBoot/part17/include/peripherals/timer.h	/^    reg32 control_status;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
 control_status	rpi_bm/miniBoot/part9/include/peripherals/timer.h	/^    reg32 control_status;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
 control_status	rpi_bm/miniOS/include/peripherals/timer.h	/^    reg32 control_status;$/;"	m	language:C++	struct:timer_regs	typeref:typename:reg32
+copy_kernel_mappings	rpi_bm/miniOS/src/kernel/fork.c	/^void copy_kernel_mappings(unsigned long pgd) {$/;"	f	language:C	typeref:typename:void	signature:(unsigned long pgd)
 copy_process	rpi_bm/miniOS/src/kernel/fork.c	/^int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long s/;"	f	language:C	typeref:typename:int	signature:(unsigned long clone_flags,unsigned long fn,unsigned long arg,unsigned long stack)
 copy_process_inkernel	rpi_bm/miniOS/src/kernel/fork.c	/^int copy_process_inkernel(unsigned long fn, unsigned long arg)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long fn,unsigned long arg)
 counter	rpi_bm/miniOS/include/sched.h	/^	long counter;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
@@ -4421,10 +4488,13 @@ crc_enable	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u8 crc_enable
 crc_enable	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u8 crc_enable : 1;$/;"	m	language:C++	struct:__anon21fa8ec40108	typeref:typename:u8:1
 create_block_map	rpi_bm/miniBoot/part16/src/mem.c	/^void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {$/;"	f	language:C	typeref:typename:void	signature:(u64 pmd,u64 vstart,u64 vend,u64 pa)
 create_block_map	rpi_bm/miniBoot/part17/src/mem/mem.c	/^void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {$/;"	f	language:C	typeref:typename:void	signature:(u64 pmd,u64 vstart,u64 vend,u64 pa)
+create_block_map	rpi_bm/miniOS/src/boot/boot.S	/^	.macro	create_block_map, tbl, phys, start, end, flags, tmp1$/;"	m	language:Asm
 create_block_map	rpi_bm/miniOS/src/mem/mem.c	/^void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {$/;"	f	language:C	typeref:typename:void	signature:(u64 pmd,u64 vstart,u64 vend,u64 pa)
 create_framebuffer	linux_os/part10/src/drmlist/drmlist.c	/^bool create_framebuffer(int fd, struct mydrm_buf *buf) {$/;"	f	language:C	typeref:typename:bool	signature:(int fd,struct mydrm_buf * buf)
+create_pgd_entry	rpi_bm/miniOS/src/boot/boot.S	/^.macro	create_pgd_entry, tbl, virt, tmp1, tmp2$/;"	m	language:Asm
 create_table_entry	rpi_bm/miniBoot/part16/src/mem.c	/^void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 tbl,u64 next_tbl,u64 va,u64 shift,u64 flags)
 create_table_entry	rpi_bm/miniBoot/part17/src/mem/mem.c	/^void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 tbl,u64 next_tbl,u64 va,u64 shift,u64 flags)
+create_table_entry	rpi_bm/miniOS/src/boot/boot.S	/^	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2$/;"	m	language:Asm
 create_table_entry	rpi_bm/miniOS/src/mem/mem.c	/^void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {$/;"	f	language:C	typeref:typename:void	signature:(u64 tbl,u64 next_tbl,u64 va,u64 shift,u64 flags)
 crt_id	linux_os/part10/src/drmlist/drmlist.c	/^    uint32_t crt_id;$/;"	m	language:C	struct:mydrm_data	typeref:typename:uint32_t	file:
 cs	rpi_bm/miniBoot/part12/include/peripherals/spi.h	/^    reg32 cs;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
@@ -4460,6 +4530,7 @@ cur_val_3	rpi_bm/miniOS/src/kernel/timer.c	/^u32 cur_val_3 = 0;$/;"	v	language:C
 current	rpi_bm/miniOS/src/kernel/sched.c	/^struct task_struct *current = &(init_task);$/;"	v	language:C	typeref:struct:task_struct *
 cursor_color	linux_os/part10/src/drmlist/drmlist.c	/^uint32_t cursor_color = 0xFF0000FF;$/;"	v	language:C	typeref:typename:uint32_t
 cursor_size	linux_os/part10/src/drmlist/drmlist.c	/^int cursor_size = 20;$/;"	v	language:C	typeref:typename:int
+customLaunchSetupCommands	.vscode/launch.json	/^      "customLaunchSetupCommands": [$/;"	a	language:JSON	object:configurations.0
 cylinder_hi	rpi_bm/miniBoot/part17/src/kernel/kernel.c	/^    u8 cylinder_hi : 2;$/;"	m	language:C	struct:PACKED	typeref:typename:u8:2	file:
 cylinder_hi	rpi_bm/miniOS/src/kernel/kernel.c	/^    u8 cylinder_hi : 2;$/;"	m	language:C	struct:PACKED	typeref:typename:u8:2	file:
 cylinder_lo	rpi_bm/miniBoot/part17/src/kernel/kernel.c	/^    u8 cylinder_lo;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
@@ -4507,8 +4578,10 @@ dc	rpi_bm/miniBoot/part15/include/peripherals/spi.h	/^    reg32 dc;$/;"	m	langua
 dc	rpi_bm/miniBoot/part16/include/peripherals/spi.h	/^    reg32 dc;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
 dc	rpi_bm/miniBoot/part17/include/peripherals/spi.h	/^    reg32 dc;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
 dc	rpi_bm/miniOS/include/peripherals/spi.h	/^    reg32 dc;$/;"	m	language:C++	struct:Spi0Regs	typeref:typename:reg32
+debug	rpi_bm/miniOS/Makefile	/^debug:$/;"	t	language:Make
 debug_config	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 debug_config;$/;"	m	language:C++	struct:__anoncd4d20e40708	typeref:typename:reg32
 debug_config	rpi_bm/miniOS/include/peripherals/emmc.h	/^    reg32 debug_config;$/;"	m	language:C++	struct:__anon21fa8ec40708	typeref:typename:reg32
+debug_pgd	rpi_bm/miniOS/src/kernel/fork.c	/^void debug_pgd(pgd_t *pgd) {$/;"	f	language:C	typeref:typename:void	signature:(pgd_t * pgd)
 delay	linux_os/part1/src/init.c	/^void delay(int ticks) {$/;"	f	language:C	typeref:typename:void	signature:(int ticks)
 delay	linux_os/part10/src/mylib/util.c	/^void delay(int ticks) {$/;"	f	language:C	typeref:typename:void	signature:(int ticks)
 delay	linux_os/part2/src/mylib/util.c	/^void delay(int ticks) {$/;"	f	language:C	typeref:typename:void	signature:(int ticks)
@@ -4553,7 +4626,7 @@ dest_addr	rpi_bm/miniOS/include/peripherals/dma.h	/^    u32 dest_addr;$/;"	m	lan
 device	rpi_bm/miniBoot/part17/src/drivers/emmc/emmc.c	/^static emmc_device device = {0};$/;"	v	language:C	typeref:typename:emmc_device	file:
 device	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^static emmc_device device = {0};$/;"	v	language:C	typeref:typename:emmc_device	file:
 devices	rpi_bm/miniBoot/part17/src/drivers/shared/io.c	/^static io_device *devices[MAX_DEVS] = {0};$/;"	v	language:C	typeref:typename:io_device * []	file:
-devices	rpi_bm/miniOS/src/drivers/shared/io.c	/^static io_device *devices[MAX_DEVS] = {0};$/;"	v	language:C	typeref:typename:io_device * []	file:
+devices	rpi_bm/miniOS/src/kernel/kernel.c	/^io_device *devices[MAX_DEVS] = {0};$/;"	v	language:C	typeref:typename:io_device * []
 direction	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u8 direction : 1;$/;"	m	language:C++	struct:__anoncd4d20e40108	typeref:typename:u8:1
 direction	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u8 direction : 1;$/;"	m	language:C++	struct:__anon21fa8ec40108	typeref:typename:u8:1
 div	rpi_bm/miniBoot/part10/include/peripherals/i2c.h	/^    reg32 div;$/;"	m	language:C++	struct:I2CRegs	typeref:typename:reg32
@@ -4614,10 +4687,12 @@ do_dma	rpi_bm/miniBoot/part16/src/video.c	/^void do_dma(void *dest, void *src, u
 do_dma	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^void do_dma(void *dest, void *src, u32 total) {$/;"	f	language:C	typeref:typename:void	signature:(void * dest,void * src,u32 total)
 do_dma	rpi_bm/miniOS/src/drivers/video/video.c	/^void do_dma(void *dest, void *src, u32 total) {$/;"	f	language:C	typeref:typename:void	signature:(void * dest,void * src,u32 total)
 do_exit	rpi_bm/miniOS/src/kernel/sched.c	/^void do_exit(int error_code) {$/;"	f	language:C	typeref:typename:void	signature:(int error_code)
+do_mem_abort	rpi_bm/miniOS/src/sys.c	/^int do_mem_abort(unsigned long addr, unsigned long esr) {$/;"	f	language:C	typeref:typename:int	signature:(unsigned long addr,unsigned long esr)
 do_read	rpi_bm/miniBoot/part17/src/drivers/emmc/emmc.c	/^int do_read(u8 *b, u32 bsize, u32 block_no) {$/;"	f	language:C	typeref:typename:int	signature:(u8 * b,u32 bsize,u32 block_no)
 do_read	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^int do_read(u8 *b, u32 bsize, u32 block_no) {$/;"	f	language:C	typeref:typename:int	signature:(u8 * b,u32 bsize,u32 block_no)
 do_something	ooc/main.c	/^void do_something(logger *log) {$/;"	f	language:C	typeref:typename:void	signature:(logger * log)
 draw_data	linux_os/part10/src/drmlist/drmlist.c	/^static void draw_data(int fd, struct mydrm_data *data) {$/;"	f	language:C	typeref:typename:void	file:	signature:(int fd,struct mydrm_data * data)
+el0_da	rpi_bm/miniOS/src/boot/entry.S	/^el0_da:$/;"	l	language:Asm
 el0_irq	rpi_bm/miniOS/src/boot/entry.S	/^el0_irq:$/;"	l	language:Asm
 el0_svc	rpi_bm/miniOS/src/boot/entry.S	/^el0_svc:$/;"	l	language:Asm
 el0_sync	rpi_bm/miniOS/src/boot/entry.S	/^el0_sync:$/;"	l	language:Asm
@@ -4946,6 +5021,7 @@ fix_color	linux_os/part10/src/init/init.c	/^uint32_t fix_color(uint32_t num) {$/
 fix_color	linux_os/part8/src/init/init.c	/^uint32_t fix_color(uint32_t num) {$/;"	f	language:C	typeref:typename:uint32_t	signature:(uint32_t num)
 fix_color	linux_os/part9/src/init/init.c	/^uint32_t fix_color(uint32_t num) {$/;"	f	language:C	typeref:typename:uint32_t	signature:(uint32_t num)
 flags	rpi_bm/miniOS/include/sched.h	/^	unsigned long flags;$/;"	m	language:C++	struct:task_struct	typeref:typename:unsigned long
+flush_tlb	rpi_bm/miniOS/src/sys.c	/^  void flush_tlb(u64 va) {$/;"	f	language:C	typeref:typename:void	signature:(u64 va)
 font_data	rpi_bm/miniBoot/part14/src/fontData.c	/^static const unsigned char font_data[224][16] =$/;"	v	language:C	typeref:typename:const unsigned char[224][16]	file:
 font_data	rpi_bm/miniBoot/part15/src/fontData.c	/^static const unsigned char font_data[224][16] =$/;"	v	language:C	typeref:typename:const unsigned char[224][16]	file:
 font_data	rpi_bm/miniBoot/part16/src/fontData.c	/^static const unsigned char font_data[224][16] =$/;"	v	language:C	typeref:typename:const unsigned char[224][16]	file:
@@ -5020,9 +5096,11 @@ get_el	rpi_bm/miniBoot/part6-7/src/utils.S	/^get_el:$/;"	l	language:Asm
 get_el	rpi_bm/miniBoot/part8/src/utils.S	/^get_el:$/;"	l	language:Asm
 get_el	rpi_bm/miniBoot/part9/src/utils.S	/^get_el:$/;"	l	language:Asm
 get_el	rpi_bm/miniOS/src/misc/utils.S	/^get_el:$/;"	l	language:Asm
+get_free_page	rpi_bm/miniOS/src/mem/mem.c	/^unsigned long get_free_page()$/;"	f	language:C	typeref:typename:unsigned long	signature:()
 get_free_pages	rpi_bm/miniBoot/part16/src/mem.c	/^void *get_free_pages(int num_pages) {$/;"	f	language:C	typeref:typename:void *	signature:(int num_pages)
 get_free_pages	rpi_bm/miniBoot/part17/src/mem/mem.c	/^void *get_free_pages(int num_pages) {$/;"	f	language:C	typeref:typename:void *	signature:(int num_pages)
 get_free_pages	rpi_bm/miniOS/src/mem/mem.c	/^void *get_free_pages(int num_pages) {$/;"	f	language:C	typeref:typename:void *	signature:(int num_pages)
+get_pgd	rpi_bm/miniOS/src/misc/utils.S	/^get_pgd:$/;"	l	language:Asm
 gpio_pin_enable	rpi_bm/miniBoot/part1-5/src/gpio.c	/^void gpio_pin_enable(u8 pinNumber) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber)
 gpio_pin_enable	rpi_bm/miniBoot/part10/src/gpio.c	/^void gpio_pin_enable(u8 pinNumber) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber)
 gpio_pin_enable	rpi_bm/miniBoot/part11/src/gpio.c	/^void gpio_pin_enable(u8 pinNumber) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber)
@@ -5050,6 +5128,7 @@ gpio_pin_set_func	rpi_bm/miniBoot/part8/src/gpio.c	/^void gpio_pin_set_func(u8 p
 gpio_pin_set_func	rpi_bm/miniBoot/part9/src/gpio.c	/^void gpio_pin_set_func(u8 pinNumber, GpioFunc func) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber,GpioFunc func)
 gpio_pin_set_func	rpi_bm/miniOS/src/drivers/gpio/gpio.c	/^void gpio_pin_set_func(u8 pinNumber, GpioFunc func) {$/;"	f	language:C	typeref:typename:void	signature:(u8 pinNumber,GpioFunc func)
 handle	linux_os/part10/src/drmlist/drmlist.c	/^    uint32_t handle;$/;"	m	language:C	struct:mydrm_buf	typeref:typename:uint32_t	file:
+handle_data_abort	rpi_bm/miniOS/src/sys.c	/^void handle_data_abort(u64 addr, u64 esr) {$/;"	f	language:C	typeref:typename:void	signature:(u64 addr,u64 esr)
 handle_el1_irq	rpi_bm/miniBoot/part10/src/entry.S	/^handle_el1_irq:$/;"	l	language:Asm
 handle_el1_irq	rpi_bm/miniBoot/part11/src/entry.S	/^handle_el1_irq:$/;"	l	language:Asm
 handle_el1_irq	rpi_bm/miniBoot/part12/src/entry.S	/^handle_el1_irq:$/;"	l	language:Asm
@@ -5083,7 +5162,7 @@ handle_invalid_entry	rpi_bm/miniBoot/part16/src/entry.S	/^.macro handle_invalid_
 handle_invalid_entry	rpi_bm/miniBoot/part17/src/boot/entry.S	/^.macro handle_invalid_entry type$/;"	m	language:Asm
 handle_invalid_entry	rpi_bm/miniBoot/part8/src/entry.S	/^.macro handle_invalid_entry type$/;"	m	language:Asm
 handle_invalid_entry	rpi_bm/miniBoot/part9/src/entry.S	/^.macro handle_invalid_entry type$/;"	m	language:Asm
-handle_invalid_entry	rpi_bm/miniOS/src/boot/entry.S	/^.macro handle_invalid_entry type$/;"	m	language:Asm
+handle_invalid_entry	rpi_bm/miniOS/src/boot/entry.S	/^.macro handle_invalid_entry el,  type$/;"	m	language:Asm
 handle_irq	rpi_bm/miniBoot/part10/src/irq.c	/^void handle_irq() {$/;"	f	language:C	typeref:typename:void	signature:()
 handle_irq	rpi_bm/miniBoot/part11/src/irq.c	/^void handle_irq() {$/;"	f	language:C	typeref:typename:void	signature:()
 handle_irq	rpi_bm/miniBoot/part12/src/irq.c	/^void handle_irq() {$/;"	f	language:C	typeref:typename:void	signature:()
@@ -5115,6 +5194,7 @@ handle_timer_3	rpi_bm/miniBoot/part16/src/timer.c	/^void handle_timer_3() {$/;"	
 handle_timer_3	rpi_bm/miniBoot/part17/src/kernel/timer.c	/^void handle_timer_3() {$/;"	f	language:C	typeref:typename:void	signature:()
 handle_timer_3	rpi_bm/miniBoot/part9/src/timer.c	/^void handle_timer_3() {$/;"	f	language:C	typeref:typename:void	signature:()
 handle_timer_3	rpi_bm/miniOS/src/kernel/timer.c	/^void handle_timer_3() {$/;"	f	language:C	typeref:typename:void	signature:()
+handle_user_page_fault	rpi_bm/miniOS/src/sys.c	/^void handle_user_page_fault(u64 addr, u64 esr) {$/;"	f	language:C	typeref:typename:void	signature:(u64 addr,u64 esr)
 head	rpi_bm/miniBoot/part17/src/kernel/kernel.c	/^    u8 head;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
 head	rpi_bm/miniOS/src/kernel/kernel.c	/^    u8 head;$/;"	m	language:C	struct:PACKED	typeref:typename:u8	file:
 height	linux_os/part10/src/drmlist/drmlist.c	/^    uint32_t height;$/;"	m	language:C	struct:mydrm_buf	typeref:typename:uint32_t	file:
@@ -5231,6 +5311,9 @@ id_pgd_addr	rpi_bm/miniBoot/part17/src/boot/boot.S	/^id_pgd_addr:$/;"	l	language
 id_pgd_addr	rpi_bm/miniOS/src/boot/boot.S	/^id_pgd_addr:$/;"	l	language:Asm
 idx_enable	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u8 idx_enable : 1;$/;"	m	language:C++	struct:__anoncd4d20e40108	typeref:typename:u8:1
 idx_enable	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u8 idx_enable : 1;$/;"	m	language:C++	struct:__anon21fa8ec40108	typeref:typename:u8:1
+ignoreFailures	.vscode/launch.json	/^          "ignoreFailures": false$/;"	b	language:JSON	object:configurations.0.customLaunchSetupCommands.0
+ignoreFailures	.vscode/launch.json	/^          "ignoreFailures": false$/;"	b	language:JSON	object:configurations.0.customLaunchSetupCommands.1
+ind	rpi_bm/miniOS/src/sys.c	/^static int ind = 1;$/;"	v	language:C	typeref:typename:int	file:
 index	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u8 index : 6;$/;"	m	language:C++	struct:__anoncd4d20e40108	typeref:typename:u8:6
 index	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u8 index : 6;$/;"	m	language:C++	struct:__anon21fa8ec40108	typeref:typename:u8:6
 info	ooc/log.h	/^    void (*info)(logger *self, char *str);$/;"	m	language:C++	struct:log_interface_	typeref:typename:void (*)(logger * self,char * str)
@@ -5588,6 +5671,8 @@ irq_status	rpi_bm/miniBoot/part6-7/include/peripherals/aux.h	/^    reg32 irq_sta
 irq_status	rpi_bm/miniBoot/part8/include/peripherals/aux.h	/^    reg32 irq_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 irq_status	rpi_bm/miniBoot/part9/include/peripherals/aux.h	/^    reg32 irq_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 irq_status	rpi_bm/miniOS/include/peripherals/aux.h	/^    reg32 irq_status;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
+isBackground	.vscode/task.json	/^      "isBackground": true,$/;"	b	language:JSON	object:tasks.0
+is_aligned	rpi_bm/miniOS/src/kernel/fork.c	/^static inline bool is_aligned(unsigned long addr, unsigned long align)$/;"	f	language:C	typeref:typename:bool	file:	signature:(unsigned long addr,unsigned long align)
 is_chunk_alloc	linux_os/part10/src/mylib/mem.c	/^static inline bool is_chunk_alloc(uint8_t *p) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(uint8_t * p)
 is_chunk_alloc	linux_os/part6/src/mylib/mem.c	/^static inline bool is_chunk_alloc(uint8_t *p) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(uint8_t * p)
 is_chunk_alloc	linux_os/part7/src/mylib/mem.c	/^static inline bool is_chunk_alloc(uint8_t *p) {$/;"	f	language:C	typeref:typename:bool	file:	signature:(uint8_t * p)
@@ -5628,7 +5713,7 @@ kernel_entry	rpi_bm/miniBoot/part16/src/entry.S	/^.macro kernel_entry$/;"	m	lang
 kernel_entry	rpi_bm/miniBoot/part17/src/boot/entry.S	/^.macro kernel_entry$/;"	m	language:Asm
 kernel_entry	rpi_bm/miniBoot/part8/src/entry.S	/^.macro kernel_entry$/;"	m	language:Asm
 kernel_entry	rpi_bm/miniBoot/part9/src/entry.S	/^.macro kernel_entry$/;"	m	language:Asm
-kernel_entry	rpi_bm/miniOS/src/boot/entry.S	/^.macro kernel_entry$/;"	m	language:Asm
+kernel_entry	rpi_bm/miniOS/src/boot/entry.S	/^.macro kernel_entry, el$/;"	m	language:Asm
 kernel_entry32	rpi_bm/miniBoot/part10/armstub/src/armstub.S	/^kernel_entry32:$/;"	l	language:Asm
 kernel_entry32	rpi_bm/miniBoot/part11/armstub/src/armstub.S	/^kernel_entry32:$/;"	l	language:Asm
 kernel_entry32	rpi_bm/miniBoot/part12/armstub/src/armstub.S	/^kernel_entry32:$/;"	l	language:Asm
@@ -5651,7 +5736,7 @@ kernel_exit	rpi_bm/miniBoot/part16/src/entry.S	/^.macro kernel_exit$/;"	m	langua
 kernel_exit	rpi_bm/miniBoot/part17/src/boot/entry.S	/^.macro kernel_exit$/;"	m	language:Asm
 kernel_exit	rpi_bm/miniBoot/part8/src/entry.S	/^.macro kernel_exit$/;"	m	language:Asm
 kernel_exit	rpi_bm/miniBoot/part9/src/entry.S	/^.macro kernel_exit$/;"	m	language:Asm
-kernel_exit	rpi_bm/miniOS/src/boot/entry.S	/^.macro kernel_exit$/;"	m	language:Asm
+kernel_exit	rpi_bm/miniOS/src/boot/entry.S	/^.macro kernel_exit ,el$/;"	m	language:Asm
 kernel_main	rpi_bm/miniBoot/part1-5/src/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
 kernel_main	rpi_bm/miniBoot/part10/src/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
 kernel_main	rpi_bm/miniBoot/part11/src/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
@@ -5665,7 +5750,10 @@ kernel_main	rpi_bm/miniBoot/part6-7/src/kernel.c	/^void kernel_main() {$/;"	f	la
 kernel_main	rpi_bm/miniBoot/part8/src/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
 kernel_main	rpi_bm/miniBoot/part9/src/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
 kernel_main	rpi_bm/miniOS/src/kernel/kernel.c	/^void kernel_main() {$/;"	f	language:C	typeref:typename:void	signature:()
+kernel_pages	rpi_bm/miniOS/include/sched.h	/^	unsigned long kernel_pages[MAX_PROCESS_PAGES];$/;"	m	language:C++	struct:mm_struct	typeref:typename:unsigned long[]
+kernel_pages_count	rpi_bm/miniOS/include/sched.h	/^	int kernel_pages_count;$/;"	m	language:C++	struct:mm_struct	typeref:typename:int
 kernel_process	rpi_bm/miniOS/src/kernel/kernel.c	/^void kernel_process(){$/;"	f	language:C	typeref:typename:void	signature:()
+label	.vscode/task.json	/^      "label": "Start QEMU",$/;"	s	language:JSON	object:tasks.0
 last_command	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    emmc_cmd last_command;$/;"	m	language:C++	struct:__anoncd4d20e40608	typeref:typename:emmc_cmd
 last_command	rpi_bm/miniOS/include/peripherals/emmc.h	/^    emmc_cmd last_command;$/;"	m	language:C++	struct:__anon21fa8ec40608	typeref:typename:emmc_cmd
 last_command_value	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 last_command_value;$/;"	m	language:C++	struct:__anoncd4d20e40608	typeref:typename:reg32
@@ -5720,6 +5808,7 @@ lcd_send	rpi_bm/miniBoot/part15/src/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;
 lcd_send	rpi_bm/miniBoot/part16/src/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;"	f	language:C	typeref:typename:void	signature:(u8 data,u8 mode)
 lcd_send	rpi_bm/miniBoot/part17/src/drivers/i2c/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;"	f	language:C	typeref:typename:void	signature:(u8 data,u8 mode)
 lcd_send	rpi_bm/miniOS/src/drivers/i2c/lcd.c	/^void lcd_send(u8 data, u8 mode) {$/;"	f	language:C	typeref:typename:void	signature:(u8 data,u8 mode)
+ldr	rpi_bm/miniOS/src/boot/boot.S	/^ldr	x2, =kernel_main$/;"	l	language:Asm
 led_display.h	rpi_bm/miniBoot/part12/.vscode/settings.json	/^        "led_display.h": "c"$/;"	s	language:JSON	object:files.associations
 led_display.h	rpi_bm/miniBoot/part13/.vscode/settings.json	/^        "led_display.h": "c"$/;"	s	language:JSON	object:files.associations
 led_display.h	rpi_bm/miniBoot/part14/.vscode/settings.json	/^        "led_display.h": "c"$/;"	s	language:JSON	object:files.associations
@@ -5799,6 +5888,7 @@ li2a	rpi_bm/miniBoot/part6-7/src/printf.c	/^static void li2a (long num, char * b
 li2a	rpi_bm/miniBoot/part8/src/printf.c	/^static void li2a (long num, char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(long num,char * bf)
 li2a	rpi_bm/miniBoot/part9/src/printf.c	/^static void li2a (long num, char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(long num,char * bf)
 li2a	rpi_bm/miniOS/src/misc/printf.c	/^static void li2a (long num, char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(long num,char * bf)
+lli2a	rpi_bm/miniOS/src/misc/printf.c	/^static void lli2a(long long num, char *bf) {$/;"	f	language:C	typeref:typename:void	file:	signature:(long long num,char * bf)
 lo_detect_enable	rpi_bm/miniBoot/part1-5/include/peripherals/gpio.h	/^    struct GpioPinData lo_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
 lo_detect_enable	rpi_bm/miniBoot/part10/include/peripherals/gpio.h	/^    struct GpioPinData lo_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
 lo_detect_enable	rpi_bm/miniBoot/part11/include/peripherals/gpio.h	/^    struct GpioPinData lo_detect_enable;$/;"	m	language:C++	struct:GpioRegs	typeref:struct:GpioPinData
@@ -5966,7 +6056,9 @@ malloc	linux_os/part7/src/mylib/mem.c	/^void *malloc(size_t in_size) {$/;"	f	lan
 malloc	linux_os/part8/src/mylib/mem.c	/^void *malloc(size_t in_size) {$/;"	f	language:C	typeref:typename:void *	signature:(size_t in_size)
 malloc	linux_os/part9/src/mylib/mem.c	/^void *malloc(size_t in_size) {$/;"	f	language:C	typeref:typename:void *	signature:(size_t in_size)
 map	linux_os/part10/src/drmlist/drmlist.c	/^    uint8_t *map;$/;"	m	language:C	struct:mydrm_buf	typeref:typename:uint8_t *	file:
-map_user_page	rpi_bm/miniOS/src/mem/mem.c	/^void map_user_page(u64 va, u64 pa, u64 flags)$/;"	f	language:C	typeref:typename:void	signature:(u64 va,u64 pa,u64 flags)
+map_page	rpi_bm/miniOS/src/mem/mem.c	/^void map_page(struct task_struct *task, unsigned long va, unsigned long page){$/;"	f	language:C	typeref:typename:void	signature:(struct task_struct * task,unsigned long va,unsigned long page)
+map_table	rpi_bm/miniOS/src/mem/mem.c	/^unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_ta/;"	f	language:C	typeref:typename:unsigned long	signature:(unsigned long * table,unsigned long shift,unsigned long va,int * new_table)
+map_table_entry	rpi_bm/miniOS/src/mem/mem.c	/^void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {$/;"	f	language:C	typeref:typename:void	signature:(unsigned long * pte,unsigned long va,unsigned long pa)
 master	rpi_bm/miniBoot/part1-5/src/boot.S	/^master:$/;"	l	language:Asm
 master	rpi_bm/miniBoot/part10/src/boot.S	/^master:$/;"	l	language:Asm
 master	rpi_bm/miniBoot/part11/src/boot.S	/^master:$/;"	l	language:Asm
@@ -6031,6 +6123,10 @@ memzero	rpi_bm/miniBoot/part6-7/src/mm.S	/^memzero:$/;"	l	language:Asm
 memzero	rpi_bm/miniBoot/part8/src/mm.S	/^memzero:$/;"	l	language:Asm
 memzero	rpi_bm/miniBoot/part9/src/mm.S	/^memzero:$/;"	l	language:Asm
 memzero	rpi_bm/miniOS/src/mem/mm.S	/^memzero:$/;"	l	language:Asm
+miDebuggerPath	.vscode/launch.json	/^      "miDebuggerPath": "\/usr\/bin\/gdb-multiarch",$/;"	s	language:JSON	object:configurations.0
+miDebuggerServerAddress	.vscode/launch.json	/^      "miDebuggerServerAddress": "localhost:1234",$/;"	s	language:JSON	object:configurations.0
+mm	rpi_bm/miniOS/include/sched.h	/^	struct mm_struct mm;$/;"	m	language:C++	struct:task_struct	typeref:struct:mm_struct
+mm_struct	rpi_bm/miniOS/include/sched.h	/^struct mm_struct {$/;"	s	language:C++
 mode_2d_stride	rpi_bm/miniBoot/part15/include/peripherals/dma.h	/^    u32 mode_2d_stride;$/;"	m	language:C++	struct:__anonb0a880520108	typeref:typename:u32
 mode_2d_stride	rpi_bm/miniBoot/part16/include/peripherals/dma.h	/^    u32 mode_2d_stride;$/;"	m	language:C++	struct:__anonc42197930108	typeref:typename:u32
 mode_2d_stride	rpi_bm/miniBoot/part17/include/peripherals/dma.h	/^    u32 mode_2d_stride;$/;"	m	language:C++	struct:__anond79aaed40108	typeref:typename:u32
@@ -6049,7 +6145,7 @@ mouse_pos_info	linux_os/part6/src/lash/lash.c	/^struct mouse_pos_info {$/;"	s	la
 mouse_pos_info	linux_os/part7/src/lash/lash.c	/^struct mouse_pos_info {$/;"	s	language:C	file:
 mouse_pos_info	linux_os/part8/src/lash/lash.c	/^struct mouse_pos_info {$/;"	s	language:C	file:
 mouse_pos_info	linux_os/part9/src/lash/lash.c	/^struct mouse_pos_info {$/;"	s	language:C	file:
-move_to_user_mode	rpi_bm/miniOS/src/kernel/fork.c	/^int move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
+move_to_user_mode	rpi_bm/miniOS/src/kernel/fork.c	/^int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long start,unsigned long size,unsigned long pc)
 mu_baud_rate	rpi_bm/miniBoot/part1-5/include/peripherals/aux.h	/^    reg32 mu_baud_rate;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 mu_baud_rate	rpi_bm/miniBoot/part10/include/peripherals/aux.h	/^    reg32 mu_baud_rate;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
 mu_baud_rate	rpi_bm/miniBoot/part11/include/peripherals/aux.h	/^    reg32 mu_baud_rate;$/;"	m	language:C++	struct:AuxRegs	typeref:typename:reg32
@@ -6218,6 +6314,7 @@ mydrm_modes	linux_os/part10/src/include/mydrm.h	/^enum mydrm_modes {$/;"	g	langu
 mydrm_modes	linux_os/part9/src/include/mydrm.h	/^enum mydrm_modes {$/;"	g	language:C++
 mydrm_open	linux_os/part10/src/mydrm/mydrm.c	/^int mydrm_open(const char *device_node) {$/;"	f	language:C	typeref:typename:int	signature:(const char * device_node)
 mydrm_open	linux_os/part9/src/mydrm/mydrm.c	/^int mydrm_open(const char *device_node) {$/;"	f	language:C	typeref:typename:int	signature:(const char * device_node)
+name	.vscode/launch.json	/^      "name": "Launch QEMU + GDB",$/;"	s	language:JSON	object:configurations.0
 name	linux_os/part10/src/lash/lash.c	/^    char name[64];$/;"	m	language:C	struct:event_file	typeref:typename:char[64]	file:
 name	linux_os/part5/src/lash/lash.c	/^    char name[64];$/;"	m	language:C	struct:event_file	typeref:typename:char[64]	file:
 name	linux_os/part6/src/lash/lash.c	/^    char name[64];$/;"	m	language:C	struct:event_file	typeref:typename:char[64]	file:
@@ -6258,7 +6355,6 @@ offset	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u64 offset;$/;"	m
 offset	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^    u32 offset;$/;"	m	language:C	struct:__anon67a746be0608	typeref:typename:u32	file:
 offset	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u64 offset;$/;"	m	language:C++	struct:__anon21fa8ec40608	typeref:typename:u64
 offset	rpi_bm/miniOS/src/drivers/video/video.c	/^    u32 offset;$/;"	m	language:C	struct:__anon436e789e0608	typeref:typename:u32	file:
-old_move_to_user_mode	rpi_bm/miniOS/src/kernel/fork.c	/^int old_move_to_user_mode(unsigned long pc)$/;"	f	language:C	typeref:typename:int	signature:(unsigned long pc)
 open	rpi_bm/miniBoot/part17/include/io.h	/^    bool (*open)(struct _io_device *, void *);$/;"	m	language:C++	struct:_io_device	typeref:typename:bool (*)(struct _io_device *,void *)
 open	rpi_bm/miniOS/include/io.h	/^    bool (*open)(struct _io_device *, void *);$/;"	m	language:C++	struct:_io_device	typeref:typename:bool (*)(struct _io_device *,void *)
 open_file	linux_os/part1/src/init.c	/^unsigned long open_file(char *fn, int flags) {$/;"	f	language:C	typeref:typename:unsigned long	signature:(char * fn,int flags)
@@ -6312,9 +6408,12 @@ partitions	rpi_bm/miniOS/src/kernel/kernel.c	/^    partition_entry partitions[4]
 pc	rpi_bm/miniOS/include/fork.h	/^	unsigned long pc;$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long
 pc	rpi_bm/miniOS/include/sched.h	/^	unsigned long pc;$/;"	m	language:C++	struct:cpu_context	typeref:typename:unsigned long
 pflip_pending	linux_os/part10/src/drmlist/drmlist.c	/^    bool pflip_pending;$/;"	m	language:C	struct:mydrm_data	typeref:typename:bool	file:
+pg_dir	rpi_bm/miniOS/src/linker.ld	/^   pg_dir = .;$/;"	s	language:LdScript
 pgd	rpi_bm/miniOS/include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	m	language:C++	struct:__anon29357f530408	typeref:typename:pteval_t
+pgd	rpi_bm/miniOS/include/sched.h	/^	unsigned long pgd;$/;"	m	language:C++	struct:mm_struct	typeref:typename:unsigned long
 pgd_t	rpi_bm/miniOS/include/mem.h	/^typedef struct { pteval_t pgd; } pgd_t;$/;"	t	language:C++	typeref:struct:__anon29357f530408
 pgd_val	rpi_bm/miniOS/include/mem.h	/^#define pgd_val(/;"	d	language:C++	signature:(x)
+phys_addr	rpi_bm/miniOS/include/sched.h	/^	unsigned long phys_addr;$/;"	m	language:C++	struct:user_page	typeref:typename:unsigned long
 pitch	rpi_bm/miniBoot/part14/src/video.c	/^    mailbox_fb_pitch pitch;$/;"	m	language:C	struct:__anon1b41bc070508	typeref:typename:mailbox_fb_pitch	file:
 pitch	rpi_bm/miniBoot/part14/src/video.c	/^    u32 pitch;$/;"	m	language:C	struct:__anon1b41bc070308	typeref:typename:u32	file:
 pitch	rpi_bm/miniBoot/part15/src/video.c	/^    mailbox_fb_pitch pitch;$/;"	m	language:C	struct:__anon6aa0c5880508	typeref:typename:mailbox_fb_pitch	file:
@@ -6328,6 +6427,7 @@ pitch	rpi_bm/miniOS/src/drivers/video/video.c	/^    u32 pitch;$/;"	m	language:C	
 pmd	rpi_bm/miniOS/include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	m	language:C++	struct:__anon29357f530208	typeref:typename:pteval_t
 pmd_t	rpi_bm/miniOS/include/mem.h	/^typedef struct { pteval_t pmd; } pmd_t;$/;"	t	language:C++	typeref:struct:__anon29357f530208
 pmd_val	rpi_bm/miniOS/include/mem.h	/^#define pmd_val(/;"	d	language:C++	signature:(x)
+preLaunchTask	.vscode/launch.json	/^      "preLaunchTask": "Start QEMU"  \/\/ ← Connects to tasks.json$/;"	s	language:JSON	object:configurations.0
 preempt_count	rpi_bm/miniOS/include/sched.h	/^	long preempt_count;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
 preempt_disable	rpi_bm/miniOS/src/kernel/sched.c	/^void preempt_disable(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
 preempt_enable	rpi_bm/miniOS/src/kernel/sched.c	/^void preempt_enable(void)$/;"	f	language:C	typeref:typename:void	signature:(void)
@@ -6359,6 +6459,7 @@ printf	rpi_bm/miniOS/include/printf.h	/^#define printf /;"	d	language:C++
 printf_device	rpi_bm/miniBoot/part17/src/misc/printf.c	/^io_device *printf_device;$/;"	v	language:C	typeref:typename:io_device *
 printf_device	rpi_bm/miniOS/src/misc/printf.c	/^io_device *printf_device;$/;"	v	language:C	typeref:typename:io_device *
 priority	rpi_bm/miniOS/include/sched.h	/^	long priority;$/;"	m	language:C++	struct:task_struct	typeref:typename:long
+problemMatcher	.vscode/task.json	/^      "problemMatcher": []$/;"	a	language:JSON	object:tasks.0
 proc_hang	rpi_bm/miniBoot/part1-5/src/boot.S	/^proc_hang:$/;"	l	language:Asm
 proc_hang	rpi_bm/miniBoot/part10/src/boot.S	/^proc_hang:$/;"	l	language:Asm
 proc_hang	rpi_bm/miniBoot/part11/src/boot.S	/^proc_hang:$/;"	l	language:Asm
@@ -6380,6 +6481,7 @@ process_command	linux_os/part6/src/lash/lash.c	/^void process_command(char *cmd)
 process_command	linux_os/part7/src/lash/lash.c	/^bool process_command(char *cmd) {$/;"	f	language:C	typeref:typename:bool	signature:(char * cmd)
 process_command	linux_os/part8/src/lash/lash.c	/^bool process_command(char *cmd) {$/;"	f	language:C	typeref:typename:bool	signature:(char * cmd)
 process_command	linux_os/part9/src/lash/lash.c	/^bool process_command(char *cmd) {$/;"	f	language:C	typeref:typename:bool	signature:(char * cmd)
+program	.vscode/launch.json	/^      "program": "\/home\/rlk\/Downloads\/LLD\/rpi_bm\/miniOS\/build\/kernel8.elf",$/;"	s	language:JSON	object:configurations.0
 property_buffer	rpi_bm/miniBoot/part13/src/mailbox.c	/^} property_buffer;$/;"	t	language:C	typeref:struct:__anon655adddb0208	file:
 property_buffer	rpi_bm/miniBoot/part14/src/mailbox.c	/^} property_buffer;$/;"	t	language:C	typeref:struct:__anon08a24b9c0208	file:
 property_buffer	rpi_bm/miniBoot/part15/src/mailbox.c	/^} property_buffer;$/;"	t	language:C	typeref:struct:__anonabe9b95d0208	file:
@@ -6576,6 +6678,7 @@ reg32	rpi_bm/miniBoot/part8/include/common.h	/^typedef volatile u32 reg32;$/;"	t
 reg32	rpi_bm/miniBoot/part9/include/common.h	/^typedef volatile u32 reg32;$/;"	t	language:C++	typeref:typename:volatile u32
 reg32	rpi_bm/miniOS/include/common.h	/^typedef volatile u32 reg32;$/;"	t	language:C++	typeref:typename:volatile u32
 regs	rpi_bm/miniOS/include/fork.h	/^	unsigned long regs[31];$/;"	m	language:C++	struct:pt_regs	typeref:typename:unsigned long[31]
+request	.vscode/launch.json	/^      "request": "launch",$/;"	s	language:JSON	object:configurations.0
 res	rpi_bm/miniBoot/part10/include/peripherals/irq.h	/^    reg32 res;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
 res	rpi_bm/miniBoot/part11/include/peripherals/irq.h	/^    reg32 res;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
 res	rpi_bm/miniBoot/part12/include/peripherals/irq.h	/^    reg32 res;$/;"	m	language:C++	struct:arm_irq_regs_2837	typeref:typename:reg32
@@ -6692,6 +6795,7 @@ ret_from_fork	rpi_bm/miniOS/src/boot/entry.S	/^ret_from_fork:$/;"	l	language:Asm
 ret_from_kernel_thread	rpi_bm/miniOS/src/boot/entry.S	/^ret_from_kernel_thread:$/;"	l	language:Asm
 ret_from_syscall	rpi_bm/miniOS/src/boot/entry.S	/^ret_from_syscall:$/;"	l	language:Asm
 ret_to_user	rpi_bm/miniOS/src/boot/entry.S	/^ret_to_user:$/;"	l	language:Asm
+ret_to_user_error	rpi_bm/miniOS/src/boot/entry.S	/^ret_to_user_error:$/;"	l	language:Asm
 right_down	linux_os/part10/src/drmlist/drmlist.c	/^bool right_down = false;$/;"	v	language:C	typeref:typename:bool
 rpi_firmware_property_status	rpi_bm/miniBoot/part13/include/mailbox.h	/^enum rpi_firmware_property_status {$/;"	g	language:C++
 rpi_firmware_property_status	rpi_bm/miniBoot/part14/include/mailbox.h	/^enum rpi_firmware_property_status {$/;"	g	language:C++
@@ -6705,6 +6809,7 @@ rpi_firmware_property_tag	rpi_bm/miniBoot/part15/include/mailbox.h	/^enum rpi_fi
 rpi_firmware_property_tag	rpi_bm/miniBoot/part16/include/mailbox.h	/^enum rpi_firmware_property_tag {$/;"	g	language:C++
 rpi_firmware_property_tag	rpi_bm/miniBoot/part17/include/mailbox.h	/^enum rpi_firmware_property_tag {$/;"	g	language:C++
 rpi_firmware_property_tag	rpi_bm/miniOS/include/mailbox.h	/^enum rpi_firmware_property_tag {$/;"	g	language:C++
+run	rpi_bm/miniOS/Makefile	/^run:$/;"	t	language:Make
 saved_crtc	linux_os/part10/src/drmlist/drmlist.c	/^struct drm_mode_crtc saved_crtc;$/;"	v	language:C	typeref:struct:drm_mode_crtc
 sc_nr	rpi_bm/miniOS/src/boot/entry.S	/^sc_nr	.req	x25					\/\/ number of system calls$/;"	l	language:Asm
 scan_bus	pico/6502_part1/test.c	/^void scan_bus() {$/;"	f	language:C	typeref:typename:void	signature:()
@@ -6737,6 +6842,7 @@ select_card	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^static bool select_card() {$
 set_last_error	rpi_bm/miniBoot/part17/src/drivers/emmc/emmc.c	/^static void set_last_error(u32 intr_val) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u32 intr_val)
 set_last_error	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^static void set_last_error(u32 intr_val) {$/;"	f	language:C	typeref:typename:void	file:	signature:(u32 intr_val)
 set_mode	linux_os/part10/src/drmlist/drmlist.c	/^int set_mode(struct mydrm_data *data, struct drm_mode_get_connector conn, struct drm_mode_modein/;"	f	language:C	typeref:typename:int	signature:(struct mydrm_data * data,struct drm_mode_get_connector conn,struct drm_mode_modeinfo mode)
+set_pgd	rpi_bm/miniOS/src/misc/utils.S	/^set_pgd:$/;"	l	language:Asm
 set_scr	rpi_bm/miniBoot/part17/src/drivers/emmc/emmc.c	/^static bool set_scr() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
 set_scr	rpi_bm/miniOS/src/drivers/emmc/emmc.c	/^static bool set_scr() {$/;"	f	language:C	typeref:typename:bool	file:	signature:()
 show_invalid_entry_message	rpi_bm/miniBoot/part10/src/irq.c	/^void show_invalid_entry_message(u32 type, u64 esr, u64 address) {$/;"	f	language:C	typeref:typename:void	signature:(u32 type,u64 esr,u64 address)
@@ -6908,6 +7014,7 @@ stdout_putp	rpi_bm/miniBoot/part6-7/src/printf.c	/^static void* stdout_putp;$/;"
 stdout_putp	rpi_bm/miniBoot/part8/src/printf.c	/^static void* stdout_putp;$/;"	v	language:C	typeref:typename:void *	file:
 stdout_putp	rpi_bm/miniBoot/part9/src/printf.c	/^static void* stdout_putp;$/;"	v	language:C	typeref:typename:void *	file:
 stdout_putp	rpi_bm/miniOS/src/misc/printf.c	/^static void* stdout_putp;$/;"	v	language:C	typeref:typename:void *	file:
+stopAtEntry	.vscode/launch.json	/^      "stopAtEntry": true,$/;"	b	language:JSON	object:configurations.0
 str_copy	linux_os/part10/src/mylib/util.c	/^void str_copy(char *dest, char *source) {$/;"	f	language:C	typeref:typename:void	signature:(char * dest,char * source)
 str_copy	linux_os/part5/src/mylib/util.c	/^void str_copy(char *dest, char *source) {$/;"	f	language:C	typeref:typename:void	signature:(char * dest,char * source)
 str_copy	linux_os/part6/src/mylib/util.c	/^void str_copy(char *dest, char *source) {$/;"	f	language:C	typeref:typename:void	signature:(char * dest,char * source)
@@ -6963,6 +7070,7 @@ strcpy	rpi_bm/miniOS/src/misc/utils.c	/^int strcpy(char *dst, char *src) {$/;"	f
 stride	linux_os/part10/src/drmlist/drmlist.c	/^    uint32_t stride;$/;"	m	language:C	struct:mydrm_buf	typeref:typename:uint32_t	file:
 strlen	rpi_bm/miniBoot/part17/src/misc/utils.c	/^int strlen(char *s) {$/;"	f	language:C	typeref:typename:int	signature:(char * s)
 strlen	rpi_bm/miniOS/src/misc/utils.c	/^int strlen(char *s) {$/;"	f	language:C	typeref:typename:int	signature:(char * s)
+strr	rpi_bm/miniOS/src/boot/entry.S	/^	strr:   .string  "in return user"/;"	l	language:Asm
 stub_magic	rpi_bm/miniBoot/part10/armstub/src/armstub.S	/^stub_magic:$/;"	l	language:Asm
 stub_magic	rpi_bm/miniBoot/part11/armstub/src/armstub.S	/^stub_magic:$/;"	l	language:Asm
 stub_magic	rpi_bm/miniBoot/part12/armstub/src/armstub.S	/^stub_magic:$/;"	l	language:Asm
@@ -7041,7 +7149,7 @@ sys_brk	linux_os/part6/src/mylib/sys.c	/^void *sys_brk(void *p) {$/;"	f	language
 sys_brk	linux_os/part7/src/mylib/sys.c	/^void *sys_brk(void *p) {$/;"	f	language:C	typeref:typename:void *	signature:(void * p)
 sys_brk	linux_os/part8/src/mylib/sys.c	/^void *sys_brk(void *p) {$/;"	f	language:C	typeref:typename:void *	signature:(void * p)
 sys_brk	linux_os/part9/src/mylib/sys.c	/^void *sys_brk(void *p) {$/;"	f	language:C	typeref:typename:void *	signature:(void * p)
-sys_call_table	rpi_bm/miniOS/src/sys.c	/^void * const sys_call_table[] = {sys_write, sys_malloc, sys_clone, sys_exit};/;"	v	language:C	typeref:typename:void * const[]
+sys_call_table	rpi_bm/miniOS/src/sys.c	/^void * const sys_call_table[] = {sys_write, sys_malloc, sys_clone, sys_exit};$/;"	v	language:C	typeref:typename:void * const[]
 sys_clone	rpi_bm/miniOS/src/sys.c	/^int sys_clone(unsigned long stack){$/;"	f	language:C	typeref:typename:int	signature:(unsigned long stack)
 sys_close	linux_os/part10/src/mylib/sys.c	/^int sys_close(unsigned long fd) {$/;"	f	language:C	typeref:typename:int	signature:(unsigned long fd)
 sys_close	linux_os/part7/src/mylib/sys.c	/^int sys_close(unsigned long fd) {$/;"	f	language:C	typeref:typename:int	signature:(unsigned long fd)
@@ -7190,11 +7298,15 @@ tags	rpi_bm/miniBoot/part15/src/mailbox.c	/^    u8 tags[0];$/;"	m	language:C	str
 tags	rpi_bm/miniBoot/part16/src/mailbox.c	/^    u8 tags[0];$/;"	m	language:C	struct:__anon4f31271e0208	typeref:typename:u8[0]	file:
 tags	rpi_bm/miniBoot/part17/src/drivers/mailbox/mailbox.c	/^    u8 tags[0];$/;"	m	language:C	struct:__anona6bd4ce80208	typeref:typename:u8[0]	file:
 tags	rpi_bm/miniOS/src/drivers/mailbox/mailbox.c	/^    u8 tags[0];$/;"	m	language:C	struct:__anon948a6ec80208	typeref:typename:u8[0]	file:
+targetArchitecture	.vscode/launch.json	/^      "targetArchitecture": "arm64",$/;"	s	language:JSON	object:configurations.0
 task	rpi_bm/miniOS/src/kernel/sched.c	/^struct task_struct * task[NR_TASKS] = {&(init_task), };$/;"	v	language:C	typeref:struct:task_struct * []
 task_pt_regs	rpi_bm/miniOS/src/kernel/fork.c	/^struct pt_regs * task_pt_regs(struct task_struct *tsk){$/;"	f	language:C	typeref:struct:pt_regs *	signature:(struct task_struct * tsk)
 task_struct	rpi_bm/miniOS/include/sched.h	/^struct task_struct {$/;"	s	language:C++
+tasks	.vscode/task.json	/^  "tasks": [$/;"	a	language:JSON
 test	pico/6502_part1/CMakeLists.txt	/^add_executable(test $/;"	t	language:CMake
 test_project	pico/6502_part1/CMakeLists.txt	/^project(test_project)$/;"	p	language:CMake
+text	.vscode/launch.json	/^          "text": "set architecture aarch64",$/;"	s	language:JSON	object:configurations.0.customLaunchSetupCommands.0
+text	.vscode/launch.json	/^          "text": "target remote localhost:1234",$/;"	s	language:JSON	object:configurations.0.customLaunchSetupCommands.1
 tfp_format	linux_os/part10/src/mylib/printf.c	/^void tfp_format(void* putp,putcf putf,char *fmt, va_list va)$/;"	f	language:C	typeref:typename:void	signature:(void * putp,putcf putf,char * fmt,va_list va)
 tfp_format	linux_os/part4/src/mylib/printf.c	/^void tfp_format(void* putp,putcf putf,char *fmt, va_list va)$/;"	f	language:C	typeref:typename:void	signature:(void * putp,putcf putf,char * fmt,va_list va)
 tfp_format	linux_os/part5/src/mylib/printf.c	/^void tfp_format(void* putp,putcf putf,char *fmt, va_list va)$/;"	f	language:C	typeref:typename:void	signature:(void * putp,putcf putf,char * fmt,va_list va)
@@ -7318,6 +7430,8 @@ tune_SDR	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 tune_SDR;
 tune_SDR	rpi_bm/miniOS/include/peripherals/emmc.h	/^    reg32 tune_SDR;$/;"	m	language:C++	struct:__anon21fa8ec40708	typeref:typename:reg32
 tune_step	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    reg32 tune_step;$/;"	m	language:C++	struct:__anoncd4d20e40708	typeref:typename:reg32
 tune_step	rpi_bm/miniOS/include/peripherals/emmc.h	/^    reg32 tune_step;$/;"	m	language:C++	struct:__anon21fa8ec40708	typeref:typename:reg32
+type	.vscode/launch.json	/^      "type": "cppdbg",$/;"	s	language:JSON	object:configurations.0
+type	.vscode/task.json	/^      "type": "shell",$/;"	s	language:JSON	object:tasks.0
 type	linux_os/part10/src/lash/lash.c	/^        unsigned short type;$/;"	m	language:C	struct:input_event	typeref:typename:unsigned short	file:
 type	linux_os/part5/src/lash/lash.c	/^        unsigned short type;$/;"	m	language:C	struct:input_event	typeref:typename:unsigned short	file:
 type	linux_os/part6/src/lash/lash.c	/^        unsigned short type;$/;"	m	language:C	struct:input_event	typeref:typename:unsigned short	file:
@@ -7472,10 +7586,16 @@ uli2a	rpi_bm/miniBoot/part6-7/src/printf.c	/^static void uli2a(unsigned long int
 uli2a	rpi_bm/miniBoot/part8/src/printf.c	/^static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long int num,unsigned int base,int uc,char * bf)
 uli2a	rpi_bm/miniBoot/part9/src/printf.c	/^static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long int num,unsigned int base,int uc,char * bf)
 uli2a	rpi_bm/miniOS/src/misc/printf.c	/^static void uli2a(unsigned long int num, unsigned int base, int uc,char * bf)$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long int num,unsigned int base,int uc,char * bf)
+ulli2a	rpi_bm/miniOS/src/misc/printf.c	/^static void ulli2a(unsigned long long num, unsigned int base, int uppercase, char *bf) {$/;"	f	language:C	typeref:typename:void	file:	signature:(unsigned long long num,unsigned int base,int uppercase,char * bf)
 use_dma	rpi_bm/miniBoot/part15/src/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
 use_dma	rpi_bm/miniBoot/part16/src/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
 use_dma	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
 use_dma	rpi_bm/miniOS/src/drivers/video/video.c	/^static bool use_dma = false;$/;"	v	language:C	typeref:typename:bool	file:
+user_begin	rpi_bm/miniOS/src/linker.ld	/^    user_begin = .;$/;"	s	language:LdScript
+user_end	rpi_bm/miniOS/src/linker.ld	/^	user_end = .;$/;"	s	language:LdScript
+user_page	rpi_bm/miniOS/include/sched.h	/^struct user_page {$/;"	s	language:C++
+user_pages	rpi_bm/miniOS/include/sched.h	/^	struct user_page user_pages[MAX_PROCESS_PAGES];$/;"	m	language:C++	struct:mm_struct	typeref:struct:user_page[]
+user_pages_count	rpi_bm/miniOS/include/sched.h	/^	int user_pages_count;$/;"	m	language:C++	struct:mm_struct	typeref:typename:int
 user_process	rpi_bm/miniOS/src/kernel/kernel.c	/^void user_process(){$/;"	f	language:C	typeref:typename:void	signature:()
 value	linux_os/part10/src/include/mydrm.h	/^    uint64_t value;$/;"	m	language:C++	struct:mydrm_get_cap	typeref:typename:uint64_t
 value	linux_os/part10/src/lash/lash.c	/^        unsigned int value;$/;"	m	language:C	struct:input_event	typeref:typename:unsigned int	file:
@@ -7531,6 +7651,8 @@ ventry	rpi_bm/miniBoot/part17/src/boot/entry.S	/^.macro	ventry	label$/;"	m	langu
 ventry	rpi_bm/miniBoot/part8/src/entry.S	/^.macro	ventry	label$/;"	m	language:Asm
 ventry	rpi_bm/miniBoot/part9/src/entry.S	/^.macro	ventry	label$/;"	m	language:Asm
 ventry	rpi_bm/miniOS/src/boot/entry.S	/^.macro	ventry	label$/;"	m	language:Asm
+version	.vscode/launch.json	/^  "version": "0.2.0",$/;"	s	language:JSON
+version	.vscode/task.json	/^  "version": "2.0.0",$/;"	s	language:JSON
 version	linux_os/part10/src/include/mydrm.h	/^    int version;$/;"	m	language:C++	struct:mydrm_event_context	typeref:typename:int
 version	rpi_bm/miniBoot/part17/include/peripherals/emmc.h	/^    u32 version;$/;"	m	language:C++	struct:__anoncd4d20e40408	typeref:typename:u32
 version	rpi_bm/miniOS/include/peripherals/emmc.h	/^    u32 version;$/;"	m	language:C++	struct:__anon21fa8ec40408	typeref:typename:u32
@@ -7570,6 +7692,7 @@ video_set_resolution	rpi_bm/miniBoot/part15/src/video.c	/^void video_set_resolut
 video_set_resolution	rpi_bm/miniBoot/part16/src/video.c	/^void video_set_resolution(u32 xres, u32 yres, u32 bpp) {$/;"	f	language:C	typeref:typename:void	signature:(u32 xres,u32 yres,u32 bpp)
 video_set_resolution	rpi_bm/miniBoot/part17/src/drivers/video/video.c	/^void video_set_resolution(u32 xres, u32 yres, u32 bpp) {$/;"	f	language:C	typeref:typename:void	signature:(u32 xres,u32 yres,u32 bpp)
 video_set_resolution	rpi_bm/miniOS/src/drivers/video/video.c	/^void video_set_resolution(u32 xres, u32 yres, u32 bpp) {$/;"	f	language:C	typeref:typename:void	signature:(u32 xres,u32 yres,u32 bpp)
+virt_addr	rpi_bm/miniOS/include/sched.h	/^	unsigned long virt_addr;$/;"	m	language:C++	struct:user_page	typeref:typename:unsigned long
 vres	rpi_bm/miniBoot/part14/src/video.c	/^    mailbox_fb_size vres; \/\/virtual resolution..$/;"	m	language:C	struct:__anon1b41bc070508	typeref:typename:mailbox_fb_size	file:
 vres	rpi_bm/miniBoot/part15/src/video.c	/^    mailbox_fb_size vres; \/\/virtual resolution..$/;"	m	language:C	struct:__anon6aa0c5880508	typeref:typename:mailbox_fb_size	file:
 vres	rpi_bm/miniBoot/part16/src/video.c	/^    mailbox_fb_size vres; \/\/virtual resolution..$/;"	m	language:C	struct:__anonb9ffcf090508	typeref:typename:mailbox_fb_size	file:

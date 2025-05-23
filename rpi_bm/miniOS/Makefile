@@ -6,7 +6,7 @@ ARMGNU ?= aarch64-linux-gnu
 
 INIT_MMU ?= 1
 
-COPS =  -g -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
+COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
 	   -Iinclude -mgeneral-regs-only
 
 ASMOPS = -Iinclude
@@ -64,3 +64,9 @@ armstub: armstub/build/armstub_s.o
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
 	cp armstub-new.bin $(BOOTMNT)/
 	sync
+QEMU_FLAGS  += -nographic
+
+run:
+	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel.img
+debug:
+	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel.img -S -s

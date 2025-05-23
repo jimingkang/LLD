@@ -3,6 +3,7 @@
 #include <mm.h>
 #include <mmu.h>
 #include <printf.h>
+#include <sched.h>
 
 
 
@@ -75,12 +76,115 @@ void *memcpy(void *dest, const void *src, u32 n) {
 
     return dest;
 }
+    
 void* alloc_page() {
     return (void*)get_free_pages(1);  // 分配 1 页（4KB）
 }
+
+//user_virtual mem
+
+//unsigned long alloc_user_pgd(void) {
+  //  unsigned long pgd_phys = get_free_page(); // 获取物理页
+   // pgd_t *pgd_virt = phys_to_virt(pgd_phys);
+    
+    // 清零新页表
+   // memzero(pgd_virt, 0, PAGE_SIZE);
+    
+    // 复制内核映射（高地址空间）
+   // for (int i = KERNEL_PGD_INDEX; i < PTRS_PER_PGD; i++) {
+   //     pgd_virt[i] = init_mm.pgd[i];
+   // }
+    
+  //  return pgd_phys;
+//}
+
+unsigned long allocate_kernel_page() {
+	unsigned long page = get_free_page();
+	if (page == 0) {
+		return 0;
+	}
+	return page + VA_START;
+}
+
+
+
+unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {
+    unsigned long page = get_free_page();
+    if (!page) {
+        return 0;
+    }
+    
+    /* Map with user-accessible permissions */
+    map_page(task, va, page, prot | PTE_USER);
+    return va ? va : (page + VA_START);
+}
+void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
+	unsigned long index = va >> PAGE_SHIFT;
+	index = index & (PTRS_PER_TABLE - 1);
+	unsigned long entry = pa | MMU_PTE_FLAGS; 
+	pte[index] = entry;
+}
+
+unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_table) {
+	unsigned long index = va >> shift;
+	index = index & (PTRS_PER_TABLE - 1);
+	if (!table[index]){
+		*new_table = 1;
+		unsigned long next_level_table = get_free_page();
+		unsigned long entry = next_level_table | MM_TYPE_PAGE_TABLE;
+		table[index] = entry;
+		return next_level_table;
+	} else {
+		*new_table = 0;
+	}
+	return table[index] & PAGE_MASK;
+}
+
+
+
+void map_page(struct task_struct *task, unsigned long va, unsigned long page){
+	unsigned long pgd;
+
+    
+	if (!task->mm.pgd) {
+		task->mm.pgd = get_free_page();
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.pgd;
+	}
+	pgd = task->mm.pgd;
+	int new_table;
+	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pud;
+	}
+	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pmd;
+	}
+	unsigned long pte = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pte;
+	}
+	map_table_entry((unsigned long *)(pte + VA_START), va, page);
+	struct user_page p = {page, va};
+	task->mm.user_pages[task->mm.user_pages_count++] = p;
+}
+unsigned long get_free_page()
+{
+	for (int i = 0; i < PAGING_PAGES; i++){
+		if (mem_map[i] == 0){
+			mem_map[i] = 1;
+			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
+			memzero(page + VA_START, PAGE_SIZE);
+			return page;
+		}
+	}
+	return 0;
+}
+
 void free_page(unsigned long p){
 	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
 }
+
 
 
 //Jimmy add
@@ -201,7 +305,7 @@ pte_t *pte_alloc(pgd_t *pgd, unsigned long va)
 #define PUD_ENTRY_MAP_SIZE     (1 << PUD_SHIFT)
 
 
-
+/*
 void map_kernel_text() {
     u64 start = (u64)__text_start & PAGE_MASK;
     u64 end   = ((u64)__text_end + PAGE_SIZE - 1) & PAGE_MASK;
@@ -210,89 +314,7 @@ void map_kernel_text() {
         map_user_page(addr, addr, KERNEL_EXEC_FLAGS);  // 1:1 映射代码段
     }
 }
-void old4_map_user_page(u64 va, u64 pa, u64 flags) {
-    u64 *pgd = (u64 *)__va(id_pgd_addr());  // 顶层页表必须用虚拟地址访问
 
-    u64 pgd_idx = (va >> 39) & 0x1FF;
-    u64 pud_idx = (va >> 30) & 0x1FF;
-    u64 pmd_idx = (va >> 21) & 0x1FF;
-    u64 pte_idx = (va >> 12) & 0x1FF;
-
-    u64 *pud, *pmd, *pte;
-
-    // === 第一级 PGD → PUD ===
-    if (!(pgd[pgd_idx] & 1)) {
-        u64 pud_phys = (u64)alloc_page();
-        memzero((u64)__va(pud_phys), PAGE_SIZE);
-        pgd[pgd_idx] = pud_phys | TD_KERNEL_TABLE_FLAGS;
-    }
-    pud = (u64 *)__va(pgd[pgd_idx] & PAGE_MASK);
-
-    // === 第二级 PUD → PMD ===
-    if (!(pud[pud_idx] & 1)) {
-        u64 pmd_phys = (u64)alloc_page();
-        memzero((u64)__va(pmd_phys), PAGE_SIZE);
-        pud[pud_idx] = pmd_phys | TD_KERNEL_TABLE_FLAGS;
-    }
-    pmd = (u64 *)__va(pud[pud_idx] & PAGE_MASK);
-
-    // === 第三级 PMD → PTE ===
-    if (!(pmd[pmd_idx] & 1)) {
-        u64 pte_phys = (u64)alloc_page();
-        memzero((u64)__va(pte_phys), PAGE_SIZE);
-        pmd[pmd_idx] = pte_phys | TD_KERNEL_TABLE_FLAGS;
-    }
-    pte = (u64 *)__va(pmd[pmd_idx] & PAGE_MASK);
-
-    // === 最终设置 PTE ===
-    pte[pte_idx] = (pa & PAGE_MASK) | flags;
-}
-void old3_map_user_page(u64 va, u64 pa, u64 flags) {
-    u64 *pgd = (u64 *)__va(id_pgd_addr());  // id_pgd 已知是物理地址 → 转虚拟
-
-    u64 pgd_idx = (va >> 39) & 0x1FF;
-    u64 pud_idx = (va >> 30) & 0x1FF;
-    u64 pmd_idx = (va >> 21) & 0x1FF;
-    u64 pte_idx = (va >> 12) & 0x1FF;
-
-    u64 *pud, *pmd, *pte;
-
-    // PGD -> PUD
-    if (!(pgd[pgd_idx] & 1)) {
-        pud = (u64 *)alloc_page();
-        memzero((u64)__va((u64)pud), PAGE_SIZE);
-        pgd[pgd_idx] = __pa((u64)pud) | TD_KERNEL_TABLE_FLAGS;
-    } else {
-        pud = (u64 *)__va(pgd[pgd_idx] & PAGE_MASK);
-    }
-
-    // PUD -> PMD
-    if (!(pud[pud_idx] & 1)) {
-        pmd = (u64 *)alloc_page();
-        memzero((u64)__va((u64)pmd), PAGE_SIZE);
-        pud[pud_idx] = __pa((u64)pmd) | TD_KERNEL_TABLE_FLAGS;
-    } else {
-        pmd = (u64 *)__va(pud[pud_idx] & PAGE_MASK);
-    }
-
-    // PMD -> PTE
-    if (!(pmd[pmd_idx] & 1)) {
-        pte = (u64 *)alloc_page();
-        memzero((u64)__va((u64)pte), PAGE_SIZE);
-        pmd[pmd_idx] = __pa((u64)pte) | TD_KERNEL_TABLE_FLAGS;
-    } else {
-        pte = (u64 *)__va(pmd[pmd_idx] & PAGE_MASK);
-    }
-
-   printf("map_user_page:\n");
-    printf("  va = 0x%lx, pa = 0x%lx\n", va, pa);
-    printf("  pgd = %x, pud = %x, pmd = %x, pte = %x\n",__pa(pgd), __pa(pud), __pa(pmd), __pa(pte));
-    printf("  pte_idx = 0x%lx, write to = 0x%lx\n", pte_idx, (u64)&pte[pte_idx]);
-    // 最终 PTE 设置
-    printf("map_user_page:\n");
-    // 设置最终 PTE 映射
-    pte[pte_idx] = (pa & PAGE_MASK) | flags;
-}
 
 void map_user_page(u64 task_pgd,u64 va, u64 pa, u64 flags) {
    
@@ -359,22 +381,7 @@ printf(" before pmd%x\n",__pa(pmd));
 }
 
 
-void old_map_user_page(u64 va, u64 pa, u64 flags)
-{
-    // 三级页表构造：PGD → PUD → PMD → PTE
-    u64 *pgd = (u64 *)id_pgd_addr();
-
-    u64 pgd_idx = (va >> 39) & 0x1FF;
-    u64 pud_idx = (va >> 30) & 0x1FF;
-    u64 pmd_idx = (va >> 21) & 0x1FF;
-    u64 pte_idx = (va >> 12) & 0x1FF;
-
-    u64 *pud = alloc_page();  pgd[pgd_idx] = (u64)pud | TD_KERNEL_TABLE_FLAGS;
-    u64 *pmd = alloc_page();  pud[pud_idx] = (u64)pmd | TD_KERNEL_TABLE_FLAGS;
-    u64 *pte = alloc_page();  pmd[pmd_idx] = (u64)pte | TD_KERNEL_TABLE_FLAGS;
-
-    pte[pte_idx] = (pa & PAGE_MASK) | flags;
-}
+*/
 
 void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {
     u64 table_index = va >> shift;
@@ -411,8 +418,7 @@ void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {
 
 
 void init_mmu() {
-   // map_kernel_text();  // ✅ 加上这一行
-    //printf("mapping .text from 0x%lx to 0x%lx\n", (u64)__text_start, (u64)__text_end);
+
 
     u64 id_pgd = id_pgd_addr();
 
