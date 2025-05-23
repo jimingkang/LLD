@@ -100,7 +100,28 @@ void user_process(){
 }
 
 void kernel_process(){
-	printf("Kernel process started. EL %d\r\n", get_el());
+	printf("\r\nKernel process started. EL %d\r\n", get_el());
+
+      // 确保有有效的mm_struct
+    if (!current->mm) {
+        current->mm = (struct mm_struct *)allocate_kernel_page();
+        if (!current->mm) {
+            printf("Failed to allocate mm_struct\n\r");
+            return;
+        }
+        memzero(current->mm, sizeof(struct mm_struct));
+        
+
+        // 复制内核映射
+         u64 kernel_pgd = kernel_pgd_addr();
+        current->mm->pgd = copy_kernel_mappings(kernel_pgd);
+        if (!current->mm->pgd) {
+            printf("Failed to copy kernel mappings\n\r");
+            free_kernel_page((unsigned long)current->mm);
+            current->mm = NULL;
+            return;
+        }
+    }
     unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;

@@ -51,14 +51,15 @@ master:
 el1_entry:
     mov sp, #LOW_MEMORY
 
-    adr x0, bss_begin
-    adr x1, bss_end
+    adr x0, KERNEL_BSS_START
+    adr x1, KERNEL_BSS_END
     sub x1, x1, x0
     bl memzero
 
 #if INIT_MMU == 1
     bl init_mmu
     bl 	__create_page_tables
+    //bl init_kernel_mmu
 
 
     adrp x0, id_pgd
@@ -89,6 +90,11 @@ proc_hang:
 .globl id_pgd_addr
 id_pgd_addr:
     adrp x0, id_pgd
+    ret
+
+.globl kernel_pgd_addr
+kernel_pgd_addr:
+    adrp x0, pg_dir
     ret
 
 

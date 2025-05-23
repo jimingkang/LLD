@@ -70,13 +70,44 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define USER_STACK_SIZE  0x1000         // 一页大小（4KB）
 #define USER_STACK_BASE  (USER_STACK_TOP - USER_STACK_SIZE)
 
+// 定义页表层级（ARM64使用4级页表）
+typedef enum {
+    LEVEL_PGD = 0,  // Page Global Directory (L0)
+    LEVEL_PUD = 1,  // Page Upper Directory (L1)
+    LEVEL_PMD = 2,  // Page Middle Directory (L2)
+    LEVEL_PTE = 3   // Page Table Entry (L3)
+} PageTableLevel;
+// MAIR_EL1 属性索引（需与初始化代码一致）
+#define ATTR_S1_IDX_DEVICE  0  // 设备内存（nGnRnE）
+#define ATTR_S1_IDX_NORMAL  1  // 普通内存（Write-Back）
+ typedef unsigned long size_t;  // 64位
+
+/* 代码段 */
+extern char KERNEL_CODE_START[];
+extern char KERNEL_CODE_END[];
+/* 数据段 */
+extern char KERNEL_DATA_START[];  // 添加数据段声明
+extern char KERNEL_DATA_END[];
+/* 物理地址（若在链接脚本中定义） */
+//extern uintptr_t PHYS_CODE_START;
+//extern uintptr_t PHYS_DATA_START;
+#define PHYS_CODE_START 0x80000
+#define PHYS_DATA_START 0x90000
+
+
+ extern char KERNEL_BSS_START[];
+extern char KERNEL_BSS_END[];
+
 extern char __text_start[];
 extern char __text_end[];
+
+
 
 void *get_free_pages(int num_pages);
 void *allocate_memory(int bytes);
 void free_memory(void *base);
 unsigned long allocate_kernel_page(); 
+uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel level);
 
 
 

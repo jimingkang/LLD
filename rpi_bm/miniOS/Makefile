@@ -1,6 +1,6 @@
 RPI_VERSION ?= 3
 
-BOOTMNT ?= /media/rlk/bootfs
+BOOTMNT ?= /media/pi/bootfs
 
 ARMGNU ?= aarch64-linux-gnu
 

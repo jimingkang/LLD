@@ -5,10 +5,6 @@
 #include <printf.h>
 #include <sched.h>
 
-
-
-extern char __text_start[];
-extern char __text_end[];
 #define NULL 0
 static u16 mem_map [ PAGING_PAGES ] = {0,};
 
@@ -97,6 +93,26 @@ void* alloc_page() {
     
   //  return pgd_phys;
 //}
+
+// 分配并初始化一个新的PGD（顶级页表）
+pgd_t *alloc_new_pgd(void)
+{
+    // 1. 分配一个页面作为PGD
+    pgd_t *pgd = (pgd_t *)allocate_kernel_page();
+    if (!pgd) {
+        printf("Failed to allocate new PGD\n");
+        return NULL;
+    }
+    
+    // 2. 清空整个PGD
+    memset(pgd, 0, PAGE_SIZE);
+    
+    // 3. 如果需要，可以在这里初始化一些固定映射
+    // 例如设备内存映射等
+    
+    printf("Allocated new PGD at 0x%lx\n", (unsigned long)pgd);
+    return pgd;
+}
 
 unsigned long allocate_kernel_page() {
 	unsigned long page = get_free_page();
@@ -298,6 +314,8 @@ pte_t *pte_alloc(pgd_t *pgd, unsigned long va)
 
 #define ID_MAP_PAGES           6
 #define ID_MAP_TABLE_SIZE      (ID_MAP_PAGES * PAGE_SIZE)
+#define KERNEL_MAP_PAGES           3
+#define KERNEL_MAP_TABLE_SIZE      (KERNEL_MAP_PAGES * PAGE_SIZE)
 #define ENTRIES_PER_TABLE      512
 #define PGD_SHIFT              (PAGE_SHIFT + 3 * TABLE_SHIFT)
 #define PUD_SHIFT              (PAGE_SHIFT + 2 * TABLE_SHIFT)
@@ -446,4 +464,51 @@ void init_mmu() {
         u64 offset = BLOCK_SIZE * i;
         create_block_map(block_tbl, offset, offset + BLOCK_SIZE, offset);
     }
+}
+void init_kernel_mmu() {
+
+
+    u64 kernel_pgd = kernel_pgd_addr();
+    memzero(kernel_pgd, KERNEL_MAP_TABLE_SIZE);
+    u64 tbl = kernel_pgd;
+    // 映射内核代码段（只读）
+    map_kernel_region(tbl, KERNEL_CODE_START, PHYS_CODE_START, (size_t)(KERNEL_CODE_END - KERNEL_CODE_START));
+    // 映射内核数据段（读写）
+    map_kernel_region(tbl, KERNEL_DATA_START, PHYS_DATA_START, (size_t)(KERNEL_DATA_END - KERNEL_DATA_START));
+}
+
+void map_kernel_region(uint64_t *pgd, uint64_t virt_start, uint64_t phys_start, size_t size) {
+    uint64_t virt_end = virt_start + size;
+    while (virt_start < virt_end) {
+        // 逐级填充页表项（以2MB大页为例）
+        uint64_t *pud = get_next_table(pgd, virt_start, LEVEL_PGD);
+        uint64_t *pmd = get_next_table(pud, virt_start, LEVEL_PUD);
+        uint64_t *pte = get_next_table(pmd, virt_start, LEVEL_PMD);
+        
+        // 直接映射为2MB大页（属性：特权只读/读写）
+        *pte = (phys_start & 0xFFE00000) | 
+               (ATTR_S1_IDX_DEVICE << 2) |  // 设备内存属性（MAIR索引）
+               (0b01 << 10) |               // AF=1（已访问）
+               (0b11 << 8)  |               // SH=内部共享
+               (0b01 << 6)  |               // AP=内核读写，用户无访问
+               (0b1 << 0);                  // 有效块描述符
+        
+        virt_start += 2 * 1024 * 1024;      // 步进2MB
+        phys_start += 2 * 1024 * 1024;
+    }
+}
+uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel level) {
+    // 计算当前层级的页表索引
+    int shift = 39 - level * 9;
+    uint64_t index = (vaddr >> shift) & 0x1FF;  // 9位索引
+
+    // 若表项无效，分配新页表
+    if (!(current_table[index] & 0x1)) {
+        uint64_t *new_table = alloc_page();  // 分配4KB页
+        memzero(new_table, 4096);
+        current_table[index] = (uint64_t)new_table | 0x3;  // 有效且为页表描述符
+    }
+
+    // 返回下一级页表物理地址（清除低12位属性）
+    return (uint64_t*)(current_table[index] & ~0xFFF);
 }

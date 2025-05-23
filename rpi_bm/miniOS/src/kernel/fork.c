@@ -30,6 +30,8 @@ int copy_process_inkernel(unsigned long fn, unsigned long arg)
 }
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack)
 {
+
+	
 	printf("first in copy_process%x\n\r",fn);
 	preempt_disable();
 	struct task_struct *p;
@@ -50,19 +52,37 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
     }
 	p->stack = kernel_stack; // 所有任务都设置内核栈指针
     printf("Allocated kernel stack at 0x%x\n\r", kernel_stack);
-	//p->mm = (struct mm_struct *)kzalloc(sizeof(*p->mm));
-    //if (!p->mm) goto bad_free_stack;
+
+	// 2. 初始化内存管理
+    if (clone_flags & PF_KTHREAD) {
+        // 内核线程不需要用户页表
+        p->mm = NULL;
+    } else {
+        // 用户进程需要完整的页表
+        p->mm = (struct mm_struct *)allocate_kernel_page();
+        if (!p->mm) goto mm_alloc_fail;
+        memzero(p->mm,  sizeof(struct mm_struct));
+        
+        p->mm->pgd = alloc_new_pgd();
+        if (!p->mm->pgd) goto pgd_alloc_fail;
+        
+        // 复制内核映射并初始化用户空间
+		 u64 kernel_pgd = kernel_pgd_addr();
+        copy_kernel_mappings(p->mm->pgd, kernel_pgd);
+        if (init_user_mappings(p->mm->pgd, 0x0, 0x8000000) != 0)
+		printf("error  init_user_mappings \r\n");
+         //   goto user_mapping_fail;
+    }
 
 
 	struct pt_regs *childregs = task_pt_regs(p);
 	memzero((unsigned long)childregs, sizeof(struct pt_regs));
 	memzero((unsigned long)&p->cpu_context, sizeof(struct cpu_context));
-	printf("after  memzero in copy_process\n\r");
+	//printf("after  memzero in copy_process\n\r");
 	
 	if (clone_flags & PF_KTHREAD) {
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
-printf("if in copy_process\n\r");
 	} else {
 		struct pt_regs * cur_regs = task_pt_regs(current);
 		*childregs=	*cur_regs; 	
@@ -71,7 +91,7 @@ printf("if in copy_process\n\r");
 		p->stack = stack;
 		printf("else in copy_process\n\r");
 	}
-	printf("before setting p in copy_process\n\r");
+	
 	p->flags = clone_flags;
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
@@ -148,7 +168,6 @@ printf(" in move_to_user_mode\n\r");
   
     struct pt_regs *regs = task_pt_regs(current);
     
- 
     unsigned long code_page = allocate_user_page(current, pc & PAGE_MASK, PTE_VALID | PTE_USER  );
     if (!code_page) {
         return -1;
@@ -176,6 +195,40 @@ printf(" in move_to_user_mode\n\r");
 	debug_pgd(current->mm.pgd);
     set_pgd(current->mm.pgd);
     return 0;
+}
+
+pgd_t *copy_kernel_mappings(pgd_t *src_pgd) {
+    // 分配新的顶级页表
+    pgd_t *new_pgd = (pgd_t *)allocate_kernel_page();
+    if (!new_pgd) {
+        printf("Failed to allocate new PGD\n\r");
+        return NULL;
+    }
+    memset(new_pgd, 0, PAGE_SIZE);
+
+    // 内核空间在ARM64中通常使用TTBR1，地址范围从PAGE_OFFSET开始
+    unsigned long kernel_start = PAGE_OFFSET;
+    unsigned long kernel_end = (unsigned long)(-1);
+
+    // 复制内核空间映射
+    for (unsigned long addr = kernel_start; addr < kernel_end; addr += PGDIR_SIZE) {
+        int pgd_idx = pgd_index(addr);
+        pgd_t pgd = src_pgd[pgd_idx];
+        
+        if (pgd_none(pgd))
+            continue;
+            
+        if (pgd_present(pgd)) {
+            // 直接复制内核空间页表项
+            new_pgd[pgd_idx] = pgd;
+        }
+    }
+
+    // 复制固定映射区域（如设备映射）
+    // 这里需要根据你的具体架构添加
+
+    printf("Copied kernel mappings from 0x%lx to 0x%lx\n\r", (unsigned long)src_pgd, (unsigned long)new_pgd);
+    return new_pgd;
 }
 void copy_kernel_mappings(unsigned long pgd) {
   //  pgd_t *user_pgd = phys_to_virt(pgd_phys);
