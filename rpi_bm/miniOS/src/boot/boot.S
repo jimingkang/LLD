@@ -58,8 +58,6 @@ el1_entry:
 
 #if INIT_MMU == 1
     bl init_mmu
-
-
     bl 	__create_page_tables
     //bl init_kernel_mmu
     adrp x0, id_pgd

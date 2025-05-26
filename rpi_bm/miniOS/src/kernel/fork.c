@@ -69,7 +69,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
         
         // 复制内核映射并初始化用户空间
 		 u64 kernel_pgd = kernel_pgd_addr();
-		 	 p->mm->pgd = allocate_kernel_page();
+		p->mm->pgd = allocate_kernel_page();
  
         //copy_kernel_mappings(p->mm->pgd, kernel_pgd);
 

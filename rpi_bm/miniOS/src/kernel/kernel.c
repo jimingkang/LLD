@@ -82,10 +82,10 @@ void kernel_process(){
         u64 kernel_pgd = kernel_pgd_addr();
         current->mm->pgd = alloc_new_pgd();
             printf("ebfore copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
-     //  irq_disable(); 
-      // pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
-       // copy_kernel_mappings(current->mm->pgd,pgd);
-      //  irq_enable();  
+       irq_disable(); 
+       pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
+        copy_kernel_mappings(current->mm->pgd,pgd);
+        irq_enable();  
         if (!current->mm->pgd) {
             printf("Failed to copy kernel mappings\n\r");
 //            free_kernel_page((unsigned long)current->mm);
