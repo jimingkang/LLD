@@ -82,3 +82,50 @@ int do_mem_abort(unsigned long addr, unsigned long esr) {
 	}
 	return -1;
 }
+
+
+
+void process(char *array)
+{
+	while (1){
+		for (int i = 0; i < 5; i++){
+			uart_send(array[i]);
+			delay(1000000);
+		}
+	}
+}
+void user_process(){
+    printf("int user_process ");
+	//char buf[30] = {0};
+	//tfp_sprintf(buf, "User process started\n\r");
+	//call_sys_write(buf);
+	unsigned long stack = call_sys_malloc();
+	if (stack < 0) {
+		printf("Error while allocating stack for process 1\n\r");
+		return;
+	}
+        
+    
+    unsigned long a=123;
+	int err = call_sys_clone((unsigned long)&process, a, stack);
+	if (err < 0){
+		printf("Error while clonning process 1\n\r");
+		return;
+	} 
+          /*
+	stack = call_sys_malloc();
+	if (stack < 0) {
+		printf("Error while allocating stack for process 1\n\r");
+		return;
+	}
+    unsigned long b=456;
+	err = call_sys_clone((unsigned long)&process, b, stack);
+	if (err < 0){
+		printf("Error while clonning process 2\n\r");
+		return;
+	} 
+        */
+	call_sys_exit();
+}
+
+

@@ -56,48 +56,15 @@ typedef struct PACKED {
     u16 bootSignature;
 } master_boot_record;
 
-void process(char *array)
-{
-	while (1){
-		for (int i = 0; i < 5; i++){
-			uart_send(array[i]);
-			delay(1000000);
-		}
-	}
+
+void init_main(void *arg) {
+    printf("Init task running!\n");
+    while (1) {
+        schedule();  // 主动让出 CPU
+    }
 }
-void user_process(){
-    printf("int user_process ");
-	//char buf[30] = {0};
-	//tfp_sprintf(buf, "User process started\n\r");
-	//call_sys_write(buf);
-	unsigned long stack = call_sys_malloc();
-	if (stack < 0) {
-		printf("Error while allocating stack for process 1\n\r");
-		return;
-	}
-        
-    
-    unsigned long a=123;
-	int err = call_sys_clone((unsigned long)&process, a, stack);
-	if (err < 0){
-		printf("Error while clonning process 1\n\r");
-		return;
-	} 
-          /*
-	stack = call_sys_malloc();
-	if (stack < 0) {
-		printf("Error while allocating stack for process 1\n\r");
-		return;
-	}
-    unsigned long b=456;
-	err = call_sys_clone((unsigned long)&process, b, stack);
-	if (err < 0){
-		printf("Error while clonning process 2\n\r");
-		return;
-	} 
-        */
-	call_sys_exit();
-}
+
+
 
 void kernel_process(){
 	printf("\r\nKernel process started. EL %d\r\n", get_el());
@@ -110,18 +77,24 @@ void kernel_process(){
             return;
         }
         memzero(current->mm, sizeof(struct mm_struct));
-        
-
+      
         // 复制内核映射
-         u64 kernel_pgd = kernel_pgd_addr();
-        current->mm->pgd = copy_kernel_mappings(kernel_pgd);
+        u64 kernel_pgd = kernel_pgd_addr();
+        current->mm->pgd = alloc_new_pgd();
+            printf("ebfore copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
+     //  irq_disable(); 
+      // pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
+       // copy_kernel_mappings(current->mm->pgd,pgd);
+      //  irq_enable();  
         if (!current->mm->pgd) {
             printf("Failed to copy kernel mappings\n\r");
-            free_kernel_page((unsigned long)current->mm);
-            current->mm = NULL;
+//            free_kernel_page((unsigned long)current->mm);
+            current->mm = 0;
             return;
         }
     }
+        
+     printf(" after copy_kernel_mappings\n\r");
     unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
@@ -133,6 +106,15 @@ void kernel_process(){
 }
 
 void kernel_main() {
+    unsigned long init_stack = allocate_kernel_page();
+    u64 kernel_pgd = kernel_pgd_addr();
+    current->mm= allocate_kernel_page();
+    current->mm->pgd= kernel_pgd;
+
+    current->state = TASK_RUNNING;     // 标记为可运行
+    current->stack = init_stack;       // 指向栈内存基地址
+    current->cpu_context.sp = (unsigned long)init_stack + THREAD_SIZE;  // 栈顶指针（ARM64 栈向下增长）
+//current->cpu_context.pc = (unsigned long)init_main;  // 入口函数
     uart_init();
     init_printf(0, io_device_find("muart"));
     printf("\nRasperry PI Bare Metal OS Initializing...\n");
@@ -185,13 +167,14 @@ void kernel_main() {
         printf("\t Start: %X\n", mbr.partitions[i].first_lba_sector);
     }
 
-	int res = copy_process_inkernel((unsigned long)&process, (unsigned long)"abc\r\n");
-	if (res != 0) {
-		printf("error while starting process in kernel mode");
-		return;
-	}
-    
-     res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+
+	//int res = copy_process_inkernel((unsigned long)&process, (unsigned long)"kernel thread\r\n");
+	//if (res != 0) {
+	//	printf("error while starting process in kernel mode");
+	//	return;
+	//}
+
+    int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
@@ -199,6 +182,7 @@ void kernel_main() {
 
 	while (1){
         printf("beore schedule");
+        //printf(current); 
 		schedule();
 	}	
 

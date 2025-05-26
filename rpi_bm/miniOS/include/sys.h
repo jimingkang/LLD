@@ -17,6 +17,8 @@ void call_sys_write(char * buf);
 int call_sys_clone(unsigned long fn, unsigned long arg, unsigned long stack);
 unsigned long call_sys_malloc();
 void call_sys_exit();
+__attribute__((section(".user.text"))) void user_process();
+__attribute__((section(".user.text"))) void process(char *array);
 
 #endif
 #endif  /*_SYS_H */

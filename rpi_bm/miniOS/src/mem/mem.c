@@ -4,7 +4,9 @@
 #include <mmu.h>
 #include <printf.h>
 #include <sched.h>
-
+// 全局页目录指针（需在链接脚本中定义对齐）
+typedef uint64_t pte_T;  // 正确：pte_T 是整数类型
+extern pte_T pg_dir[] __attribute__((aligned(PAGE_SIZE)));
 #define NULL 0
 static u16 mem_map [ PAGING_PAGES ] = {0,};
 
@@ -94,6 +96,26 @@ void* alloc_page() {
   //  return pgd_phys;
 //}
 
+pud_t *pud_offset(pgd_t *pgd, unsigned long addr) {
+    return (pud_t *)(pgd_val(*pgd) & ~(PAGE_SIZE-1)) + ((addr >> 30) & 0x1ff);
+}
+int pgd_table(pgd_t pgd) {
+    return (pgd_val(pgd) & PGD_TYPE_MASK) == PGD_TYPE_TABLE;
+}
+ unsigned long pgd_index(unsigned long address)
+{
+    /*
+     * 计算地址在PGD中的索引
+     * 
+     * PGD索引 = (address >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)
+     * 
+     * 其中：
+     * - PGDIR_SHIFT 是PGD级别的位移量
+     * - PTRS_PER_PGD 是PGD中的条目数
+     */
+    return (address >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1);
+}
+
 // 分配并初始化一个新的PGD（顶级页表）
 pgd_t *alloc_new_pgd(void)
 {
@@ -105,12 +127,12 @@ pgd_t *alloc_new_pgd(void)
     }
     
     // 2. 清空整个PGD
-    memset(pgd, 0, PAGE_SIZE);
+    memzero(pgd, PAGE_SIZE);
     
     // 3. 如果需要，可以在这里初始化一些固定映射
     // 例如设备内存映射等
     
-    printf("Allocated new PGD at 0x%lx\n", (unsigned long)pgd);
+    printf("Allocated new PGD at 0x%x\n", (unsigned long)pgd);
     return pgd;
 }
 
@@ -162,27 +184,27 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long page){
 	unsigned long pgd;
 
     
-	if (!task->mm.pgd) {
-		task->mm.pgd = get_free_page();
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = task->mm.pgd;
+	if (!task->mm->pgd) {
+		task->mm->pgd = get_free_page();
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = task->mm->pgd;
 	}
-	pgd = task->mm.pgd;
+	pgd = task->mm->pgd;
 	int new_table;
 	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pud;
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pud;
 	}
 	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pmd;
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pmd;
 	}
 	unsigned long pte = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
 	if (new_table) {
-		task->mm.kernel_pages[++task->mm.kernel_pages_count] = pte;
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pte;
 	}
 	map_table_entry((unsigned long *)(pte + VA_START), va, page);
 	struct user_page p = {page, va};
-	task->mm.user_pages[task->mm.user_pages_count++] = p;
+	task->mm->user_pages[task->mm->user_pages_count++] = p;
 }
 unsigned long get_free_page()
 {
@@ -255,14 +277,14 @@ int map_user_stack(struct task_struct *tsk, unsigned long stack_vaddr, unsigned 
 // Helper function to map a single page
 int map_page(pgd_t *pgd, unsigned long va, unsigned long pa, unsigned long flags)
 {
-    pte_t *pte;
+    pte_T *pte;
     
     // Get PTE entry (allocates page tables if needed)
     pte = pte_alloc(pgd, va);
     if (!pte) return -1;
     
     // Set the PTE
-    *pte = pa | flags | PTE_TYPE_PAGE;
+    *pte = pa | flags | pte_TYPE_PAGE;
     
     // Flush TLB
     flush_tlb_page(va);
@@ -271,7 +293,7 @@ int map_page(pgd_t *pgd, unsigned long va, unsigned long pa, unsigned long flags
 }
 
 // Page table entry allocation
-pte_t *pte_alloc(pgd_t *pgd, unsigned long va)
+pte_T *pte_alloc(pgd_t *pgd, unsigned long va)
 {
     pud_t *pud;
     pmd_t *pmd;
@@ -281,14 +303,14 @@ pte_t *pte_alloc(pgd_t *pgd, unsigned long va)
     if (!pud_present(*pud)) {
         unsigned long pud_page = get_free_page();
         if (!pud_page) return NULL;
-        set_pud(pud, __pud(pud_page | PTE_VALID | PTE_TABLE));
+        set_pud(pud, __pud(pud_page | PTE_VALID | pte_TABLE));
     }
     
     pmd = pmd_offset(pud, va);
     if (!pmd_present(*pmd)) {
         unsigned long pmd_page = get_free_page();
         if (!pmd_page) return NULL;
-        set_pmd(pmd, __pmd(pmd_page | PTE_VALID | PTE_TABLE));
+        set_pmd(pmd, __pmd(pmd_page | PTE_VALID | pte_TABLE));
     }
     
     return pte_offset_kernel(pmd, va);
@@ -434,6 +456,49 @@ void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {
     } while(vstart <= vend);
 }
 
+ pte_t set_pte_ap(pte_t pte, unsigned long ap) {
+    // 清除原有的 AP 位（AP[2:1] 在 bit[7:6]）
+    pte_val(pte) &= ~(0b11 << 6);
+    // 设置新的 AP 权限
+    pte_val(pte) |= (ap & (0b11 << 6));
+    return pte;
+}
+pmd_t *pmd_offset(pud_t *pud, unsigned long addr)
+{
+    return (pmd_t *)pud_page_vaddr(*pud) + pmd_index(addr);
+}
+bool pmd_present(pmd_t pmd)
+{
+    return pmd_val(pmd) & PMD_TYPE_MASK;  // Check if entry is a table or block
+}
+pte_t *pte_offset_kernel(pmd_t *pmd, unsigned long addr)
+{
+    return (pte_t *)pmd_page_vaddr(*pmd) + PTE_INDEX(addr);
+}
+phys_addr_t pud_page_paddr(pud_t pud)
+{
+    return pud_val(pud) & PHYS_MASK & PAGE_MASK;
+}
+void *pud_page_vaddr(pud_t pud)
+{
+    return (void *)__va(pud_page_paddr(pud));
+}
+//unsigned long pte_index(unsigned long addr) {
+//    return (addr >> PTE_SHIFT) & PTE_INDEX_MASK;
+//}
+phys_addr_t pmd_page_paddr(pmd_t pmd)
+{
+    return pmd_val(pmd) & PHYS_MASK & PAGE_MASK;
+}
+
+void *pmd_page_vaddr(pmd_t pmd)
+{
+    return (void *)__va(pmd_page_paddr(pmd));
+}
+
+unsigned long pmd_index(unsigned long addr) {
+    return (addr >> PMD_SHIFT) & PMD_INDEX_MASK;
+}
 
 void init_mmu() {
 
@@ -512,3 +577,94 @@ uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel
     // 返回下一级页表物理地址（清除低12位属性）
     return (uint64_t*)(current_table[index] & ~0xFFF);
 }
+
+
+
+
+/* 创建页表项 */
+static pte_T* pgd_create_table_entry(pte_T* tbl, uint64_t virt_addr, int level_shift) 
+{
+    // 计算当前层级的索引（9位）
+    int index = (virt_addr >> level_shift) & (PTRS_PER_TABLE - 1);
+    
+    // 如果表项不存在则分配新页表
+    if (!(tbl[index] & 0x1)) {
+        pte_T* new_table = alloc_page();
+        memzero(new_table, PAGE_SIZE);
+        tbl[index] = (uint64_t)new_table | MM_TYPE_PAGE_TABLE;
+    }
+    
+    // 返回下一级页表地址（清除低12位属性）
+    return (pte_T*)(tbl[index] & ~(0xFFF));
+}
+
+/* 递归创建多级页表结构 */
+static pte_T* create_pgd_entries(uint64_t virt_addr) 
+{
+    pte_T* current = pg_dir;
+    
+    // 处理PGD级别（Level 0）
+    current = pgd_create_table_entry(current, virt_addr, PGD_SHIFT);
+    // 处理PUD级别（Level 1）
+    current = pgd_create_table_entry(current, virt_addr, PUD_SHIFT);
+    // 处理PMD级别（Level 2）
+    current = pgd_create_table_entry(current, virt_addr, PMD_SHIFT);
+    
+    return current;  // 返回PMD级别页表指针
+}
+
+/* 创建块映射（2MB大页） */
+static void pgd_create_block_map(pte_T* pmd, uint64_t phys, 
+                            uint64_t start_va, uint64_t end_va, 
+                            uint64_t flags) 
+{
+    start_va >>= SECTION_SHIFT;
+    end_va >>= SECTION_SHIFT;
+    phys >>= SECTION_SHIFT;
+
+    for (uint64_t idx = start_va; idx <= end_va; idx++) {
+        pmd[idx] = (phys << SECTION_SHIFT) | flags | 0x1; // 有效块描述符
+        phys++;
+    }
+}
+
+/* 主初始化函数 
+void __create_page_tables(void) 
+{
+
+    // 1. 清零页目录
+    memzero(pg_dir, PAGE_SIZE);
+
+    // 2. 创建内核映射的页表结构
+    pte_T* pmd = create_pgd_entries(VA_START);
+
+    // 低地址恒等映射（0x0 ~ 0x8000000
+        pgd_create_block_map(pmd, 
+                    0x0,                            // 物理起始地址
+                    0x0,                       // 虚拟起始地址
+                    0x8000000,     // 虚拟结束地址
+                    MMU_FLAGS);
+    // 3. 映射内核区域（物理0 -> VA_START）
+    pgd_create_block_map(pmd, 
+                    0x0,                            // 物理起始地址
+                    VA_START,                       // 虚拟起始地址
+                    VA_START + KERNEL_SIZE - 1,     // 虚拟结束地址
+                    MMU_FLAGS);
+
+    // 4. 映射设备内存区域
+    pmd = create_pgd_entries(VA_START + DEVICE_BASE);
+    pgd_create_block_map(pmd,
+                    DEVICE_BASE,                    // 设备物理基址
+                    VA_START + DEVICE_BASE,         // 设备虚拟基址
+                    VA_START + DEVICE_END - 1,
+                    MMU_DEVICE_FLAGS);
+
+    // 5. 刷新TLB和缓存
+   // __asm__ __volatile__ (
+    //    "dsb sy\n"
+    //    "tlbi vmalle1is\n"
+     //   "dsb sy\n"
+     //   "isb"
+  //  );
+}
+*/

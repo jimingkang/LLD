@@ -24,13 +24,14 @@ void _schedule(void)
 	preempt_disable();
 	int next,c;
 	struct task_struct * p;
+	
 	while (1) {
-		printf("while _schedule\n\r");
 		c = -1;
 		next = 0;
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
 			if (p && p->state == TASK_RUNNING && p->counter > c) {
+						printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
 				c = p->counter;
 				next = i;
 			}
@@ -44,13 +45,13 @@ void _schedule(void)
 			if (p) {
 				
 			printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
-	
 				p->counter = (p->counter >> 1) + p->priority+1;
 			}
 		}
-		printf("quit while _schedule,next=%x\n\r",next);
 	}
-	printf("return from _schedule. next=%x,task=%x\r\n",next,task[next]);
+	printf("Switching to task %d at %x with SP=%x,pgd=%x\r\n", next, task[next], task[next]->stack,task[next]->mm->pgd);
+	//printf("return from _schedule. next=%x,task=%x,\r\n",next,task[next]);
+	
 	switch_to(task[next]);
 	preempt_enable();
 }

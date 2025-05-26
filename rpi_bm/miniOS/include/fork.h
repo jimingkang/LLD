@@ -1,5 +1,6 @@
 #ifndef _FORK_H
 #define _FORK_H
+#include "mem.h"
 struct pt_regs {
 	unsigned long regs[31];
 	unsigned long sp;
@@ -19,5 +20,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 struct pt_regs * task_pt_regs(struct task_struct *tsk);
 
 int copy_process_inkernel(unsigned long fn, unsigned long arg);
+void copy_kernel_mappings(pgd_t *dest_pgd,pgd_t *src_pgd);
+
 
 #endif

@@ -58,13 +58,12 @@ el1_entry:
 
 #if INIT_MMU == 1
     bl init_mmu
+
+
     bl 	__create_page_tables
     //bl init_kernel_mmu
-
-
     adrp x0, id_pgd
     msr ttbr0_el1, x0
-    
     adrp x0, pg_dir
     msr ttbr1_el1, x0
     
@@ -75,12 +74,9 @@ ldr	x2, =kernel_main
     orr x0, x0, x1
     msr sctlr_el1, x0
 #endif
-br 	x2
+    br 	x2
    // bl kernel_main
     b  proc_hang
-
-
-
 
     
 proc_hang:
@@ -136,8 +132,11 @@ __create_page_tables:
 	mov	x1, #PG_DIR_SIZE
 	bl 	memzero
 
+
+
 	adrp	x0, pg_dir
 	mov	x1, #VA_START 
+    //movz x1, #(KERNEL_VIRT_OFFSET >> 48), lsl #48
 	create_pgd_entry x0, x1, x2, x3
 
 	/* Mapping kernel and init stack*/
@@ -159,3 +158,5 @@ __create_page_tables:
 
 	mov	x30, x29						// restore return address
 	ret
+
+

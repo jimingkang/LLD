@@ -1,6 +1,6 @@
 RPI_VERSION ?= 3
 
-BOOTMNT ?= /media/pi/bootfs
+BOOTMNT ?= /media/rlk/bootfs
 
 ARMGNU ?= aarch64-linux-gnu
 
@@ -65,8 +65,9 @@ armstub: armstub/build/armstub_s.o
 	cp armstub-new.bin $(BOOTMNT)/
 	sync
 QEMU_FLAGS  += -nographic
+QEMU_FLAGS  += -machine raspi3
 
 run:
-	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel.img
+	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img
 debug:
-	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel.img -S -s
+	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img -S -s

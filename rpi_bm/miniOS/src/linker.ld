@@ -1,8 +1,8 @@
-KERNEL_VIRT_BASE = 0xffff000000000000; /* 高半内核虚拟基址 */
+KERNEL_VIRT_BASE =0xffff000000000000;  /*0xFFFFFF8000000000; 高半内核虚拟基址 */
 KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默认） */
  SECTIONS
 {
-   . = KERNEL_VIRT_BASE + KERNEL_PHYS_BASE;
+   . = KERNEL_VIRT_BASE +KERNEL_PHYS_BASE ;
 
     .text : AT(ADDR(.text) - KERNEL_VIRT_BASE) {
         KERNEL_CODE_START = .;
@@ -14,10 +14,19 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
         *(.rodata .rodata.*) 
     }
        . = ALIGN(4096);         /* 数据段按4KB对齐 */
-    .data : {
-        KERNEL_DATA_START = .;
-        *(.data .data.*)
-        KERNEL_DATA_END = .;
+    .data
+     : {
+         KERNEL_DATA_START = .;
+         *(.data .data.*)
+         . = ALIGN(4096);
+         id_pgd = .;
+            . += 24576;
+         
+         . = ALIGN(4096);
+         pg_dir = .;
+            . += 12288;
+         
+         KERNEL_DATA_END = .;
     }
     . = ALIGN(0x8);
     .bss : {
@@ -30,26 +39,19 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
    .rodata : { *(.rodata) }
 
 . = ALIGN(0x00001000);
+
+/* 用户代码段（用户模式执行） */
+    . = 0x400000; /* 用户空间起始地址（如4MB处） */
     user_begin = .;
-	.text.user : { build/user* (.text) }
-	.rodata.user : { build/user* (.rodata) }
-	.data.user : { build/user* (.data) }
-	.bss.user : { build/user* (.bss) }
-	user_end = .;
-  .text : {
-  __text_start = .;
-  *(.text)
-  __text_end = .;
-}
+    .user.text : { 
+       build/user* (.text) 
+    }
+    .user.rodata : { *(.user.rodata) }
+    user_end = .;
 
 
- 
-    . = ALIGN(0x00001000);
-    id_pgd = .;
-    .data.id_pgd : { . += (6 * (1 << 12)); }
-    . = ALIGN(0x00001000);
-   pg_dir = .;
-	.data.pgd : { . += (3 * (1 << 12)); }
+
+
 
    /* 定义物理地址符号（可选）
     PHYS_CODE_START = KERNEL_CODE_START - KERNEL_VIRT_BASE;

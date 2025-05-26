@@ -46,7 +46,7 @@ struct user_page {
 };
 
 struct mm_struct {
-	unsigned long pgd;
+	unsigned long * pgd;
 	int user_pages_count;
 	struct user_page user_pages[MAX_PROCESS_PAGES];
 	int kernel_pages_count;
@@ -63,7 +63,7 @@ struct task_struct {
 
 	unsigned long flags;
     // virtual mem
-	struct mm_struct mm;
+	struct mm_struct * mm;
 };
 
 extern void sched_init(void);
