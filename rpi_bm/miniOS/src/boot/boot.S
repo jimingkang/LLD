@@ -59,7 +59,7 @@ el1_entry:
 #if INIT_MMU == 1
     bl init_mmu
     bl 	__create_page_tables
-    //bl init_kernel_mmu
+   // bl init_kernel_mmu
     adrp x0, id_pgd
     msr ttbr0_el1, x0
     adrp x0, pg_dir

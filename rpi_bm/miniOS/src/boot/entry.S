@@ -6,6 +6,27 @@
 #define SYNC_ERROR			16 
 #define SYSCALL_ERROR			17 
 .extern schedule_tail
+
+.macro RET_TO_USER childregs_addr:req
+    // childregs_addr 中保存的就是 struct pt_regs *childregs
+    // 将 childregs->pstate 写到 SPSR_EL1
+    ldr     x0, [\childregs_addr, #offsetof_pt_regs_pstate]
+    msr     SPSR_EL1, x0
+
+    // 将 childregs->pc 写到 ELR_EL1
+    ldr     x0, [\childregs_addr, #offsetof_pt_regs_pc]
+    msr     ELR_EL1, x0
+
+    // 将 childregs->sp 写到 SP_EL0
+    ldr     x0, [\childregs_addr, #offsetof_pt_regs_sp]
+    msr     SP_EL0, x0
+
+    // 如果需要 restore x0-x30，请自行从 childregs[regs] 里取
+    // （此处省略，假设用户程序真的不需要从父进程继承通用寄存器状态）
+
+    eret
+.endm
+
 .macro kernel_entry, el
     sub sp, sp, #S_FRAME_SIZE
     stp x0, x1, [sp, #16 * 0]
@@ -245,13 +266,30 @@ ret_from_fork:
 
 	bl	schedule_tail
 	cbz	x19, ret_to_user			// not a kernel thread
+	ldr x0, =strr_kernel
+	bl uart_send_string
 	mov	x0, x20
 	blr	x19
+
+
 ret_to_user:
 	ldr x0, =strr
 	bl uart_send_string
-	bl irq_disable				
-	kernel_exit 0
+
+
+    // 从 childregs 中恢复 PC/SP/PSTATE，然后 eret 跳 EL0/EL1
+    mov   x1, x29                   // x1 = childregs (pt_regs 的基地址)
+    ldr   x0, [x1, #32*8]
+    msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里
+
+    ldr   x0, [x1, #33*8]
+    msr   SPSR_EL1, x0              // 下一条 eret 会把 PSTATE 设成这里
+
+    ldr   x0, [x1, #31*8]
+    msr   SP_EL0, x0                // 给 EL0 的栈
+
+    eret                            // 从 EL1 → EL0，跳到用户入口
+
 //ret_to_user:
  //   kernel_exit                     // 从内核栈恢复用户态寄存器
                                  // 返回用户态
@@ -271,6 +309,8 @@ ret_to_user:
 
 
 ret_to_user_error:
+	ldr x0, =strr_error
+	bl uart_send_string
     mov    x0, #-1                  // 设置错误码
     kernel_exit 0
 
@@ -284,5 +324,19 @@ ret_from_kernel_thread:
 .globl err_hang
 err_hang: b err_hang
 
+// 获取当前 EL0 的栈指针
+.global get_sp_el0
+get_sp_el0:
+    mrs x0, sp_el0   // 将 SP_EL0 的值读到 x0 寄存器
+    ret              // 返回
+.global get_elr_el1
+get_elr_el1:
+    mrs x0, elr_el1
+    ret
+	
 .data
-	strr:   .string  "in return user"
+	strr:   .string  "in return from  user mode"
+.data
+	strr_kernel:   .string  "in return from kernel mode"
+	.data
+	strr_error:   .string  "in return error"

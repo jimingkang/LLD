@@ -109,59 +109,17 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	return pid;
 }
 
-/*
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
-{
-	struct pt_regs *regs = task_pt_regs(current);
-	regs->pstate = PSR_MODE_EL0t;
-	regs->pc = pc;
-	regs->sp = 2 *  PAGE_SIZE;  
-	unsigned long code_page = allocate_user_page(current, 0);
-	if (code_page == 0)	{
-		return -1;
-	}
-	memcpy(code_page, start, size);
-	set_pgd(current->mm.pgd);
-	return 0;
-}
-*/
+
 static inline bool is_aligned(unsigned long addr, unsigned long align)
 {
     return !(addr & (align - 1));
 }
 
-/*
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
-{
-	//irq_disable();
-	printf(" in move_to_user_mode\r\n");
-	struct pt_regs *regs = task_pt_regs(current);
-	regs->pstate = PSR_MODE_EL0t;
-	regs->pc = pc;
-	regs->sp = 2 *  PAGE_SIZE;  
-	unsigned long code_page = allocate_user_page(current, 0);
-	printf(" code_page %x\r\n",code_page);
-	if (code_page == 0)	{
-		return -1;
-	}
-	memcpy(code_page, start, size);
-	printf(" before set_pgd\r\n");
-	printf("current->mm.pgd %x", current->mm.pgd);
-	if (!current->mm.pgd || !is_aligned(current->mm.pgd, PAGE_SIZE)) {
-    printf("Invalid pgd: %p", current->mm.pgd);
-	}
 
-	set_pgd(current->mm.pgd);
-		printf(" after set_pgd\r\n");
-//irq_enable();
-	return 0;
-}
-	*/
 
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
-	
-printf(" in move_to_user_mode\n\r");
+	printf(" in move_to_user_mode\n\r");
     
     if (size > PAGE_SIZE || !start || !pc) {
         return -1;

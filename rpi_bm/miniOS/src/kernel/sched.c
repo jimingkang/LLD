@@ -125,11 +125,19 @@ void exit_process(){
 	for (int i = 0; i < NR_TASKS; i++){
 		if (task[i] == current) {
 			task[i]->state = TASK_ZOMBIE;
+
+			// 释放用户内存
+            if (task[i]->mm) {
+                free_user_memory(task[i]->mm);
+                task[i]->mm = 0;
+            }
+
 			break;
 		}
 	}
 	if (current->stack) {
 		free_page(current->stack);
+		current->stack = 0;
 	}
 	preempt_enable();
 	schedule();

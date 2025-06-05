@@ -4,10 +4,8 @@ BOOTMNT ?= /media/rlk/bootfs
 
 ARMGNU ?= aarch64-linux-gnu
 
-INIT_MMU ?= 1
-
-COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
-	   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector  -Iinclude -mgeneral-regs-only
+COPS = -g -O0 -DRPI_VERSION=$(RPI_VERSION) -Wall -nostdlib -nostartfiles -ffreestanding \
+	   -Iinclude -mgeneral-regs-only
 
 ASMOPS = -Iinclude
 
@@ -28,13 +26,7 @@ $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 C_FILES = $(wildcard $(SRC_DIR)/*.c)
-C_FILES += $(wildcard $(SRC_DIR)/*/*.c)
-C_FILES += $(wildcard $(SRC_DIR)/*/*/*.c)
-
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
-ASM_FILES += $(wildcard $(SRC_DIR)/*/*.S)
-ASM_FILES += $(wildcard $(SRC_DIR)/*/*/*.S)
-
 OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
 OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
 
@@ -60,14 +52,7 @@ armstub/build/armstub_s.o: armstub/src/armstub.S
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
 armstub: armstub/build/armstub_s.o
-	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o -e _start
+	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
 	cp armstub-new.bin $(BOOTMNT)/
 	sync
-QEMU_FLAGS  += -nographic
-QEMU_FLAGS  += -machine raspi3
-
-run:
-	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img
-debug:
-	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img -S -s

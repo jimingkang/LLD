@@ -4,7 +4,10 @@
 #include "fork.h"
 #include "entry.h"
 #include "printf.h"
+#include "user.h"
 #define PF_KTHREAD		            	0x00000002
+#define KERNEL_VIRT_BASE  0xFFFFFF8000000000ULL
+#define KERNEL_PHYS_BASE  0x0000000000080000ULL  /* 物理镜像起点 */
 extern pg_dir;
 int copy_process_inkernel(unsigned long fn, unsigned long arg)
 {
@@ -64,7 +67,7 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
         if (!p->mm)return -1;
         memzero(p->mm,  sizeof(struct mm_struct));
         
-        p->mm->pgd = alloc_new_pgd();
+        p->mm->pgd = allocate_pagetable_page();
         if (!p->mm->pgd)return -1;
         
         // 复制内核映射并初始化用户空间
@@ -91,9 +94,16 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 		struct pt_regs * cur_regs = task_pt_regs(current);
 		*childregs=	*cur_regs; 	
 		childregs->regs[0] = 0;
-		childregs->sp = stack + PAGE_SIZE; 
-		p->stack = stack;
+
+    unsigned long user_kstack = allocate_kernel_page();  // 返回 KVA
+     if (!user_kstack) return -1;
+        p->stack = user_kstack;  // 把 p->stack 设成新分配的内核栈虚拟地址
+        childregs->sp = user_kstack + PAGE_SIZE;
+		//childregs->sp = stack + PAGE_SIZE; 
+		//p->stack = stack;
 		printf("else in copy_process\n\r");
+        p->cpu_context.x19 = 0;
+        p->cpu_context.x20 = 0;
 	}
 	
 	p->flags = clone_flags;
@@ -112,64 +122,127 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	return pid;
 }
 
-/*
-int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
-{
-	struct pt_regs *regs = task_pt_regs(current);
-	regs->pstate = PSR_MODE_EL0t;
-	regs->pc = pc;
-	regs->sp = 2 *  PAGE_SIZE;  
-	unsigned long code_page = allocate_user_page(current, 0);
-	if (code_page == 0)	{
-		return -1;
-	}
-	memcpy(code_page, start, size);
-	set_pgd(current->mm.pgd);
-	return 0;
-}
-*/
+
 static inline bool is_aligned(unsigned long addr, unsigned long align)
 {
     return !(addr & (align - 1));
 }
 
+static int init_user_mapping(pgd_t *pgd, unsigned long va, unsigned long flags) {
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
 
+    // (1) Check PGD entry (already initialized in your code)
+    if (pgd_none(*pgd)) {
+        printf("PGD entry is empty!\n");
+        return -1;
+    }
+
+    // (2) Get PUD entry - allocate if doesn't exist
+    pud = pud_offset(pgd, va);
+    if (pud_none(*pud)) {
+        pmd_t *new_pmd = (pmd_t *)get_free_page(); // Alloc a PMD table
+        if (!new_pmd) return -1;
+        
+        pud_populate( pud, new_pmd);
+        printf("Allocated new PUD at %p\n", pud);
+    }
+    else if (pud_bad(*pud)) {
+        printf("Bad PUD entry!\n");
+        return -1;
+    }
+
+    // (3) Get PMD entry - allocate if doesn't exist
+    pmd = pmd_offset(pud, va);
+    if (pmd_none(*pmd)) {
+        pte_t *new_pte = (pte_t *)get_free_page(); // Alloc a PTE table
+        if (!new_pte) return -1;
+        
+        pmd_populate( pmd, new_pte);
+        printf("Allocated new PMD at %p\n", pmd);
+    }
+    else if (pmd_bad(*pmd)) {
+        printf("Bad PMD entry!\n");
+        return -1;
+    }
+
+    // (4) Now we can safely create the PTE
+    pte = pte_offset_map(pmd, va);
+    if (!pte) {
+        printf("Failed to map PTE!\n");
+        return -1;
+    }
+
+    return 0; // Success
+}
 
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
-	
-printf(" in move_to_user_mode\n\r");
-    
-    if (size > PAGE_SIZE || !start || !pc) {
+    if (!start || !size || size > 0x100000) {
+        printf("Invalid user program size or addr\n\r");
         return -1;
     }
-  
-    struct pt_regs *regs = task_pt_regs(current);
-    
-    unsigned long code_page = allocate_user_page(current, pc & PAGE_MASK, PTE_VALID | PTE_USER  );
-    if (!code_page) {
-        return -1;
-    }
-    
-  
-    unsigned long stack_page = allocate_user_page(current, 0, PTE_VALID | PTE_USER | PTE_WRITE|PTE_UXN  ); // User-writable, no execute);
-    if (!stack_page) {
-        free_page(code_page - VA_START);
-        return -1;
-    }
-    printf(" after  allocate stack_page %x \n\r",stack_page);
- 
-    memcpy((void*)code_page, (void*)start, size);
+     unsigned long begin = (unsigned long)&user_begin;
+
      
 
+    printf("move_to_user_mode current->mm->pgd %x,pa=%x\n\r",current->mm->pgd,__pa(current->mm->pgd));
+
+
+    unsigned long begin_phys = KERNEL_PHYS_BASE + (USER_CODE_BASE - KERNEL_VIRT_BASE);
+unsigned long begin_kva  = __va(begin_phys);   // 或者 begin_phys + VA_START
+
+
+    struct pt_regs *regs = task_pt_regs(current);
+    unsigned long code_va = USER_CODE_BASE;
+     printf("code_va USER_CODE_BASE:%x\r\n",code_va);
+    unsigned long code_pa = __pa((void *)begin) ;//__pa(start);//start & ~(PAGE_SIZE - 1);
+    unsigned long code_end = start + size;
+ void *page =0;
+    // 1. 映射用户代码段（循环按页映射）
+    for (unsigned long addr = 0; addr < size; addr += PAGE_SIZE) {
+        unsigned long va = code_va + addr;
+        unsigned long src = code_pa + addr;
+
+       page = allocate_user_page(current, va, USER_FLAGS_CODE);
+        if (!page) {
+            printf("Failed to alloc user code page at VA=0x%lx\n\r", va);
+            return -1;
+        }
+
+        //memcpy((void *)__va(page), (void *)__va(src), PAGE_SIZE);
+        memcpy((void *)__va(page), (void *)(begin_kva+addr), PAGE_SIZE);
+        printf("User code mapped: VA=0x%x → PA=0x%x,page va=%x\n\r", va, page);
+    }
+    // 分配栈页（从栈底向下增长）
+    unsigned long stack_va = USER_STACK_BASE  - USER_STACK_SIZE;
+    unsigned long stack_page = allocate_user_page(current, stack_va,PTE_AF| PTE_VALID | PTE_USER | PTE_WRITE  ); // User-writable, no execute);
+    if (!stack_page) {
+      //  free_page(code_page - VA_START);
+        return -1;
+    }
+    printf(" after  allocate stack_page %x,stack_va=%x \n\r",stack_page,stack_va);
+ 
     regs->pstate = PSR_MODE_EL0t;  
-    regs->pc = pc;                
-    regs->sp = stack_page + USER_STACK_SIZE; 
+    regs->pc =pc;    
+    printf(" regs->pc  USER_CODE_BASE:%x,pc=%x\r\n",code_va,pc);            
+    regs->sp =stack_va + PAGE_SIZE ; 
 
 
-
-	debug_pgd(current->mm->pgd);
-    set_pgd(current->mm->pgd);
+printf("user jump: pc=0x%x sp=0x%x pstate=0x%x\n",regs->pc, regs->sp, regs->pstate);
+	//debug_pgd(current->mm->pgd);
+    set_pgd(__pa(current->mm->pgd));
+  printf("After set_pgd, about to switch, ELR_EL1=%lx, SPSR_EL1=%x, SP_EL0=%x\n",regs->pc, regs->pstate, regs->sp);
+  __asm__ volatile(
+    "msr    ELR_EL1, %0\n"   // 把 regs->pc（0x400050）写到 ELR_EL1
+    "msr    SPSR_EL1, %1\n"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1
+    "msr    SP_EL0, %2\n"    // 把 regs->sp（0x7fff000）写到 SP_EL0
+    "eret\n"                 // 一条指令跳到 EL0 执行用户态
+    :
+    : "r"(regs->pc), "r"(regs->pstate), "r"(regs->sp)
+    : "memory"
+);
     return 0;
 }
 void walk_page_table(unsigned long va, pgd_t *pgd_base) {
@@ -231,30 +304,46 @@ void print_pte_table(pte_t *pte_base, unsigned long va_base) {
         }
     }
 }
+void copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *kernel_pgd) {
+    if (!dest_pgd || !kernel_pgd) {
+        printf("Invalid PGD pointers\n");
+        return;
+    }
 
+    // 只拷贝 PGD[511]：内核映射在最高虚拟地址区
+    dest_pgd[511] = kernel_pgd[511];  // 共享内核PUD，避免复制
 
-void copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *src_pgd) {
-       printf("!src_pgd  %x\r\n",src_pgd);
+    printf("Shared kernel mapping: PGD[511] = 0x%x\n", pgd_val(dest_pgd[511]));
+}
+
+void deep_copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *src_pgd) {
+    printf("!src_pgd  %x\r\n",src_pgd);
     if (!dest_pgd || !src_pgd) {
         printf("Invalid PGD pointers\n");
         return;
     }
-for (int i = 0; i < 512; i++) {
-    printf("src_pgd[%d] = 0x%x\n", i, pgd_val(src_pgd[i]));
+   
+   for (int i = 0; i < 512; i++) {
+    if (pgd_present(src_pgd[i])) {
+        printf("PGD[%d] = 0x%x\n", i, pgd_val(src_pgd[i]));
+    }
 }
 
     // 内核虚拟地址范围（根据实际架构调整）
-    unsigned long kernel_start =   0xffffff8000000000;
+    unsigned long kernel_start =   0xffffff8000000000;//0xffff000000000000UL;//
     unsigned long kernel_end =  VMALLOC_START;  // 避免覆盖用户空间
      //  unsigned long kernel_end = (unsigned long)(-1);
 
     // 复制内核映射
+    int i=0;
     for (unsigned long addr = kernel_start; addr < kernel_end; addr += PGDIR_SIZE) {
+       
         int pgd_idx = pgd_index(addr);
         pgd_t pgd = src_pgd[pgd_idx];
-        printf("pgd[%d] = 0x%x, present = %d\n", pgd_idx, pgd_val(pgd), pgd_present(pgd));
+        if ( pgd_idx != 511) continue;
+       // printf("pgd[%d] = 0x%x, present = %d\n", pgd_idx, pgd_val(pgd), pgd_present(pgd));
         if (!pgd_present(pgd)) {
-             printf("!pgd_present  %x\r\n",pgd);
+         //    printf("!pgd_present  %x\r\n",pgd);
             continue;  // 忽略未使用的 PGD 项
         }
 
@@ -265,7 +354,7 @@ for (int i = 0; i < 512; i++) {
             printf("Failed to allocate PUD\n");
             break;
         }
-         // printf("succeed to allocate PUD,dest_pud=%x,src_pud=%x\n",dest_pud,src_pud);
+        //printf("succeed to allocate PUD,dest_pud=%x,src_pud=%x\n",dest_pud,src_pud);
         memcpy(dest_pud, src_pud, PAGE_SIZE);
 
         // 设置新的 PGD 项
@@ -281,68 +370,55 @@ for (int i = 0; i < 512; i++) {
             // 复制 PMD
             pmd_t *src_pmd = pmd_offset(&pud, 0);
             pmd_t *dest_pmd = (pmd_t *)allocate_kernel_page();
-            //printf("succeed to allocate PMD,dest_pmd=%x,src_pmd=%x\n",dest_pmd,src_pmd);
+            printf("succeed to allocate PMD,dest_pmd=%x,src_pmd=%x\n",dest_pmd,src_pmd);
             memcpy(dest_pmd, src_pmd, PAGE_SIZE);
             dest_pud[pud_idx] = __pud(__pa(dest_pmd) | PUD_TYPE_TABLE);
 
             // 遍历 PMD 复制 PTE 并设置权限
             for (int pmd_idx = 0; pmd_idx < 512; pmd_idx++) {
                 pmd_t pmd = dest_pmd[pmd_idx];
+              
                 if (!pmd_present(pmd)) {
-                    continue;
+                    continue;  // 跳过未使用的 PMD 项
                 }
-                 if (!is_pmd_table(pmd)) {
-        //printf("Skip pmd_idx=%d: not a table entry (value=0x%lx)\n", pmd_idx, pmd_val(pmd));
-        continue;
-    }
+
+            /* 处理大页 PMD（2MB 页）*/
+            if (pmd_large(pmd)) {
+                dest_pmd[pmd_idx] = pmd;  // 直接复制大页映射
+                continue;
+            }
+
+            /* 检查是否为页表项（PMD_TYPE_TABLE）*/
+            if (!pmd_table(pmd)) {  // 确保是页表项而非大页或设备映射
+                printf("Invalid PMD entry at idx %d: 0x%x\n", pmd_idx, pmd_val(pmd));
+                continue;
+            }
+
                
 
                 // 复制 PTE
                 pte_t *src_pte = pte_offset_kernel(&pmd, 0);
                 pte_t *dest_pte = (pte_t *)allocate_kernel_page();
-                  printf("succeed to allocate pte,pmd_idx=%d,dest_pte=%x,src_pte=%x\n",pmd_idx,dest_pte,src_pte);
+                printf("succeed to allocate pte,pmd_idx=%d,dest_pte=%x,src_pte=%x\n",pmd_idx,dest_pte,src_pte);
                 memcpy(dest_pte, src_pte, PAGE_SIZE);
                 dest_pmd[pmd_idx] = __pmd(__pa(dest_pte) | PMD_TYPE_TABLE);
                 if (!src_pte) {
-                    printf("src_pte is NULL at pmd_idx=%d, skip\n", pmd_idx);
+                  //  printf("src_pte is NULL at pmd_idx=%d, skip\n", pmd_idx);
                     
                     continue;
                 }
                  for (int i = 0; i < PTRS_PER_PTE; i++) {
                     if (pte_valid(src_pte[i])) {
                          dest_pte[i] = src_pte[i];  // 直接复制表项，不拷贝物理页
-                           unsigned long va = ((pmd_idx << 21) | (i << 12));  // PMD idx + PTE idx → VA（低位段）
-            unsigned long pa = pte_val(src_pte[i]) & PAGE_MASK;
-            unsigned long flags = pte_val(src_pte[i]) & ~PAGE_MASK;
-           // if (pmd_idx>503)
-            {        printf("PTE copy: VA=0x%x → PA=0x%x | FLAGS=0x%x\n", va, pa, flags);}
-    
-                       /*   printf("in side pte_valid,dest_pte=%x,src_pte=%x\n",dest_pte,src_pte);
-                        // 取出原物理页地址
-                        phys_addr_t old_pa = pte_val(src_pte[i]) & PAGE_MASK;
-
-                        // 分配新物理页
-                        void *new_page = allocate_user_page();  // 或 allocate_kernel_page()
-                        phys_addr_t new_pa = __pa(new_page);
-                      printf("before memcpy new_page=%x,old_pa=%x\n",new_page,old_pa);
-                        // 拷贝原数据页内容
-                        memcpy(new_page, __va(old_pa), PAGE_SIZE);
-
-                        // 写入新 PTE 表项
-                        dest_pte[i] =__pte(new_pa | (pte_val(src_pte[i]) & ~PAGE_MASK));// new_pa | (pte_val(src_pte[i]) & ~PAGE_MASK);  // 保留原 flags
-                    */ 
                    }
                 }
-
-
-
 
           
             }
         }
     }
 
-    printf("Copied kernel mappings from 0x%lx to 0x%lx\n", (unsigned long)src_pgd, (unsigned long)dest_pgd);
+    printf("Copied kernel mappings from 0x%x to 0x%x\n", (unsigned long)src_pgd, (unsigned long)dest_pgd);
 }
 
 void old2_copy_kernel_mappings(pgd_t *dest_pgd,pgd_t *src_pgd) {
@@ -385,11 +461,6 @@ void old2_copy_kernel_mappings(pgd_t *dest_pgd,pgd_t *src_pgd) {
     return ;
 }
 
-void debug_pgd(pgd_t *pgd) {
-    for (int i = 0; i < 5; i++) { // 打印前5项
-        printf("pgd[%d] = 0x%x\n", i, pgd[i]);
-    }
-}
 
 
 

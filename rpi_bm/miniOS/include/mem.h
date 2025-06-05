@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-
+#include "mm.h"
 void *memcpy(void *dest, const void *src, u32 n);
 
 #define GPU_CACHED_BASE		0x40000000
@@ -28,7 +28,6 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define __pud(x)        ((pud_t) { (x) })
 #define __pgd(x)        ((pgd_t) { (x) })
 
-#define KERNEL_VIRT_OFFSET 0xFFFF000000000000UL  // 高地址映射
 #define __pa(x) ((u64)(x) - KERNEL_VIRT_OFFSET)
 #define __va(x) ((u64)(x) + KERNEL_VIRT_OFFSET)
 
@@ -59,6 +58,14 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define PTE_UXN        (1UL << 54)   // User Execute Never
 #define PTE_ATTRINDX(x)    ((x) << 2)  // Normal memory
 
+// 用户权限（软件定义，但需和硬件匹配）
+#define PTE_USER       (1UL << 6)   // 用户可访问（AP[1] = 0）
+#define PTE_UXN        (1UL << 54)  // 禁止用户执行（Unprivileged Execute Never）
+#define PTE_PXN        (1UL << 53)  // 禁止内核执行（Privileged Execute Never）
+#define PTE_WRITE      (1UL << 7)   // 假设你设置AP[2:1]=00 表示读写
+#define PTE_READ       0            // 只读页可不设置（取决于你的AP位编码）
+#define PTE_EXEC       0            // 是否允许执行由 UXN/PXN 控制
+
 #define PTE_SH_NONE   (0UL << 8)
 #define PTE_SH_OUTER  (2UL << 8)
 #define PTE_SH_INNER  (3UL << 8)   // 你要的这个
@@ -76,10 +83,15 @@ typedef struct { pteval_t pgd; } pgd_t;
 
 #define KERNEL_EXEC_FLAGS  (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_ATTRINDX(1))
 
+#define USER_CODE_BASE      0x400000        // 用户代码起始虚拟地址
 
-#define USER_STACK_TOP   0x4000000UL   // 顶部（SP 指向此） 原来是0x40000000太大,因为现在是identity映射
-#define USER_STACK_SIZE  0x1000         // 一页大小（4KB）
-#define USER_STACK_BASE  (USER_STACK_TOP - USER_STACK_SIZE)
+
+#define USER_STACK_BASE  0x8000000     // 用户栈起始VA (128MB处)
+#define USER_STACK_SIZE  (0x2000) // *8KB栈空间
+
+
+#define USER_FLAGS_CODE     (PTE_VALID | PTE_AF| PTE_USER | PTE_READ | PTE_EXEC)
+#define USER_FLAGS_STACK    (PTE_VALID | PTE_USER | PTE_WRITE |PTE_AF)
 
 #define VMALLOC_START   0xffffffff00000000//  0xffff000000000000UL   // typical kernel virtual base
 
@@ -108,7 +120,9 @@ extern char KERNEL_DATA_END[];
 #define PHYS_DATA_START 0x90000
 
 
-
+#define       OFFSET_PT_SP    31*8         /* = 248 */
+#define    OFFSET_PT_PC   32*8         /* = 256 */
+#define   OFFSET_PT_PSTATE 33*8         /* = 264 */
 
 
 #define PMD_SHIFT        21          // AArch64: 2MB alignment
@@ -146,6 +160,14 @@ extern char KERNEL_DATA_END[];
 
 #define pgd_page_vaddr(pgd)    ((unsigned long)__va(pgd_val(pgd) & PTE_ADDR_MASK))
 
+#define PMD_TYPE_MASK   (3UL << 0)
+#define PMD_TYPE_TABLE  (3UL << 0)
+#define PMD_TYPE_BLOCK  (1UL << 0)
+#define PMD_VALID       (1UL << 0)
+
+#define pmd_large(pmd)  ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_BLOCK)
+#define pmd_table(pmd)  ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_TABLE)
+
 #ifndef phys_addr_t
 #define phys_addr_t unsigned long
 #endif
@@ -164,6 +186,51 @@ extern char KERNEL_DATA_END[];
 #define AP_RW_RO   (0b10 << 6)  // 内核可读写，用户态只读
 #define AP_RW_NA   (0b01 << 6)  // 仅内核可读写
 #define AP_RW_NONE (0b00 << 6)  // 无访问权限
+
+
+// ESR 异常分类掩码 (ARMv8 ARM DDI 0487G.a, D19.2.28)
+#define ESR_ELx_EC_SHIFT     26
+#define ESR_ELx_EC_MASK      0x3F
+#define ESR_ELx_IL_SHIFT     25
+#define ESR_ELx_FSC_SHIFT    0
+#define ESR_ELx_FSC_MASK     0x3F
+#define ESR_ELx_FSC_TYPE     (0x3F << ESR_ELx_FSC_SHIFT)
+
+// 常见异常类型 (FSC字段)
+#define FSC_TRANS_FAULT_L0   0x04  // 页表第0级转换错误
+#define FSC_TRANS_FAULT_L1   0x05  // 第1级转换错误
+#define FSC_TRANS_FAULT_L2   0x06  // 第2级转换错误
+#define FSC_TRANS_FAULT_L3   0x07  // 第3级转换错误
+#define FSC_PERM_FAULT       0x0D  // 权限错误
+#define FSC_ACCESS_FLAG      0x09  // 访问标志错误
+
+
+/* 页表级数 */
+#define PTRS_PER_PGD      512
+#define PTRS_PER_PUD      512
+#define PTRS_PER_PMD      512
+#define PTRS_PER_PTE      512
+
+/* 页表偏移量 */
+#define PGDIR_SHIFT       39
+#define PUDIR_SHIFT       30
+#define PMD_SHIFT         21
+#define PAGE_SHIFT        12
+
+/* 页表掩码 */
+#define PGDIR_SIZE        (1UL << PGDIR_SHIFT)
+#define PUDIR_SIZE        (1UL << PUDIR_SHIFT)
+#define PMD_SIZE          (1UL << PMD_SHIFT)
+#define PAGE_SIZE         (1UL << PAGE_SHIFT)
+/* 块/段映射检查 */
+#define PMD_TYPE_MASK     3
+#define PMD_TYPE_SECT     1
+#define pmd_sect(pmd)     ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT)
+#define PMD_SECT_MASK     (~(PMD_SIZE - 1))
+
+#define LEVEL_MASK    (PTRS_PER_TABLE - 1)  /* 0x1FF */
+#define DESCRIPTOR_TABLE   0x3UL 
+
  extern char KERNEL_BSS_START[];
 extern char KERNEL_BSS_END[];
 
@@ -179,3 +246,9 @@ uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel
 void *pud_page_vaddr(pud_t pud);
 void *pmd_page_vaddr(pmd_t pmd);
 unsigned long pmd_index(unsigned long addr);
+pte_t *pte_offset_map(pmd_t *pmd, unsigned long addr);
+int pmd_none(pmd_t pmd);
+int pmd_bad(pmd_t pmd);
+void pmd_populate(pmd_t *pmdp, pte_t *pte);
+void set_pmd(pmd_t *pmdp, pmd_t pmd)
+;

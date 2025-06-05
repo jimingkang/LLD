@@ -57,10 +57,13 @@ typedef struct PACKED {
 } master_boot_record;
 
 
-void init_main(void *arg) {
-    printf("Init task running!\n");
+void kernel_func(void *arg) {
+    printf("kernel_func\r\n");
+    int i=0;
     while (1) {
-        schedule();  // 主动让出 CPU
+
+         printf("kernel_func i=%d!\r\n",i++%100);
+         delay(1000000);
     }
 }
 
@@ -80,8 +83,8 @@ void kernel_process(){
       
         // 复制内核映射
         u64 kernel_pgd = kernel_pgd_addr();
-        current->mm->pgd = alloc_new_pgd();
-            printf("ebfore copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
+        current->mm->pgd = allocate_pagetable_page();
+        printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
        irq_disable(); 
        pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
         copy_kernel_mappings(current->mm->pgd,pgd);
@@ -93,23 +96,34 @@ void kernel_process(){
             return;
         }
     }
+
         
      printf(" after copy_kernel_mappings\n\r");
     unsigned long begin = (unsigned long)&user_begin;
 	unsigned long end = (unsigned long)&user_end;
 	unsigned long process = (unsigned long)&user_process;
-	int err = move_to_user_mode(begin, end - begin, process - begin);
+
+    unsigned long user_va = 0x400000;  // 映射目标地址
+    unsigned long entry_va = user_va + ((unsigned long)&user_process - begin);
+    printf("&user_begin = 0x%x\n", begin);
+printf("&user_process = 0x%x\n", process);
+printf("entry_va      = 0x%x\n", entry_va);
+    int err = move_to_user_mode(user_va, end - begin, entry_va);
+	
+    //int err = move_to_user_mode(begin, end - begin, process - begin);
     printf("after move_to_user_mode\r\n");
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
 	} 
+
 }
 
 void kernel_main() {
-    unsigned long init_stack = allocate_kernel_page();
+    unsigned long init_stack = allocate_pagetable_page();
     u64 kernel_pgd = kernel_pgd_addr();
-    current->mm= allocate_kernel_page();
+    current->mm= allocate_pagetable_page();
     current->mm->pgd= kernel_pgd;
+    //print_user_mapping(current->mm->pgd,KERNEL_VIRT_OFFSET);
 
     current->state = TASK_RUNNING;     // 标记为可运行
     current->stack = init_stack;       // 指向栈内存基地址
@@ -168,20 +182,20 @@ void kernel_main() {
     }
 
 
-	//int res = copy_process_inkernel((unsigned long)&process, (unsigned long)"kernel thread\r\n");
+	//int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_func, 0,0);
 	//if (res != 0) {
 	//	printf("error while starting process in kernel mode");
 	//	return;
 	//}
 
-    int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+     int  res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
 	}
 
 	while (1){
-        printf("beore schedule");
+        printf("beore schedule\r\n");
         //printf(current); 
 		schedule();
 	}	

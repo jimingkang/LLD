@@ -5,5 +5,8 @@ void user_process1(char *array);
 void user_process();
 extern unsigned long user_begin;
 extern unsigned long user_end;
+//extern char user_begin[];
+
+//extern char user_end[];
 
 #endif  /*_USER_H */

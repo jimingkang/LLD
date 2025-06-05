@@ -1,4 +1,4 @@
-KERNEL_VIRT_BASE =0xffff000000000000;  /*0xFFFFFF8000000000; 高半内核虚拟基址 */
+KERNEL_VIRT_BASE =0xFFFFFF8000000000;   /* 0xffff000000000000;  高半内核虚拟基址 */
 KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默认） */
  SECTIONS
 {
@@ -44,9 +44,19 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
     . = 0x400000; /* 用户空间起始地址（如4MB处） */
     user_begin = .;
     .user.text : { 
-       build/user* (.text) 
+          *(.user.text)         /* 明确包含 .user.text 段 */
     }
-    .user.rodata : { *(.user.rodata) }
+    .user.rodata : { 
+          *(.user.rodata)
+    }
+      .user.data : { 
+          *(.user.data)
+    }
+    . = ALIGN(0x1000);  /* 页对齐 */
+    user_data_begin = .;
+    .user.data : { *(.user.data) }
+    .user.bss : { *(.user.bss) *(COMMON) }
+    user_data_end = .;
     user_end = .;
 
 

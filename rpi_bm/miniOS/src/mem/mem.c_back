@@ -137,111 +137,28 @@ unsigned long allocate_kernel_page() {
 	unsigned long page = get_free_page();
 	if (page == 0) {
 		return 0;
-        
 	}
-    void *kva = __va(page);  
-     memzero(kva, PAGE_SIZE);
+     memzero((void *)(page + VA_START), PAGE_SIZE);
 	return page + VA_START;
 }
 
-unsigned long map_table_level(unsigned long table_va, unsigned long shift, unsigned long va, int *new_table)
-{
-    unsigned long *table = (unsigned long *)table_va;
-    unsigned long index = (va >> shift) & LEVEL_MASK;
-    unsigned long desc = table[index];
 
-    if ((desc & 0x3) == 0) {
-        /* 说明这一项为空，需要分配新页做下一级表 */
-        unsigned long new_pa = get_free_page();
-        if (!new_pa) {
-            *new_table = 0;
-            return 0; /* 分配失败 */
-        }
-        /* 清零新分配的页表页 */
-        memzero((void *)__va(new_pa),  PAGE_SIZE);
-
-        /* 写入“Table Descriptor” = new_pa | 0b11 */
-        table[index] = (new_pa & ~((unsigned long)(PAGE_SIZE - 1))) | DESCRIPTOR_TABLE;
-        *new_table = 1;
-        return new_pa;   /* 下一层页表的物理页号 */
-    }
-
-    /* 如果已有 Descriptor，就返回其高位 PA，低 12 位掩去 */
-    *new_table = 0;
-    return desc & ~((unsigned long)(PAGE_SIZE - 1));
-}
 
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {
 
-  struct mm_struct *mm = task->mm;
-
-    /* 1. 如果顶层 PGD 还没分配，就先分配一页物理内存作为 PGD */
-    if (!mm->pgd) {
-        unsigned long new_pgd_pa = get_free_page();
-        if (!new_pgd_pa) {
-            printf("Failed to alloc PGD page\n\r");
-            return 0;
-        }
-        /* 清零 PGD 页面 */
-        memzero((void *)__va(new_pgd_pa), PAGE_SIZE);
-        mm->pgd = new_pgd_pa;
-        mm->kernel_pages[ mm->kernel_pages_count++ ] = new_pgd_pa;
-    }
-
-    /* 2. 按四级页表逐层分配/查找 */
-
-    /* 2.1 PGD → PUD */
-    unsigned long pgd_pa = mm->pgd;
-    unsigned long *pgd_va = (unsigned long *)__va(pgd_pa);
-    int new_tbl;
-
-    unsigned long pud_pa = map_table_level((unsigned long)pgd_va,
-                                           PGD_SHIFT, va, &new_tbl);
-    if (!pud_pa) {
-        printf("Failed at PGD→PUD for VA=0x%lx\n\r", va);
+    unsigned long page = get_free_page();
+        printf("allocate_user_page pa=%x\r\n",page);
+    if (!page) {
+         // printf("can not allocate_user_page\r\n");
         return 0;
     }
-
-    /* 2.2 PUD → PMD */
-    unsigned long *pud_va = (unsigned long *)__va(pud_pa);
-    unsigned long pmd_pa = map_table_level((unsigned long)pud_va,
-                                           PUD_SHIFT, va, &new_tbl);
-    if (!pmd_pa) {
-        printf("Failed at PUD→PMD for VA=0x%lx\n\r", va);
-        return 0;
-    }
-
-    /* 2.3 PMD → PTE */
-    unsigned long *pmd_va = (unsigned long *)__va(pmd_pa);
-    unsigned long pte_pa = map_table_level((unsigned long)pmd_va,
-                                           PMD_SHIFT, va, &new_tbl);
-    if (!pte_pa) {
-        printf("Failed at PMD→PTE for VA=0x%lx\n\r", va);
-        return 0;
-    }
-
-    /* 3. 在 PTE 中写入数据页描述符 */
-    unsigned long *pte_va = (unsigned long *)__va(pte_pa);
-    unsigned long pte_index = (va >> PTE_SHIFT) & LEVEL_MASK;
-
-    /* 3.1 分配一个“用户数据页”物理地址 */
-    unsigned long new_data_pa = get_free_page();
-    if (!new_data_pa) {
-        printf("Failed to alloc user data page for VA=0x%lx\n\r", va);
-        return 0;
-    }
-    /* 清零新分配的数据页 */
-    memzero((void *)__va(new_data_pa), PAGE_SIZE);
-
-    /* 3.2 写入 PTE = data_pa | prot */
-    pte_va[pte_index] = (new_data_pa & ~(PAGE_SIZE - 1)) | (prot & ~(PAGE_SIZE - 1));
-
-    /* 4. 记录“用户数据页” */
-    mm->user_pages[ mm->user_pages_count++ ].phys_addr = new_data_pa;
-    mm->user_pages[ mm->user_pages_count   ].virt_addr = va;
-
-    /* 5. 返回 新分配的“用户数据页”PA */
-    return new_data_pa;
+     // 清零新分配的页
+    memzero((void*)__va(page), PAGE_SIZE);
+    
+    /* Map with user-accessible permissions */
+    map_page(task, va, page, prot | PTE_USER);
+    printf("allocate_user_page  va =%x\r\n",va);
+    return va;// ? va : (page + VA_START);
 }
 void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	unsigned long index = va >> PAGE_SHIFT;
@@ -265,7 +182,6 @@ unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long
 	return table[index] & PAGE_MASK;
 }
 
-
 void map_page(struct task_struct *task, unsigned long va, unsigned long pa, int prot) {
     if (!task || !task->mm) {
         printf("Invalid task or mm_struct\n\r");
@@ -277,7 +193,7 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long pa, int 
         task->mm->kernel_pages[++task->mm->kernel_pages_count] = task->mm->pgd;
     }
         int new_table;
-        unsigned long pgd_pa = task->mm->pgd;
+        unsigned long pgd_pa = __pa(task->mm->pgd);
         unsigned long *pgd = (unsigned long *)__va(pgd_pa);
         unsigned long pud = map_table(pgd, PGD_SHIFT, va, &new_table);
     
@@ -377,6 +293,56 @@ void free_user_memory(struct mm_struct *mm) {
 }
 
 
+//Jimmy add
+
+/*
+// Memory mapping functions
+int map_user_stack(struct task_struct *tsk, unsigned long stack_vaddr, unsigned long size)
+{
+    // 1. Validate stack range
+    if (stack_vaddr < LOW_MEMORY || (stack_vaddr + size) > HIGH_MEMORY) {
+        return -EFAULT;
+    }
+
+    // 2. Map each stack page
+    for (unsigned long va = stack_vaddr; va < stack_vaddr + size; va += PAGE_SIZE) {
+        unsigned long pa = get_free_page();
+        if (!pa) {
+            // Cleanup already mapped pages
+            while (va > stack_vaddr) {
+                va -= PAGE_SIZE;
+                unmap_page(tsk->mm.pgd, va);
+            }
+            return -ENOMEM;
+        }
+
+        if (map_page(tsk->mm.pgd, va, pa, PTE_VALID | PTE_USER | PTE_WRITABLE) != 0) {
+            free_page(pa);
+            while (va > stack_vaddr) {
+                va -= PAGE_SIZE;
+                unmap_page(tsk->mm.pgd, va);
+            }
+            return -ENOMEM;
+        }
+
+        memzero(va, PAGE_SIZE);  // Clear the page
+    }
+
+    // 3. Add guard page
+    if (map_page(tsk->mm.pgd, stack_vaddr - PAGE_SIZE, 0, PTE_NONE) != 0) {
+        // Cleanup stack pages if guard page fails
+        for (unsigned long va = stack_vaddr; va < stack_vaddr + size; va += PAGE_SIZE) {
+            unmap_page(tsk->mm.pgd, va);
+        }
+        return -ENOMEM;
+    }
+
+    tsk->mm.stack_start = stack_vaddr;
+    tsk->mm.stack_end = stack_vaddr + size;
+    return 0;
+}
+    */
+
 
 #define TD_VALID                   (1 << 0)
 #define TD_BLOCK                   (0 << 1)
@@ -406,6 +372,83 @@ void free_user_memory(struct mm_struct *mm) {
 #define PUD_ENTRY_MAP_SIZE     (1 << PUD_SHIFT)
 
 
+/*
+void map_kernel_text() {
+    u64 start = (u64)__text_start & PAGE_MASK;
+    u64 end   = ((u64)__text_end + PAGE_SIZE - 1) & PAGE_MASK;
+
+    for (u64 addr = start; addr < end; addr += PAGE_SIZE) {
+        map_user_page(addr, addr, KERNEL_EXEC_FLAGS);  // 1:1 映射代码段
+    }
+}
+
+
+void map_user_page(u64 task_pgd,u64 va, u64 pa, u64 flags) {
+   
+    //u64 *pgd = (u64 *)id_pgd_addr();  // 顶级页表基地址
+ u64 *pgd = (u64 *)task_pgd;  
+
+    u64 pgd_idx = (va >> 39) & 0x1FF;
+    u64 pud_idx = (va >> 30) & 0x1FF;
+    u64 pmd_idx = (va >> 21) & 0x1FF;
+    u64 pte_idx = (va >> 12) & 0x1FF;
+    printf(" pgd_idx:%x,pud_idx:%x,pmd_idx:%x,pte_idx:%x\n",pgd_idx,pud_idx,pmd_idx,pte_idx);
+
+    u64 *pud, *pmd, *pte;
+
+    if (!(pgd[pgd_idx] & 1)) {
+        pud = alloc_page();
+        memzero((u64)pud, PAGE_SIZE);
+        pgd[pgd_idx] = __pa(pud) | TD_KERNEL_TABLE_FLAGS;
+        printf(" pud%x\n",__pa(pud));  
+    
+    } else {
+       // pud = (u64 *)((u64)pgd[pgd_idx] & PAGE_MASK + KERNEL_VIRT_OFFSET);
+     //   pud = (u64 *)(((u64)pgd[pgd_idx] & PAGE_MASK) + KERNEL_VIRT_OFFSET);
+         pud = (u64 *)__va(pgd[pgd_idx] & PAGE_MASK);
+       printf(" else pud%x\n",pud); 
+    }
+printf(" before pmd%x\n",__pa(pmd));  
+    if (!(pud[pud_idx] & 1)) {
+        pmd = alloc_page();
+        memzero((u64)pmd, PAGE_SIZE);
+        pud[pud_idx] = __pa(pmd) | TD_KERNEL_TABLE_FLAGS;
+              printf(" if pmd%x\n",__pa(pmd));  
+    }
+     else{
+        //pmd = (u64 *)((u64)pud[pud_idx] & PAGE_MASK + KERNEL_VIRT_OFFSET);
+      //  pmd = (u64 *)(((u64)pud[pud_idx] & PAGE_MASK) + KERNEL_VIRT_OFFSET);
+        
+         pmd = (u64 *)__va(pud[pud_idx] & PAGE_MASK);
+        printf("else pmd %x\n",pmd);  
+ 
+    }
+    printf(" after  pmd%x\n",__pa(pmd));  
+
+    if (!(pmd[pmd_idx] & 1)) {
+        pte = alloc_page();
+        memzero((u64)pte, PAGE_SIZE);
+        pmd[pmd_idx] = __pa(pte) | TD_KERNEL_TABLE_FLAGS;
+          printf("if pte %x\n",pte);
+    } else {
+      //  pte = (u64 *)((u64)pmd[pmd_idx] & PAGE_MASK + KERNEL_VIRT_OFFSET);
+       // pte = (u64 *)(((u64)pmd[pmd_idx] & PAGE_MASK) + KERNEL_VIRT_OFFSET);
+         pte = (u64 *)__va(pmd[pmd_idx] & PAGE_MASK);
+    printf("else pte %x\n",pte);
+    }
+    
+
+
+    printf("map_user_page:\n");
+
+    printf("  pgd = %x, pud = %x, pmd = %x, pte = %x\n",__pa(pgd), __pa(pud), __pa(pmd), __pa(pte));
+    printf("  pte_idx = 0x%x, write to = 0x%x\n", pte_idx, (u64)&pte[pte_idx]);
+        // 最终 PTE 设置
+    pte[pte_idx] = (pa & PAGE_MASK) | flags;
+}
+
+
+*/
 void dump_pte(pgd_t *pgd_base, unsigned long va) {
     int pgd_index = (va >> PGD_SHIFT) & (PTRS_PER_TABLE - 1);
     int pud_index = (va >> PUD_SHIFT) & (PTRS_PER_TABLE - 1);
@@ -417,7 +460,7 @@ void dump_pte(pgd_t *pgd_base, unsigned long va) {
         printf("PGD[%d] invalid\n\r", pgd_index);
         return;
     }
-    printf("PGD[%d] = 0x%x\n\r", pgd_index, pgd_val(pgd));
+    printf("PGD[%d] = 0x%lx\n\r", pgd_index, pgd_val(pgd));
 
     pud_t *pud_base = (pud_t *)__va(pgd_val(pgd) & PAGE_MASK);
     pud_t pud = pud_base[pud_index];
@@ -425,7 +468,7 @@ void dump_pte(pgd_t *pgd_base, unsigned long va) {
         printf("  PUD[%d] invalid\n\r", pud_index);
         return;
     }
-    printf("  PUD[%d] = 0x%x\n\r", pud_index, pud_val(pud));
+    printf("  PUD[%d] = 0x%lx\n\r", pud_index, pud_val(pud));
 
     pmd_t *pmd_base = (pmd_t *)__va(pud_val(pud) & PAGE_MASK);
     pmd_t pmd = pmd_base[pmd_index];
@@ -433,7 +476,7 @@ void dump_pte(pgd_t *pgd_base, unsigned long va) {
         printf("    PMD[%d] invalid\n\r", pmd_index);
         return;
     }
-    printf("    PMD[%d] = 0x%x\n\r", pmd_index, pmd_val(pmd));
+    printf("    PMD[%d] = 0x%lx\n\r", pmd_index, pmd_val(pmd));
 
     if ((pmd_val(pmd) & PTE_TABLE) == 0) {
         printf("    PMD[%d] is block mapping\n\r", pmd_index);
@@ -446,8 +489,8 @@ void dump_pte(pgd_t *pgd_base, unsigned long va) {
         printf("      PTE[%d] invalid\n\r", pte_index);
         return;
     }
-    printf("      PTE[%d] = 0x%x\n\r", pte_index, pte_val(pte));
-    printf("      VA 0x%lx → PA 0x%x\n\r", va, pte_val(pte) & PAGE_MASK);
+    printf("      PTE[%d] = 0x%lx\n\r", pte_index, pte_val(pte));
+    printf("      VA 0x%lx → PA 0x%lx\n\r", va, pte_val(pte) & PAGE_MASK);
 }
 
 void old_dump_pte(struct mm_struct *mm, unsigned long addr) {
