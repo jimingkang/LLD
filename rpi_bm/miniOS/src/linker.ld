@@ -19,9 +19,9 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
          KERNEL_DATA_START = .;
          *(.data .data.*)
          . = ALIGN(4096);
-         id_pgd = .;
+ id_pgd = .;
             . += 24576;
-         
+                 
          . = ALIGN(4096);
          pg_dir = .;
             . += 12288;
@@ -41,20 +41,19 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
 . = ALIGN(0x00001000);
 
 /* 用户代码段（用户模式执行） */
-    . = 0x400000; /* 用户空间起始地址（如4MB处） */
+
+    . = KERNEL_VIRT_BASE + 0x00400000;
     user_begin = .;
-    .user.text : { 
+    .user.text : AT(0x00400000)
+     { 
           *(.user.text)         /* 明确包含 .user.text 段 */
-    }
-    .user.rodata : { 
-          *(.user.rodata)
-    }
-      .user.data : { 
-          *(.user.data)
     }
     . = ALIGN(0x1000);  /* 页对齐 */
     user_data_begin = .;
     .user.data : { *(.user.data) }
+     .user.rodata : { 
+          *(.user.rodata)
+    }
     .user.bss : { *(.user.bss) *(COMMON) }
     user_data_end = .;
     user_end = .;

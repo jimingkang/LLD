@@ -103,16 +103,16 @@ kernel_pgd_addr:
 .macro	create_pgd_entry, tbl, virt, tmp1, tmp2
 	create_table_entry \tbl, \virt, PGD_SHIFT, \tmp1, \tmp2
 	create_table_entry \tbl, \virt, PUD_SHIFT, \tmp1, \tmp2
-	.endm
+.endm
 
-	.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
+.macro	create_table_entry, tbl, virt, shift, tmp1, tmp2
 	lsr	\tmp1, \virt, #\shift
 	and	\tmp1, \tmp1, #PTRS_PER_TABLE - 1			// table index
 	add	\tmp2, \tbl, #PAGE_SIZE
 	orr	\tmp2, \tmp2, #MM_TYPE_PAGE_TABLE	
 	str	\tmp2, [\tbl, \tmp1, lsl #3]
 	add	\tbl, \tbl, #PAGE_SIZE					// next level table page
-	.endm
+.endm
 
 	.macro	create_block_map, tbl, phys, start, end, flags, tmp1
 	lsr	\start, \start, #SECTION_SHIFT

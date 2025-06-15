@@ -6,7 +6,7 @@
 #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
 #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
-#define VA_START 			KERNEL_VIRT_OFFSET
+#define VA_START 			KERNEL_VIRT_BASE
 #define PG_DIR_SIZE			(3 * PAGE_SIZE)
 #define DEVICE_BASE 0x3F000000  // Raspberry Pi 外设基地址
 #define PHYS_MEMORY_SIZE 		0x40000000	
@@ -59,7 +59,7 @@ el1_entry:
 #if INIT_MMU == 1
     bl init_mmu
     bl 	__create_page_tables
-   // bl init_kernel_mmu
+
     adrp x0, id_pgd
     msr ttbr0_el1, x0
     adrp x0, pg_dir

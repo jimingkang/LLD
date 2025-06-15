@@ -1,0 +1,234 @@
+
+#include <mem.h>
+#include <peripherals/base.h>
+#include <mm.h>
+#include <mmu.h>
+#include <printf.h>
+#include <sched.h>
+
+static unsigned short mem_map [ PAGING_PAGES ] = {0,};
+
+unsigned long allocate_kernel_page() {
+	unsigned long page = get_free_page();
+	if (page == 0) {
+		return 0;
+	}
+	return page + VA_START;
+}
+
+unsigned long allocate_user_page(struct task_struct *task, unsigned long va) {
+	unsigned long page = get_free_page();
+	if (page == 0) {
+		return 0;
+	}
+	map_page(task, va, page);
+	return page + VA_START;
+}
+
+unsigned long get_free_page()
+{
+	for (int i = 0; i < PAGING_PAGES; i++){
+		if (mem_map[i] == 0){
+			mem_map[i] = 1;
+			unsigned long page = LOW_MEMORY + i*PAGE_SIZE;
+			memzero(page + VA_START, PAGE_SIZE);
+			return page;
+		}
+	}
+	return 0;
+}
+
+void free_page(unsigned long p){
+	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
+}
+
+void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
+	unsigned long index = va >> PAGE_SHIFT;
+	index = index & (PTRS_PER_TABLE - 1);
+	unsigned long entry = pa | MMU_PTE_FLAGS; 
+	pte[index] = entry;
+}
+
+unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long va, int* new_table) {
+	unsigned long index = va >> shift;
+	index = index & (PTRS_PER_TABLE - 1);
+	if (!table[index]){
+		*new_table = 1;
+		unsigned long next_level_table = get_free_page();
+		unsigned long entry = next_level_table | MM_TYPE_PAGE_TABLE;
+		table[index] = entry;
+		return next_level_table;
+	} else {
+		*new_table = 0;
+	}
+	return table[index] & PAGE_MASK;
+}
+
+void map_page(struct task_struct *task, unsigned long va, unsigned long page){
+	unsigned long pgd;
+	if (!task->mm->pgd) {
+		task->mm->pgd = get_free_page();
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = task->mm->pgd;
+	}
+	pgd = task->mm->pgd;
+	int new_table;
+	unsigned long pud = map_table((unsigned long *)(pgd + VA_START), PGD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pud;
+	}
+	unsigned long pmd = map_table((unsigned long *)(pud + VA_START) , PUD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pmd;
+	}
+	unsigned long pte = map_table((unsigned long *)(pmd + VA_START), PMD_SHIFT, va, &new_table);
+	if (new_table) {
+		task->mm->kernel_pages[++task->mm->kernel_pages_count] = pte;
+	}
+	map_table_entry((unsigned long *)(pte + VA_START), va, page);
+	struct user_page p = {page, va};
+	task->mm->user_pages[task->mm->user_pages_count++] = p;
+}
+
+int copy_virt_memory(struct task_struct *dst) {
+	struct task_struct* src = current;
+	for (int i = 0; i < src->mm->user_pages_count; i++) {
+		unsigned long kernel_va = allocate_user_page(dst, src->mm->user_pages[i].virt_addr);
+		if( kernel_va == 0) {
+			return -1;
+		}
+		memcpy(kernel_va, src->mm->user_pages[i].virt_addr, PAGE_SIZE);
+	}
+	return 0;
+}
+
+static int ind = 1;
+
+int do_mem_abort(unsigned long addr, unsigned long esr) {
+	unsigned long dfs = (esr & 0b111111);
+	if ((dfs & 0b111100) == 0b100) {
+		unsigned long page = get_free_page();
+		if (page == 0) {
+			return -1;
+		}
+		map_page(current, addr & PAGE_MASK, page);
+		ind++;
+		if (ind > 2){
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
+}
+
+void *allocate_memory(int bytes) {
+    printf("allocate_memory");
+    int pages = bytes / PAGE_SIZE;
+
+    if (bytes % PAGE_SIZE) {
+        pages++;
+    }
+
+    return get_free_page();
+}
+
+void free_memory(void *base) {
+    u64 page_num = (((u64)base) - LOW_MEMORY) / PAGE_SIZE;
+    int pages = mem_map[page_num];
+
+    printf("free_memory at address %X page num: %d pages: %d\n", base, page_num, pages);
+
+    for (int i=0; i<pages; i++) {
+        mem_map[page_num + i] = 0;
+    }
+}
+
+
+#define TD_VALID                   (1 << 0)
+#define TD_BLOCK                   (0 << 1)
+#define TD_TABLE                   (1 << 1)
+#define TD_ACCESS                  (1 << 10)
+#define TD_KERNEL_PERMS            (1L << 54)
+#define TD_INNER_SHARABLE          (3 << 8)
+
+#define TD_KERNEL_TABLE_FLAGS      (TD_TABLE | TD_VALID)
+#define TD_KERNEL_BLOCK_FLAGS      (TD_ACCESS | TD_INNER_SHARABLE | TD_KERNEL_PERMS | (MATTR_NORMAL_NC_INDEX << 2) | TD_BLOCK | TD_VALID)
+#define TD_DEVICE_BLOCK_FLAGS      (TD_ACCESS | TD_INNER_SHARABLE | TD_KERNEL_PERMS | (MATTR_DEVICE_nGnRnE_INDEX << 2) | TD_BLOCK | TD_VALID)
+
+#define MATTR_DEVICE_nGnRnE        0x0
+#define MATTR_NORMAL_NC            0x44
+#define MATTR_DEVICE_nGnRnE_INDEX  0
+#define MATTR_NORMAL_NC_INDEX      1
+#define MAIR_EL1_VAL               ((MATTR_NORMAL_NC << (8 * MATTR_NORMAL_NC_INDEX)) | MATTR_DEVICE_nGnRnE << (8 * MATTR_DEVICE_nGnRnE_INDEX))
+
+#define ID_MAP_PAGES           6
+#define ID_MAP_TABLE_SIZE      (ID_MAP_PAGES * PAGE_SIZE)
+#define KERNEL_MAP_PAGES           3
+#define KERNEL_MAP_TABLE_SIZE      (KERNEL_MAP_PAGES * PAGE_SIZE)
+#define ENTRIES_PER_TABLE      512
+#define PGD_SHIFT              (PAGE_SHIFT + 3 * TABLE_SHIFT)
+#define PUD_SHIFT              (PAGE_SHIFT + 2 * TABLE_SHIFT)
+#define PMD_SHIFT              (PAGE_SHIFT + TABLE_SHIFT)
+#define PUD_ENTRY_MAP_SIZE     (1 << PUD_SHIFT)
+void create_table_entry(u64 tbl, u64 next_tbl, u64 va, u64 shift, u64 flags) {
+    u64 table_index = va >> shift;
+    table_index &= (ENTRIES_PER_TABLE - 1);
+    u64 descriptor = next_tbl | flags;
+    *((u64 *)(tbl + (table_index << 3))) = descriptor;
+}
+
+void create_block_map(u64 pmd, u64 vstart, u64 vend, u64 pa) {
+    vstart >>= SECTION_SHIFT;
+    vstart &= (ENTRIES_PER_TABLE -1);
+
+    vend >>= SECTION_SHIFT;
+    vend--;
+    vend &= (ENTRIES_PER_TABLE - 1);
+
+    pa >>= SECTION_SHIFT;
+    pa <<= SECTION_SHIFT;
+
+    do {
+        u64 _pa = pa;
+
+        if (pa >= DEVICE_START) {
+            _pa |= TD_DEVICE_BLOCK_FLAGS;
+        } else {
+            _pa |= TD_KERNEL_BLOCK_FLAGS;
+        }
+
+        *((u64 *)(pmd + (vstart << 3))) = _pa;
+        pa += SECTION_SIZE;
+        vstart++;
+    } while(vstart <= vend);
+}
+
+void init_mmu() {
+
+    u64 id_pgd = id_pgd_addr();
+
+    memzero(id_pgd, ID_MAP_TABLE_SIZE);
+
+    u64 map_base = 0;
+    u64 tbl = id_pgd;
+    u64 next_tbl = tbl + PAGE_SIZE;
+
+    create_table_entry(tbl, next_tbl, map_base, PGD_SHIFT, TD_KERNEL_TABLE_FLAGS);
+
+    tbl += PAGE_SIZE;
+    next_tbl += PAGE_SIZE;
+
+    u64 block_tbl = tbl;
+
+    for (u64 i=0; i<4; i++) {
+        create_table_entry(tbl, next_tbl, map_base, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS);
+
+        next_tbl += PAGE_SIZE;
+        map_base += PUD_ENTRY_MAP_SIZE;
+
+        block_tbl += PAGE_SIZE;
+
+        u64 offset = BLOCK_SIZE * i;
+        create_block_map(block_tbl, offset, offset + BLOCK_SIZE, offset);
+    }
+}
+

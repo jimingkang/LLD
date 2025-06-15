@@ -7,6 +7,10 @@
         "unordered_map": "c",
         "vector": "c",
         "string_view": "c",
-        "initializer_list": "c"
+        "initializer_list": "c",
+        "*.c_backnew": "c",
+        "*.c_new": "c",
+        "sched.h": "c",
+        "sstream": "c"
     }
 }

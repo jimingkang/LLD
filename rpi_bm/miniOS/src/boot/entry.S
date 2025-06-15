@@ -263,7 +263,6 @@ el0_da:
 
 .globl ret_from_fork
 ret_from_fork:
-
 	bl	schedule_tail
 	cbz	x19, ret_to_user			// not a kernel thread
 	ldr x0, =strr_kernel
@@ -273,23 +272,27 @@ ret_from_fork:
 
 
 ret_to_user:
-	ldr x0, =strr
-	bl uart_send_string
-
-
+    mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
+	bl dump_pt_regs
     // 从 childregs 中恢复 PC/SP/PSTATE，然后 eret 跳 EL0/EL1
-    mov   x1, x29                   // x1 = childregs (pt_regs 的基地址)
-    ldr   x0, [x1, #32*8]
-    msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里
-
+    mov   x1,sp         //# x29                   // x1 = childregs (pt_regs 的基地址)
+ 	ldr   x0, [x1, #32*8]
+    msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里    
     ldr   x0, [x1, #33*8]
-    msr   SPSR_EL1, x0              // 下一条 eret 会把 PSTATE 设成这里
-
+    msr   SPSR_EL1, x0              // 下一条 eret 会把 PSTATE 设成这里 
     ldr   x0, [x1, #31*8]
     msr   SP_EL0, x0                // 给 EL0 的栈
 
-    eret                            // 从 EL1 → EL0，跳到用户入口
-
+	// --------- 2) 刷新所有 Stage-1 TLB (EL1+EL0) ----------
+	msr    TTBR0_EL1, x0
+    dsb ish
+    tlbi vmalle1
+    dsb ish
+    isb
+    eret               
+	             // 从 EL1 → EL0，跳到用户入口
+	// bl irq_disable
+   //kernel_exit 0
 //ret_to_user:
  //   kernel_exit                     // 从内核栈恢复用户态寄存器
                                  // 返回用户态
@@ -335,7 +338,7 @@ get_elr_el1:
     ret
 	
 .data
-	strr:   .string  "in return from  user mode"
+	strr:   .string  "in return from  user mode %x"
 .data
 	strr_kernel:   .string  "in return from kernel mode"
 	.data

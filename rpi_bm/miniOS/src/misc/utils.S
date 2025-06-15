@@ -27,6 +27,12 @@ set_pgd:
 	tlbi vmalle1is
   	DSB ISH              // ensure completion of TLB invalidation
 	isb
+
+	  // 3. 读取 SCTLR_EL1，置位 M(0)，重新写回，再 isb
+   // mrs     x1, SCTLR_EL1     // x1 = 原来的 SCTLR_EL1
+   // orr     x1, x1, #(1 << 0) // 将 M 位(第 0 位) 设 1，打开 MMU
+  //  msr     SCTLR_EL1, x1
+ //   isb                       // 保证新 SCTLR 生效
 	ret
 	
 

@@ -1,4 +1,12 @@
 #include "sys.h"
+
+.section ".user.text"
+.globl user_delay
+user_delay:
+	subs x0, x0, #1
+	bne user_delay
+	ret
+
 .globl call_sys_write
 call_sys_write:
 	mov w8, #SYS_WRITE_NUMBER	
@@ -43,3 +51,4 @@ thread_start:
 	/* We are done, pass the return value through x0.  */
 	mov	x8, #SYS_EXIT_NUMBER
 	svc	0x0
+

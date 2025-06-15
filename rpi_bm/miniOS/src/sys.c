@@ -15,7 +15,7 @@ int sys_clone(unsigned long stack){
 }
 
 unsigned long sys_malloc(){
-	unsigned long addr = get_free_pages(1);
+	unsigned long addr = get_free_page();
 	if (!addr) {
 		return -1;
 	}
@@ -43,7 +43,7 @@ void handle_data_abort(u64 addr, u64 esr) {
         }
     }
 }
-
+/*
 void debug_pgd(pgd_t *pgd) {
     if (!pgd) {
         printf("Invalid PGD\n");
@@ -103,7 +103,7 @@ void debug_pgd(pgd_t *pgd) {
         }
     }
 }
-
+*/
 void do_page_fault(unsigned long addr, unsigned long esr) {
     printf("Page fault at 0x%x, ESR: 0x%x\n", addr, esr);
     printf("Fault context: PC=0x%x SP=0x%x\n", 
@@ -115,7 +115,7 @@ void do_page_fault(unsigned long addr, unsigned long esr) {
     }
    // debug_pgd(current->mm);
     // 打印当前页表项
-   dump_pte(current->mm, addr);
+//   dump_pte(current->mm, addr);
 }
 
 void handle_user_page_fault(u64 addr, u64 esr) {
@@ -183,7 +183,7 @@ void flush_tlb_single(u64 va) {
 void old_handle_user_page_fault(u64 addr, u64 esr) {
     // 1. 检查地址是否属于用户栈区域
     if (addr >= USER_STACK_BASE - USER_STACK_SIZE && addr < USER_STACK_BASE) {
-        u64 phys_page = get_free_pages(1);
+        u64 phys_page = get_free_page();
         if (!phys_page) printf("Out of memory");
         
         // 2. 映射到用户页表（使用进程的 pgd）
@@ -203,7 +203,10 @@ void old_handle_user_page_fault(u64 addr, u64 esr) {
 
 static int ind = 1;
 
+
+
 int do_mem_abort(unsigned long addr, unsigned long esr) {
+        printf("do_mem_abort at 0x%x", addr);
 	unsigned long dfs = (esr & 0b111111);
 	if ((dfs & 0b111100) == 0b100) {
 		unsigned long page = get_free_page();
@@ -219,6 +222,8 @@ int do_mem_abort(unsigned long addr, unsigned long esr) {
 	}
 	return -1;
 }
+
+
 
 
 

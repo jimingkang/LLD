@@ -15,6 +15,8 @@ struct pt_regs {
 #define PSR_MODE_EL3t	0x0000000c
 #define PSR_MODE_EL3h	0x0000000d
 
+#define PSR_DAIF_MASK    (0xFUL << 6)      // DAIF = 1111b → 屏蔽 Debug/A/IRQ/FIQ
+
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack);
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc);
 struct pt_regs * task_pt_regs(struct task_struct *tsk);

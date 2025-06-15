@@ -18,12 +18,14 @@
 
 #define BLOCK_SIZE 0x40000000
 
-#define KERNEL_VIRT_OFFSET 0xFFFFFF8000000000 //0xFFFF000000000000UL  // 高地址映射
-//#define KERNEL_VIRT_OFFSET 0xFFFFFF8000000000UL
-//#define KERNEL_VIRT_OFFSET 0x0UL
+#define KERNEL_VIRT_BASE 0xFFFFFF8000000000UL
+#define KERNEL_PHYS_BASE 0x80000UL
+#define KERNEL_VIRT_OFFSET  (KERNEL_VIRT_BASE - KERNEL_PHYS_BASE)
+#define __pa(x) ((u64)(x) - KERNEL_VIRT_OFFSET)
+#define __va(x) ((u64)(x) + KERNEL_VIRT_OFFSET)
+#define VA_START 			KERNEL_VIRT_OFFSET
 #define ENTRIES_PER_TABLE 512
 
-#define __pa(x)    ((u64)(x) - KERNEL_VIRT_OFFSET)  // 假设你内核高映射
 
 
 #define PAGE_MASK  (~(PAGE_SIZE - 1))
@@ -39,7 +41,7 @@ void memzero(unsigned long src, unsigned long n);
 #define KERNEL_PGD_INDEX  (PTRS_PER_PGD / 2)  // 通常为 256
 
 #define PHYS_MEMORY_SIZE 		0x40000000	
-#define VA_START 			KERNEL_VIRT_OFFSET
+
 #define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
 
 #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT

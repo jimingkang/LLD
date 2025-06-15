@@ -41,7 +41,7 @@ dma_channel *dma_open_channel(u32 channel) {
     dma_channel *dma = (dma_channel *)&channels[_channel];
     dma->channel = _channel;
 
-    dma->block = (dma_control_block *)get_free_pages(1);
+    dma->block = (dma_control_block *)get_free_page();
     dma->block->res[0] = 0;
     dma->block->res[1] = 0;
 

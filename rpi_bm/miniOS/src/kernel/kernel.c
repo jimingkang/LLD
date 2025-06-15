@@ -62,7 +62,7 @@ void kernel_func(void *arg) {
     int i=0;
     while (1) {
 
-         printf("kernel_func i=%d!\r\n",i++%100);
+         printf("kernel_func !\r\n");
          delay(1000000);
     }
 }
@@ -85,9 +85,11 @@ void kernel_process(){
         u64 kernel_pgd = kernel_pgd_addr();
         current->mm->pgd = allocate_pagetable_page();
         printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
-       irq_disable(); 
-       pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
-        copy_kernel_mappings(current->mm->pgd,pgd);
+             
+dump_pgd(kernel_pgd);
+        irq_disable(); 
+        //pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
+        copy_kernel_mappings(__va(current->mm->pgd),kernel_pgd);
         irq_enable();  
         if (!current->mm->pgd) {
             printf("Failed to copy kernel mappings\n\r");
@@ -99,15 +101,15 @@ void kernel_process(){
 
         
      printf(" after copy_kernel_mappings\n\r");
-    unsigned long begin = (unsigned long)&user_begin;
-	unsigned long end = (unsigned long)&user_end;
-	unsigned long process = (unsigned long)&user_process;
+    unsigned long begin = (unsigned long)user_begin;
+	unsigned long end = (unsigned long)user_end;
+	unsigned long process = (unsigned long)&loop;
 
     unsigned long user_va = 0x400000;  // 映射目标地址
-    unsigned long entry_va = user_va + ((unsigned long)&user_process - begin);
+    unsigned long entry_va = user_va + ((unsigned long)&loop - begin);
     printf("&user_begin = 0x%x\n", begin);
-printf("&user_process = 0x%x\n", process);
-printf("entry_va      = 0x%x\n", entry_va);
+    printf("&user_process = 0x%x\n", process);
+    printf("entry_va      = 0x%x\n", entry_va);
     int err = move_to_user_mode(user_va, end - begin, entry_va);
 	
     //int err = move_to_user_mode(begin, end - begin, process - begin);
@@ -116,9 +118,25 @@ printf("entry_va      = 0x%x\n", entry_va);
 		printf("Error while moving process to user mode\n\r");
 	} 
 
+
 }
+    /*
+void kernel_process(){
+	printf("Kernel process started. EL %d\r\n", get_el());
+	unsigned long begin = (unsigned long)&user_begin;
+	unsigned long end = (unsigned long)&user_end;
+	unsigned long process = (unsigned long)&user_process;
+	int err = move_to_user_mode(begin, end - begin, process - begin);
+	if (err < 0){
+		printf("Error while moving process to user mode\n\r");
+	} 
+}
+*/
 
 void kernel_main() {
+
+  
+    
     unsigned long init_stack = allocate_pagetable_page();
     u64 kernel_pgd = kernel_pgd_addr();
     current->mm= allocate_pagetable_page();
@@ -182,13 +200,13 @@ void kernel_main() {
     }
 
 
-	//int res = copy_process(PF_KTHREAD,(unsigned long)&kernel_func, 0,0);
-	//if (res != 0) {
-	//	printf("error while starting process in kernel mode");
-	//	return;
-	//}
+	int res = copy_process_inkernel((unsigned long)&kernel_func,0);
+	if (res != 0) {
+		printf("error while starting process in kernel mode");
+		//return;
+	}
 
-     int  res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+        res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
@@ -199,6 +217,7 @@ void kernel_main() {
         //printf(current); 
 		schedule();
 	}	
+        
 
 
     /*

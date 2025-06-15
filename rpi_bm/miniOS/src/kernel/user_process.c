@@ -6,28 +6,40 @@
 #include "mem.h"
 #include <mmu.h>
 
+const char msg[] __attribute__((section(".user.rodata"))) = 
+    "Hello from user_process!\n";
+	
+	const char err[] __attribute__((section(".user.rodata"))) = 
+    	"Error during fork\n\r";
+
 __attribute__((section(".user.text")))
-void process(char *array)
+void loop(char* str)
 {
+	char buf[2] = {""};
 	while (1){
 		for (int i = 0; i < 5; i++){
-			uart_send(array[i]);
-			delay(1000000);
+		//	buf[0] = str[i];
+			call_sys_write("hello\n\r");
+			user_delay(1000000);
 		}
 	}
 }
 __attribute__((section(".user.text")))
 void user_process(){
-while (1){
-		for (int i = 0; i < 5; i++){
-			uart_send(i);
-			delay(1000000);
-		}
-	}
-	//char buf[30] = {0};
-  //  char i=80;
-	//tfp_sprintf();
-	//call_sys_write(10);
+
+	//call_sys_write(msg);
+	loop(err);
+	//int pid = call_sys_fork();
+	//if (pid < 0) {
+	//	call_sys_write(err);
+	//	call_sys_exit();
+	//	return;
+	//}
+	//if (pid == 0){
+	//	loop(msg);
+	//} else {
+	//	loop(err);
+	//}
     
     /*
 	unsigned long stack = call_sys_malloc();

@@ -11,6 +11,7 @@ void *memcpy(void *dest, const void *src, u32 n);
 #define BUS_ADDRESS(addr)	(((addr) & ~0xC0000000) | GPU_MEM_BASE)
 
 
+
 typedef unsigned long pteval_t;
 
 typedef struct { pteval_t pte; } pte_t;
@@ -28,8 +29,7 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define __pud(x)        ((pud_t) { (x) })
 #define __pgd(x)        ((pgd_t) { (x) })
 
-#define __pa(x) ((u64)(x) - KERNEL_VIRT_OFFSET)
-#define __va(x) ((u64)(x) + KERNEL_VIRT_OFFSET)
+
 
 
 
@@ -89,6 +89,8 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define USER_STACK_BASE  0x8000000     // 用户栈起始VA (128MB处)
 #define USER_STACK_SIZE  (0x2000) // *8KB栈空间
 
+#define VALID_BIT  (1UL << 0)   // bit0 = 1，表示这个 entry 有效
+#define TABLE_BIT  (1UL << 1)   // bit1 = 1，表示这是一个指向“下一级页表”的描述符
 
 #define USER_FLAGS_CODE     (PTE_VALID | PTE_AF| PTE_USER | PTE_READ | PTE_EXEC)
 #define USER_FLAGS_STACK    (PTE_VALID | PTE_USER | PTE_WRITE |PTE_AF)

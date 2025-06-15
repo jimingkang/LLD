@@ -88,13 +88,7 @@ void timer_tick()
 	irq_disable();
 }
 
-/*void ret_from_fork() {
-    	preempt_enable();
-    // 通常是调用 x19 作为函数指针，x20 作为参数
-    ((void (*)(unsigned long))current->cpu_context.x19)(current->cpu_context.x20);
-    // 最后应该调用 exit 结束任务（非此文件范围）
-}
-*/
+
 void __ret_from_kernel_thread(void) {
     int (*fn)(void *) = (void *)current->cpu_context.x19;
     void *arg = (void *)current->cpu_context.x20;
@@ -128,7 +122,7 @@ void exit_process(){
 
 			// 释放用户内存
             if (task[i]->mm) {
-                free_user_memory(task[i]->mm);
+//                free_user_memory(task[i]->mm);
                 task[i]->mm = 0;
             }
 

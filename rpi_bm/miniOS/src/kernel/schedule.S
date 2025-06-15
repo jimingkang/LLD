@@ -47,28 +47,3 @@ thread_switch:
     ret
 
 
-
-/*
-jimmy old test 
-.global first_thread_switch
-first_thread_switch:
-    ldr x1, [x0, #96]    // Load SP
-    mov sp, x1
-    ldp x29, x30, [x0, #80]
-    ldr x1, [x0, #104]   // Load CPSR
-    msr spsr_el1, x1
-    ldr x1, [x0, #88]    // Load PC (from LR slot)
-    msr elr_el1, x1
-    eret
-
-
-    .global first_thread_switch
-first_thread_switch:
-    // x0 = thread context pointer
-    ldp x29, x30, [x0, #80]  // Restore FP (x29) and LR (x30)
-    ldr x1, [x0, #96]         // Load SP
-    mov sp, x1
-    ldr x1, [x0, #88]         // Load PC (from LR slot)
-    br x1                      // Jump to thread (stay in EL1)
-
-	    */
