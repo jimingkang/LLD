@@ -1,5 +1,6 @@
 KERNEL_VIRT_BASE =0xFFFFFF8000000000;   /* 0xffff000000000000;  高半内核虚拟基址 */
 KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默认） */
+ENTRY(_start)
  SECTIONS
 {
    . = KERNEL_VIRT_BASE +KERNEL_PHYS_BASE ;
@@ -19,12 +20,12 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
          KERNEL_DATA_START = .;
          *(.data .data.*)
          . = ALIGN(4096);
- id_pgd = .;
+         id_pgd = .;
             . += 24576;
                  
          . = ALIGN(4096);
          pg_dir = .;
-            . += 12288;
+            . += 24576;
          
          KERNEL_DATA_END = .;
     }
@@ -36,26 +37,28 @@ KERNEL_PHYS_BASE = 0x80000;           /* 物理加载地址（例如树莓派默
         *(COMMON)
         KERNEL_BSS_END = .;
     }
-   .rodata : { *(.rodata) }
+  
 
 . = ALIGN(0x00001000);
 
-/* 用户代码段（用户模式执行） */
+/* 用户代码段（用户模式执行）   . = KERNEL_VIRT_BASE + 0x00400000; */
 
-    . = KERNEL_VIRT_BASE + 0x00400000;
+ . = 0x00400000;  /* 用户态起始地址 */
     user_begin = .;
     .user.text : AT(0x00400000)
-     { 
+     {  
           *(.user.text)         /* 明确包含 .user.text 段 */
+    }
+      .user.rodata : { 
+          *(.user.rodata)
     }
     . = ALIGN(0x1000);  /* 页对齐 */
     user_data_begin = .;
-    .user.data : { *(.user.data) }
-     .user.rodata : { 
-          *(.user.rodata)
-    }
+    .user.data :{ *(.user.data) }
+   
     .user.bss : { *(.user.bss) *(COMMON) }
     user_data_end = .;
+    . = ALIGN(0x1000);
     user_end = .;
 
 

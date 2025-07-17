@@ -12,6 +12,12 @@ const char msg[] __attribute__((section(".user.rodata"))) =
 	const char err[] __attribute__((section(".user.rodata"))) = 
     	"Error during fork\n\r";
 
+
+		
+__attribute__((section(".user.text")))
+void user_main(){
+	return 0;
+}
 __attribute__((section(".user.text")))
 void loop(char* str)
 {
@@ -19,7 +25,7 @@ void loop(char* str)
 	while (1){
 		for (int i = 0; i < 5; i++){
 		//	buf[0] = str[i];
-			call_sys_write("hello\n\r");
+			call_sys_write(msg);
 			user_delay(1000000);
 		}
 	}

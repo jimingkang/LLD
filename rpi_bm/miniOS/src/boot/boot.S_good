@@ -6,7 +6,7 @@
 #define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
 #define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
 #define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
-#define VA_START 			KERNEL_VIRT_OFFSET
+#define VA_START 			KERNEL_VIRT_BASE
 #define PG_DIR_SIZE			(3 * PAGE_SIZE)
 #define DEVICE_BASE 0x3F000000  // Raspberry Pi 外设基地址
 #define PHYS_MEMORY_SIZE 		0x40000000	
@@ -138,11 +138,15 @@ __create_page_tables:
 
 	adrp	x0, pg_dir
 	mov	x1, #VA_START 
+    //	ldr 	x1, =VA_START						// first virtual address
+     //   movz x1, #(KERNEL_VIRT_OFFSET >> 48), lsl #48
 	create_pgd_entry x0, x1, x2, x3
 
 	/* Mapping kernel and init stack*/
 	mov 	x1, xzr							// start mapping from physical offset 0
 	mov 	x2, #VA_START						// first virtual address
+    //	ldr 	x2, =VA_START						// first virtual address
+    //movz x2, #(KERNEL_VIRT_OFFSET >> 48), lsl #48
 	ldr	x3, =(VA_START + DEVICE_BASE - SECTION_SIZE)		// last virtual address
 	create_block_map x0, x1, x2, x3, MMU_FLAGS, x4
 

@@ -5,6 +5,7 @@
 #include "peripherals/aux.h"
 #include "mini_uart.h"
 #include "timer.h"
+#include "mem.h"
 
 const char entry_error_messages[16][32] = {
 	"SYNC_INVALID_EL1t",
@@ -28,10 +29,30 @@ const char entry_error_messages[16][32] = {
 	"ERROR_INVALID_EL0_32"	
 };
 
-void show_invalid_entry_message(u32 type, u64 esr, u64 address) {
-    printf("ERROR CAUGHT: %d, ESR: %x, Address: %x, %x \n", 
-        type, esr, address,entry_error_messages[type]);
-        
+void show_invalid_entry_message(u32 type, u64 esr, u64 address,u64 elr) {
+    printf("ERROR CAUGHT: %d, ESR: %x,ELR: %x, Address: %x, %x ,\n", 
+        type, esr,elr, address,entry_error_messages[type]);
+
+        // In el0_sync_handler
+// In el0_sync_handler
+if (esr >> 26 == 0x20) { // Instruction Abort
+    unsigned long far, elr, spsr, ttbr0, ttbr1, sctlr;
+    __asm__ volatile("mrs %0, FAR_EL1\n\t" : "=r"(far));
+    __asm__ volatile("mrs %0, ELR_EL1\n\t" : "=r"(elr));
+    __asm__ volatile("mrs %0, SPSR_EL1\n\t" : "=r"(spsr));
+    __asm__ volatile("mrs %0, TTBR0_EL1\n\t" : "=r"(ttbr0));
+    __asm__ volatile("mrs %0, TTBR1_EL1\n\t" : "=r"(ttbr1));
+    __asm__ volatile("mrs %0, SCTLR_EL1\n\t" : "=r"(sctlr));
+    printf("EL0 Instruction Abort: FAR=0x%x, ELR=0x%x, SPSR=0x%x, TTBR0_EL1=0x%x, TTBR1_EL1=0x%x, SCTLR_EL1=0x%x\n",
+           far, elr, spsr, ttbr0, ttbr1, sctlr);
+    unsigned long *pgd_virt = (unsigned long *)__va(0x1004000);
+    printf("EL0: PGD read via __va(0x1004000)=0x%x: [0]=0x%x\n", __va(0x1004000), pgd_virt[0]);
+    unsigned long *kernel_pgd = (unsigned long *)__va(0x95000);
+    int pgd_index = (0x1004000 >> 39) & 0x1FF;
+
+    printf("EL0: Kernel PGD[%d] for 0x1004000 = 0x%x\n", pgd_index, kernel_pgd[pgd_index]);
+    while (1);
+}  
 }
 
 void enable_interrupt_controller() {

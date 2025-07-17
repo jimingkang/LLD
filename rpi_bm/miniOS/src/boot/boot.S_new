@@ -1,0 +1,251 @@
+#include "mm.h"
+
+#include "sysregs.h"
+#include "mmu.h"
+#include "mm.h"
+#define PTRS_PER_TABLE			(1 << TABLE_SHIFT)
+#define PGD_SHIFT			PAGE_SHIFT + 3*TABLE_SHIFT
+#define PUD_SHIFT			PAGE_SHIFT + 2*TABLE_SHIFT
+#define PMD_SHIFT			PAGE_SHIFT + TABLE_SHIFT
+
+#define PG_DIR_SIZE			(3 * PAGE_SIZE)
+#define DEVICE_BASE 0x3F000000  // Raspberry Pi 外设基地址
+#define PHYS_MEMORY_SIZE 		0x40000000	
+.section ".text.boot"
+
+.globl _start
+_start:
+    mrs x0, mpidr_el1
+    and x0, x0, #0xFF
+    cbz x0, master
+    b proc_hang
+
+master:
+    ldr x0, =SCTLR_VALUE_MMU_DISABLED
+    msr sctlr_el1, x0
+
+    ldr x0, =HCR_VALUE
+    msr hcr_el2, x0
+
+    ldr x0, =SCR_VALUE
+    msr scr_el3, x0
+
+    ldr x0, =SPSR_VALUE
+    msr spsr_el3, x0
+
+#if INIT_MMU == 1
+    ldr x0, =CPACR_EL1_VAL
+    msr CPACR_EL1, x0
+
+    ldr x0, =TCR_EL1_VAL
+    msr TCR_EL1, x0
+
+    ldr x0, =MAIR_VALUE
+    msr MAIR_EL1, x0
+#endif
+
+    adr x0, el1_entry
+    msr elr_el3, x0
+
+    eret
+
+el1_entry:
+    mov sp, #LOW_MEMORY
+
+    adr x0, KERNEL_BSS_START
+    adr x1, KERNEL_BSS_END
+    sub x1, x1, x0
+    bl memzero
+
+#if INIT_MMU == 1
+    bl init_mmu
+    //bl 	__create_page_tables
+    bl map_identity
+    bl map_high
+
+    adrp x0, id_pg_dir
+    msr ttbr0_el1, x0
+    adrp x0, high_pg_dir
+    msr ttbr1_el1, x0
+    
+
+ldr	x2, =kernel_main
+    mrs x0, sctlr_el1
+    mov x1, #SCTLR_MMU_ENABLED
+    orr x0, x0, x1
+    msr sctlr_el1, x0
+#endif
+    br 	x2
+   // bl kernel_main
+    b  proc_hang
+
+    
+proc_hang:
+    wfe
+    b proc_hang
+
+.globl id_pgd_addr
+id_pgd_addr:
+    adrp x0, id_pgd
+    ret
+
+.globl kernel_pgd_addr
+kernel_pgd_addr:
+    adrp x0, pg_dir
+    ret
+
+
+
+
+
+
+/* changes tmp1, tmp2 only */
+.macro new_create_table_entry, tbl, ntbl, va, shift, flags, tmp1, tmp2
+    /* get entry index in tmp1 */
+    lsr \tmp1, \va, #\shift
+    and \tmp1, \tmp1, #ENTRIES_PER_TABLE - 1
+    /* tmp2 = entry value */
+    mov \tmp2, \ntbl
+    orr \tmp2, \tmp2, #\flags
+    /* install entry */
+    str \tmp2, [\tbl, \tmp1, lsl #3]
+.endm
+
+/* changes vstart, vend, pa, tmp1 */
+/* vstart and vend should not point to the same block! */
+.macro new_create_block_map, pmd, vstart, vend, pa, flags, tmp1
+    /* turn vstart, vend into indices */
+    lsr \vstart, \vstart, #SECTION_SHIFT
+    and \vstart, \vstart, #ENTRIES_PER_TABLE - 1
+    lsr \vend, \vend, #SECTION_SHIFT
+    /* minus one to handle the last entry */
+    sub \vend, \vend, #1
+    and \vend, \vend, #ENTRIES_PER_TABLE - 1
+    /* loop init, pa = pa | flags */
+    lsr \pa, \pa, #SECTION_SHIFT
+    lsl \pa, \pa, #SECTION_SHIFT
+    ldr \tmp1, =\flags
+    orr \pa, \pa, \tmp1
+    /* loop */
+    /* pmd[vstart] = pa */
+2:
+    str \pa, [\pmd, \vstart, lsl #3]
+    /* pa += section size */
+    add \pa, \pa, #SECTION_SIZE
+    /* vstart += 1 */
+    add \vstart, \vstart, #1
+    cmp \vstart, \vend
+    b.le 2b
+.endm
+
+
+map_identity:
+    /* save return address */
+    mov x29, x30
+    adrp x0, id_pg_dir
+    mov x1, #3*(1<<12)
+    
+    /* clear id page tables */
+    bl memzero
+    adrp x0, id_pg_dir
+    /* x1 = address of id map pud */
+    add x1, x0, #PAGE_SIZE
+    eor x4, x4, x4
+    /* install PGD entry */
+    new_create_table_entry x0, x1, x4, PGD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    /* goto next level */
+    add x0, x0, #PAGE_SIZE
+    add x1, x1, #PAGE_SIZE
+    /* install PUD entry */
+    new_create_table_entry x0, x1, x4, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    /* id map 0-16M */
+    mov x0, x1
+    eor x2, x2, x2
+    ldr x3, =ID_MAP_SIZE
+    eor x4, x4, x4
+    new_create_block_map x0, x2, x3, x4, TD_KERNEL_BLOCK_FLAGS, x5
+
+    /* restore return address */
+    mov x30, x29
+    ret
+
+map_high:
+    /* save return address */
+    mov x29, x30
+    adrp x0, high_pg_dir
+    mov x1, #6*(1<<12)
+    /* clear high page tables */
+    bl memzero
+    adrp x0, high_pg_dir
+    /* x1 = address of high map pud */
+    add x1, x0, #PAGE_SIZE
+    /* x4 = address of va we map (pgd) */
+    ldr x4, =LINEAR_MAP_BASE
+    /* install PGD entry */
+    new_create_table_entry x0, x1, x4, PGD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    /* goto next level */
+    add x0, x0, #PAGE_SIZE
+    add x1, x1, #PAGE_SIZE
+    /* x4 = address of va we map (pud) */
+    ldr x4, =LINEAR_MAP_BASE
+    ldr x5, =PUD_ENTRY_MAP_SIZE
+    /* install first PUD entry */
+    new_create_table_entry x0, x1, x4, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    add x1, x1, #PAGE_SIZE
+    add x4, x4, x5
+    new_create_table_entry x0, x1, x4, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    add x1, x1, #PAGE_SIZE
+    add x4, x4, x5
+    new_create_table_entry x0, x1, x4, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    add x1, x1, #PAGE_SIZE
+    add x4, x4, x5
+    new_create_table_entry x0, x1, x4, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS, x2, x3
+    /* load some values */
+    ldr x10, =HIGH_MAP_FIRST_START
+    ldr x11, =HIGH_MAP_FIRST_END
+    ldr x12, =HIGH_MAP_SECOND_START
+    ldr x13, =HIGH_MAP_SECOND_END
+    ldr x14, =HIGH_MAP_THIRD_START
+    ldr x15, =HIGH_MAP_THIRD_END
+    ldr x16, =HIGH_MAP_FOURTH_START
+    ldr x17, =HIGH_MAP_FOURTH_END
+    ldr x18, =HIGH_MAP_DEVICE_START
+    ldr x19, =HIGH_MAP_DEVICE_END
+    ldr x20, =FIRST_START
+    ldr x21, =SECOND_START
+    ldr x22, =THIRD_START
+    ldr x23, =FOURTH_START
+    ldr x24, =DEVICE_START
+    /* map first high part */
+    add x0, x0, #PAGE_SIZE
+    mov x2, x10
+    mov x3, x11
+    mov x4, x20
+    new_create_block_map x0, x2, x3, x4, TD_KERNEL_BLOCK_FLAGS, x5
+    /* map second high part */
+    add x0, x0, #PAGE_SIZE
+    mov x2, x12
+    mov x3, x13
+    mov x4, x21
+    new_create_block_map x0, x2, x3, x4, TD_KERNEL_BLOCK_FLAGS, x5
+    /* map third high part */
+    add x0, x0, #PAGE_SIZE
+    mov x2, x14
+    mov x3, x15
+    mov x4, x22
+    new_create_block_map x0, x2, x3, x4, TD_KERNEL_BLOCK_FLAGS, x5
+    /* map fourth high part */
+    add x0, x0, #PAGE_SIZE
+    mov x2, x16
+    mov x3, x17
+    mov x4, x23
+    new_create_block_map x0, x2, x3, x4, TD_KERNEL_BLOCK_FLAGS, x5
+    /* map device */
+    mov x2, x18
+    mov x3, x19
+    mov x4, x24
+    new_create_block_map x0, x2, x3, x4, TD_DEVICE_BLOCK_FLAGS, x5
+
+    /* restore return address */
+    mov x30, x29
+    ret

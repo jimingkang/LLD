@@ -14,6 +14,7 @@
 #include "sched.h"
 #include "user.h"
 #define PF_KTHREAD		            	0x00000002
+#define PF_UTHREAD		            	0x00000000
 #define MAX_DEVS 10
 io_device *devices[MAX_DEVS] = {0};
 void thread_entry(void* arg) {
@@ -67,6 +68,17 @@ void kernel_func(void *arg) {
     }
 }
 
+void init_main(void *arg) {
+    printf("init_main\r\n");
+    int i=0;
+    while (1) {
+
+         printf("init_main i=%d!\r\n",i);
+         delay(1000000);
+    }
+}
+
+
 
 
 void kernel_process(){
@@ -84,11 +96,11 @@ void kernel_process(){
         // 复制内核映射
         u64 kernel_pgd = kernel_pgd_addr();
         current->mm->pgd = allocate_pagetable_page();
+        create_mmio_mapping(kernel_pgd);
         printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
              
-dump_pgd(kernel_pgd);
+        dump_pgd(kernel_pgd);
         irq_disable(); 
-        //pgd_t* pgd=(pgd_t *)__va(kernel_pgd);
         copy_kernel_mappings(__va(current->mm->pgd),kernel_pgd);
         irq_enable();  
         if (!current->mm->pgd) {
@@ -99,24 +111,24 @@ dump_pgd(kernel_pgd);
         }
     }
 
-        
-     printf(" after copy_kernel_mappings\n\r");
+    printf(" after copy_kernel_mappings\n\r");
     unsigned long begin = (unsigned long)user_begin;
 	unsigned long end = (unsigned long)user_end;
-	unsigned long process = (unsigned long)&loop;
+	unsigned long process = (unsigned long)&user_start;
 
     unsigned long user_va = 0x400000;  // 映射目标地址
-    unsigned long entry_va = user_va + ((unsigned long)&loop - begin);
+    unsigned long entry_va = user_va + ((unsigned long)&user_start - begin);
     printf("&user_begin = 0x%x\n", begin);
-    printf("&user_process = 0x%x\n", process);
+    printf("&user_start = 0x%x\n", process);
     printf("entry_va      = 0x%x\n", entry_va);
     int err = move_to_user_mode(user_va, end - begin, entry_va);
-	
-    //int err = move_to_user_mode(begin, end - begin, process - begin);
-    printf("after move_to_user_mode\r\n");
+    //printf("after move_to_user_mode err=%d\r\n",err);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
 	} 
+    //while(1){
+    //    printf("not move_to_user_mode in kernel_process \r\n");
+    //}
 
 
 }
@@ -138,15 +150,16 @@ void kernel_main() {
   
     
     unsigned long init_stack = allocate_pagetable_page();
-    u64 kernel_pgd = kernel_pgd_addr();
-    current->mm= allocate_pagetable_page();
-    current->mm->pgd= kernel_pgd;
+   // u64 kernel_pgd = kernel_pgd_addr();
+   // current->mm= allocate_pagetable_page();
+   // current->mm->pgd= kernel_pgd;
+ 
     //print_user_mapping(current->mm->pgd,KERNEL_VIRT_OFFSET);
 
     current->state = TASK_RUNNING;     // 标记为可运行
     current->stack = init_stack;       // 指向栈内存基地址
     current->cpu_context.sp = (unsigned long)init_stack + THREAD_SIZE;  // 栈顶指针（ARM64 栈向下增长）
-//current->cpu_context.pc = (unsigned long)init_main;  // 入口函数
+    current->cpu_context.pc = (unsigned long)init_main;  // 入口函数
     uart_init();
     init_printf(0, io_device_find("muart"));
     printf("\nRasperry PI Bare Metal OS Initializing...\n");
@@ -200,21 +213,21 @@ void kernel_main() {
     }
 
 
-	int res = copy_process_inkernel((unsigned long)&kernel_func,0);
-	if (res != 0) {
-		printf("error while starting process in kernel mode");
-		//return;
-	}
+	//int res = copy_process_inkernel((unsigned long)&kernel_func,0);
+	//if (res != 0) {
+	//	printf("error while starting process in kernel mode");
+	//	//return;
+	//}
 
-        res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+      int  res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
 	}
 
 	while (1){
-        printf("beore schedule\r\n");
-        //printf(current); 
+        printf("before schedule\r\n");
+        printf(current); 
 		schedule();
 	}	
         

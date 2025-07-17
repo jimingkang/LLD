@@ -4,6 +4,7 @@
 #include "mini_uart.h"
 #include <io.h>
 
+
 #define TXD 14
 #define RXD 15
 
@@ -30,6 +31,39 @@ void uart_send_string(char *str) {
     }
 }
 
+void uart_send_string2(char *str, uint64_t value, int print_hex) {
+    // Print the string prefix
+    while (*str) {
+        if (*str == '\n') {
+            uart_send('\r');
+        }
+        uart_send(*str);
+        str++;
+    }
+
+    // If print_hex is non-zero, print the value as hexadecimal
+    if (print_hex) {
+        char hex_buf[19]; // Buffer for "0x" + 16 digits + newline + null
+        hex_buf[0] = '0';
+        hex_buf[1] = 'x';
+        hex_buf[18] = '\0';
+
+        // Convert value to hex (16 digits for 64-bit)
+        for (int i = 17; i >= 2; i--) {
+            int nibble = value & 0xF;
+            hex_buf[i] = (nibble < 10) ? ('0' + nibble) : ('a' + nibble - 10);
+            value >>= 4;
+        }
+        hex_buf[17] = '\n'; // Add newline
+
+        // Send hex string
+        char *ptr = hex_buf;
+        while (*ptr) {
+            uart_send(*ptr);
+            ptr++;
+        }
+    }
+}
 int muart_read(struct _io_device *d, void *buff, u32 size) {
     u8 *buffer = buff;
 

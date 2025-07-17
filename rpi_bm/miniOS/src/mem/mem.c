@@ -11,7 +11,7 @@ extern pte_T pg_dir[] __attribute__((aligned(PAGE_SIZE)));
 #define NULL 0
 static u16 mem_map [ PAGING_PAGES ] = {0,};
 
-
+u64 KERNEL_PA_BASE;
 
 void *allocate_memory(int bytes) {
     printf("allocate_memory");
@@ -158,34 +158,7 @@ unsigned long map_table_level(unsigned long parent_va, int shift,
         return child_table_pa;
     }
 }
-/*
-unsigned long map_table_level(unsigned long table_va, unsigned long shift, unsigned long va, int *new_table)
-{
-    unsigned long *table = (unsigned long *)table_va;
-    unsigned long index = (va >> shift) & LEVEL_MASK;
-    unsigned long desc = table[index];
 
-    if ((desc & 0x3) == 0) {
-        //说明这一项为空，需要分配新页做下一级表 
-        unsigned long new_pa = get_free_page();
-        if (!new_pa) {
-            *new_table = 0;
-            return 0; // 分配失败 
-        }
-        /// 清零新分配的页表页 
-        memzero((void *)__va(new_pa),  PAGE_SIZE);
-
-        // 写入“Table Descriptor” = new_pa | 0b11 
-        table[index] = (new_pa & ~((unsigned long)(PAGE_SIZE - 1))) | DESCRIPTOR_TABLE;
-        *new_table = 1;
-        return new_pa;   /// 下一层页表的物理页号 
-    }
-
-    // 如果已有 Descriptor，就返回其高位 PA，低 12 位掩去 
-    *new_table = 0;
-    return desc & ~((unsigned long)(PAGE_SIZE - 1));
-}
-*/
 
 #define PTE_DESCRIPTOR_PAGE   (3UL << 0) 
 #define PTE_VALID       (1UL << 0)        // 有效位
@@ -198,14 +171,7 @@ unsigned long map_table_level(unsigned long table_va, unsigned long shift, unsig
 #define PTE_PXN         (1UL << 53)       // 禁止 EL1 执行（用户代码页用）
 #define PTE_UXN_MASK   (1 << 54)  // UXN 位
 
-#define USER_FLAGS_CODE  ( \
-      (3UL<<0)         /* valid + page */       \
-    | PTE_ATTR_IDX0                       \
-    | (3UL<<8)         /* inner-shareable */  \
-    | (1UL<<10)        /* AF */              \
-    | (2UL<<6)         /* AP=10 (EL0 R-only) */ \
-    | (1UL<<53)        /* PXN */             \
-)
+
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {
 
   struct mm_struct *mm = task->mm;
@@ -270,17 +236,17 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
     /* 清零新分配的数据页 */
     memzero((void *)__va(new_data_pa), PAGE_SIZE);
 
- unsigned long flags = //(unsigned long)prot|
-                         PTE_DESCRIPTOR_PAGE
-                         | PTE_AF
-                         | PTE_ATTR_IDX0
-                         |PTE_SH_INNER
-
-                        ;
+ unsigned long flags = (unsigned long)prot;
+ //|
+                      //   PTE_DESCRIPTOR_PAGE
+                       //  | PTE_AF
+                       //  | PTE_ATTR_IDX0
+                      //   |PTE_SH_INNER
+                      //  ;
     // 如果想让 EL0 可读执行（示例），就加上 PTE_AP_EL0_RX；并加 PXN 禁止 EL1
-   flags |= PTE_AP_EL0_RX |PTE_PXN|PTE_UXN_MASK; 
+ //  flags |= PTE_AP_EL0_RX |PTE_PXN|PTE_UXN_MASK; 
 
-flags=USER_FLAGS_CODE;
+//flags=USER_FLAGS_CODE;
 
 
     /* 3.2 写入 PTE = data_pa | prot */
@@ -614,6 +580,35 @@ void init_mmu() {
     create_table_entry(tbl, next_tbl, map_base, PGD_SHIFT, TD_KERNEL_TABLE_FLAGS);
 
     tbl += PAGE_SIZE;
+    next_tbl += PAGE_SIZE;
+
+    u64 block_tbl = tbl;
+
+    for (u64 i=0; i<4; i++) {
+        create_table_entry(tbl, next_tbl, map_base, PUD_SHIFT, TD_KERNEL_TABLE_FLAGS);
+
+        next_tbl += PAGE_SIZE;
+        map_base += PUD_ENTRY_MAP_SIZE;
+
+        block_tbl += PAGE_SIZE;
+
+        u64 offset = BLOCK_SIZE * i;
+        create_block_map(block_tbl, offset, offset + BLOCK_SIZE, offset);
+    }
+}
+
+void init_kernel_mmu(void) {
+ u64 pgd = kernel_pgd_addr(); // 
+  memzero(pgd, PAGE_SIZE); // 清零 PGD 页面
+
+u64 map_base = 0;
+u64 tbl = pgd; 
+u64 next_tbl = tbl + PAGE_SIZE; 
+
+// 设置 PGD[0] → PUD
+create_table_entry(tbl, next_tbl, map_base, PGD_SHIFT, TD_KERNEL_TABLE_FLAGS); // PGD[0]=0x100b003
+
+tbl += PAGE_SIZE;
     next_tbl += PAGE_SIZE;
 
     u64 block_tbl = tbl;
@@ -967,4 +962,92 @@ void print_user_mapping(pgd_t *pgd, unsigned long va) {
         phys_addr_t pa = pte_val(pte_e) & PAGE_MASK;
         printf("      Mapped VA: 0x%x → PA: 0x%x\n", va, pa);
     }
+}
+
+
+
+#define MMIO_BASE       0x3F000000UL       // 树莓派 MMIO 起始地址
+#define MMIO_SIZE       0x00400000UL       // 映射 (jimmy  这里打下原来是 0x01000000UL16MB)（覆盖 UART、GPIO、SPI 等）
+#define PAGE_SIZE       0x1000UL
+#define PAGE_MASK       (~(PAGE_SIZE - 1))
+// 页表级别偏移
+#define PGD_SHIFT       39
+#define PUD_SHIFT       30
+#define PMD_SHIFT       21
+#define PAGE_SHIFT      12
+
+// 页表项掩码
+#define PGD_MASK        0x1FF
+#define PUD_MASK        0x1FF
+#define PMD_MASK        0x1FF
+#define PTE_MASK        0x1FF
+#define MT_DEVICE_nGnRnE    0x1         // AttrIdx = 1
+#define PROT_DEVICE_nGnRnE  (MT_DEVICE_nGnRnE << 2)
+
+#define MMIO_PAGE_FLAGS     (PTE_VALID | PROT_DEVICE_nGnRnE | PTE_PXN | PTE_UXN)
+
+// 假设 MT_DEVICE_nGnRnE 是 0x1（代表 MAIR_EL1 的 AttrIdx = 1）
+#define PROT_DEVICE_nGnRnE  (0x1 << 2)  // AttrIndx[2:0] 左移2位 → 位[4:2]
+
+
+// 示例设备内存权限（你可根据定义改名或宏定义方式）
+#define PROT_DEVICE_FLAGS  (PTE_VALID | PROT_DEVICE_nGnRnE | PTE_PXN | PTE_UXN)
+
+/**
+ * 为 task 映射外设地址区（MMIO）
+ */
+void OLd_create_mmio_mapping(struct task_struct *task) {
+    if (!task || !task->mm) {
+        printf("create_mmio_mapping: Invalid task or mm_struct\n\r");
+        return;
+    }
+
+    unsigned long va = MMIO_BASE;
+    unsigned long pa = MMIO_BASE;
+    unsigned long end = va + MMIO_SIZE;
+
+    printf("Mapping MMIO region: VA=0x%x → PA=0x%x, size=%x KB\n", va, pa, MMIO_SIZE / 1024);
+
+    for (; va < end; va += PAGE_SIZE, pa += PAGE_SIZE) {
+        map_page(task, va, pa, PROT_DEVICE_FLAGS);
+    }
+}
+#define MMIO_VA_BASE  0xFFFFFF3F000000UL  // 属于 PGD[511] 管辖
+#define MMIO_PA_BASE  0x3F000000UL
+void create_mmio_mapping(unsigned long *pgd) {
+    unsigned long va =MMIO_VA_BASE;//MMIO_BASE;
+    unsigned long pa =MMIO_PA_BASE;// MMIO_BASE;
+    unsigned long end = MMIO_BASE + MMIO_SIZE;
+
+    for (; va < end; va += PAGE_SIZE, pa += PAGE_SIZE) {
+        // 第一级 PGD
+        int pgd_idx = (va >> PGD_SHIFT) & PGD_MASK;
+        if (!(pgd[pgd_idx] & PTE_VALID)) {
+            unsigned long pud_pa = get_free_page();
+            pgd[pgd_idx] = pud_pa | PTE_TABLE;
+        }
+        unsigned long *pud = (unsigned long *)__va(pgd[pgd_idx] & PAGE_MASK);
+
+        // 第二级 PUD
+        int pud_idx = (va >> PUD_SHIFT) & PUD_MASK;
+        if (!(pud[pud_idx] & PTE_VALID)) {
+            unsigned long pmd_pa = get_free_page();
+            pud[pud_idx] = pmd_pa | PTE_TABLE;
+        }
+        unsigned long *pmd = (unsigned long *)__va(pud[pud_idx] & PAGE_MASK);
+
+        // 第三级 PMD
+        int pmd_idx = (va >> PMD_SHIFT) & PMD_MASK;
+        if (!(pmd[pmd_idx] & PTE_VALID)) {
+            unsigned long pte_pa = get_free_page();
+            pmd[pmd_idx] = pte_pa | PTE_TABLE;
+        }
+        unsigned long *pte = (unsigned long *)__va(pmd[pmd_idx] & PAGE_MASK);
+
+        // 第四级 PTE
+        int pte_idx = (va >> PAGE_SHIFT) & PTE_MASK;
+        pte[pte_idx] = (pa & PAGE_MASK) | MMIO_PAGE_FLAGS;
+    }
+
+    printf("create_mmio_mapping: MMIO region VA=0x%x → PA=0x%x mapped.\n", MMIO_BASE, MMIO_BASE);
 }

@@ -31,7 +31,7 @@ void _schedule(void)
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
 			if (p && p->state == TASK_RUNNING && p->counter > c) {
-						printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
+				printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
 				c = p->counter;
 				next = i;
 			}

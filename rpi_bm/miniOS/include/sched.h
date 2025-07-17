@@ -17,7 +17,7 @@
 #define TASK_RUNNING				0
 #define TASK_ZOMBIE				1
 #define PF_KTHREAD		            	0x00000002
-#define MAX_PROCESS_PAGES			16	
+#define MAX_PROCESS_PAGES			2048	
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];

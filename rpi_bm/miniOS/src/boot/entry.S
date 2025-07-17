@@ -45,7 +45,7 @@
 	stp	x26, x27, [sp, #16 * 13]
 	stp	x28, x29, [sp, #16 * 14]
 
-		.if	\el == 0
+	.if	\el == 0
 	mrs	x21, sp_el0
 	.else
 	add	x21, sp, #S_FRAME_SIZE
@@ -106,7 +106,8 @@
 	kernel_entry \el
 	mov	x0, #\type
 	mrs	x1, esr_el1
-	mrs	x2, elr_el1
+	mrs x2, far_el1  // x2 = address
+	mrs x3, elr_el1  // x3 = PC
 	bl	show_invalid_entry_message
 	b	err_hang
 .endm
@@ -265,31 +266,52 @@ el0_da:
 ret_from_fork:
 	bl	schedule_tail
 	cbz	x19, ret_to_user			// not a kernel thread
-	ldr x0, =strr_kernel
-	bl uart_send_string
+
 	mov	x0, x20
 	blr	x19
 
 
 ret_to_user:
-    mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
-	bl dump_pt_regs
+
+   // mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
+	//bl dump_pt_regs
+    
     // 从 childregs 中恢复 PC/SP/PSTATE，然后 eret 跳 EL0/EL1
     mov   x1,sp         //# x29                   // x1 = childregs (pt_regs 的基地址)
+
+	ldr   x0, =str_regs_el1        // Load "str_regs_el1: "
+    mov   x2, #1                 // Print hex
+    bl    uart_send_string2
+
+	ldr   x0, [x1, #31*8]
+    msr   SP_EL0, x0                // 给 EL0 的栈
+	ldr   x0, =str_sp_el0        // Load "SP_EL0: "
+    mrs   x1, SP_EL0             // Read SP_EL0
+    mov   x2, #1                 // Print hex
+    bl    uart_send_string2
  	ldr   x0, [x1, #32*8]
     msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里    
+	ldr   x0, =str_elr_el1       // Load "ELR_EL1: "
+    mrs   x1, ELR_EL1            // Read ELR_EL1
+    mov   x2, #1                 // Print hex
+    bl    uart_send_string2
+
     ldr   x0, [x1, #33*8]
     msr   SPSR_EL1, x0              // 下一条 eret 会把 PSTATE 设成这里 
-    ldr   x0, [x1, #31*8]
-    msr   SP_EL0, x0                // 给 EL0 的栈
-
+// Print SPSR_EL1
+    ldr   x0, =str_spsr_el1      // Load "SPSR_EL1: "
+    mrs   x1, SPSR_EL1           // Read SPSR_EL1
+    mov   x2, #1                 // Print hex
+    bl    uart_send_string2
+	eret
 	// --------- 2) 刷新所有 Stage-1 TLB (EL1+EL0) ----------
-	msr    TTBR0_EL1, x0
-    dsb ish
-    tlbi vmalle1
-    dsb ish
-    isb
-    eret               
+	//msr    TTBR0_EL1, x0
+    //dsb ish
+    //tlbi vmalle1
+    //dsb ish
+    //isb
+
+             
 	             // 从 EL1 → EL0，跳到用户入口
 	// bl irq_disable
    //kernel_exit 0
@@ -338,8 +360,14 @@ get_elr_el1:
     ret
 	
 .data
-	strr:   .string  "in return from  user mode %x"
+	strr:   .string  "in return from  user mode,%x\n"
 .data
 	strr_kernel:   .string  "in return from kernel mode"
 	.data
 	strr_error:   .string  "in return error"
+	
+.section .data
+	str_sp_el0:   .asciz "SP_EL0: "
+str_elr_el1:  .asciz "ELR_EL1: "
+str_spsr_el1: .asciz "SPSR_EL1: "
+str_regs_el1: .asciz "regs: "

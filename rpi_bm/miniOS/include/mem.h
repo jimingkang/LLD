@@ -48,7 +48,7 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define PTE_VALID          (1UL << 0)
 #define PTE_TABLE          (1UL << 1)  // This is what you're missing
 #define PTE_BLOCK          (0UL << 1)
-#define PTE_PAGE           (1UL << 1)
+#define PTE_PAGE           (0UL << 1)
 #define PTE_AF             (1UL << 10)
 #define PTE_NG             (1UL << 11)
 #define PTE_USER           (1UL << 6)  // User-accessible
@@ -61,6 +61,7 @@ typedef struct { pteval_t pgd; } pgd_t;
 // 用户权限（软件定义，但需和硬件匹配）
 #define PTE_USER       (1UL << 6)   // 用户可访问（AP[1] = 0）
 #define PTE_UXN        (1UL << 54)  // 禁止用户执行（Unprivileged Execute Never）
+#define PTE_EUXN        (0UL << 54)  // 禁止用户执行（Unprivileged Execute Never）
 #define PTE_PXN        (1UL << 53)  // 禁止内核执行（Privileged Execute Never）
 #define PTE_WRITE      (1UL << 7)   // 假设你设置AP[2:1]=00 表示读写
 #define PTE_READ       0            // 只读页可不设置（取决于你的AP位编码）
@@ -78,22 +79,61 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define PUD_TYPE_TABLE   (3UL << 0)  // 页上层目录项类型
 
 #define PTE_RW           (1 << 7)    // AP[2] = 0 (可写)
-#define PTE_USER_RW_FLAGS (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_ATTRINDX(1) | PTE_USER | PTE_RW)
+#define PTE_USER_RW_FLAGS (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_ATTRINDX(0) | PTE_USER | PTE_RW)
 //#define PTE_USER_RW_FLAGS  (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_ATTRINDX(1) | (1 << 6)) 
 
 #define KERNEL_EXEC_FLAGS  (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_ATTRINDX(1))
+
+#define PTE_PAGE       (0ULL << 1)        /* leaf */
+/* AP bits */
+#define PTE_AP_EL0_RW  (1ULL << 6)        /* 01: EL1-RW, EL0-RW */
+#define PTE_AP_EL0_RO  (3ULL << 6)        /* 11: EL1-RO, EL0-RO */
+
+/* 用户代码页：EL0 可读可执行，EL0 RO，PXN=1，UXN=0 
+#define USER_FLAGS_CODE  (               \
+      PTE_VALID                       |\
+      PTE_PAGE                        |\
+      PTE_ATTRINDX(0)                 |\
+      PTE_SH_INNER                    |\
+      PTE_AF                          |\
+      PTE_AP_EL0_RO                   |\
+      PTE_PXN                         |\
+      0                        \
+)
+*/
+#define USER_FLAGS_CODE (PTE_VALID | PTE_AF | PTE_SH_INNER | PTE_AP_EL0_RO | 0)
+
+/* 用户数据/栈页：EL0 可读写不可执行 */
+#define USER_FLAGS_DATA  (               \
+      PTE_VALID                       |\
+      PTE_PAGE                        |\
+      PTE_ATTRINDX(0)                 |\
+      PTE_SH_INNER                    |\
+      PTE_AF                          |\
+      PTE_AP_EL0_RW                   |\
+      PTE_PXN                         |\
+      PTE_UXN                         \
+)
+
+/* 栈页和普通数据页用同一权限 */
+#define USER_FLAGS_STACK   USER_FLAGS_DATA
+
+//#define USER_FLAGS_CODE  ( (1UL<<0)  | PTE_ATTRINDX(0) | (3UL<<8)   | (1UL<<10)  | (1UL<<6)  | (1UL<<53) )|(0UL<<54) 
+//#define USER_FLAGS_DATA  ( (1UL << 0) |PTE_ATTRINDX(0)| (3UL << 8) | (1UL << 10)| (1UL << 6)| (1UL<<53) | (1UL<<54) )
+//#define USER_FLAGS_STACK    USER_FLAGS_CODE
+//#define USER_FLAGS_CODE     (PTE_VALID | PTE_AF| PTE_USER | PTE_READ | PTE_EXEC)
+//#define USER_FLAGS_STACK    (PTE_VALID | PTE_USER | PTE_WRITE |PTE_AF)
 
 #define USER_CODE_BASE      0x400000        // 用户代码起始虚拟地址
 
 
 #define USER_STACK_BASE  0x8000000     // 用户栈起始VA (128MB处)
-#define USER_STACK_SIZE  (0x2000) // *8KB栈空间
+#define USER_STACK_SIZE  (0x1000) // *4KB栈空间
 
 #define VALID_BIT  (1UL << 0)   // bit0 = 1，表示这个 entry 有效
 #define TABLE_BIT  (1UL << 1)   // bit1 = 1，表示这是一个指向“下一级页表”的描述符
 
-#define USER_FLAGS_CODE     (PTE_VALID | PTE_AF| PTE_USER | PTE_READ | PTE_EXEC)
-#define USER_FLAGS_STACK    (PTE_VALID | PTE_USER | PTE_WRITE |PTE_AF)
+
 
 #define VMALLOC_START   0xffffffff00000000//  0xffff000000000000UL   // typical kernel virtual base
 
@@ -252,5 +292,7 @@ pte_t *pte_offset_map(pmd_t *pmd, unsigned long addr);
 int pmd_none(pmd_t pmd);
 int pmd_bad(pmd_t pmd);
 void pmd_populate(pmd_t *pmdp, pte_t *pte);
-void set_pmd(pmd_t *pmdp, pmd_t pmd)
-;
+void set_pmd(pmd_t *pmdp, pmd_t pmd);
+
+void create_mmio_mapping(unsigned long *pgd);
+//unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot);

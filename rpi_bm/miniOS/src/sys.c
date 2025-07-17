@@ -105,8 +105,34 @@ void debug_pgd(pgd_t *pgd) {
 }
 */
 void do_page_fault(unsigned long addr, unsigned long esr) {
-    printf("Page fault at 0x%x, ESR: 0x%x\n", addr, esr);
-    printf("Fault context: PC=0x%x SP=0x%x\n", 
+
+    struct pt_regs *regs= task_pt_regs(current);;
+      printf("=== 🚨 Page Fault Exception ===\r\n");
+
+
+    // 打印触发异常的指令地址（EL0 的 PC）
+    printf("  ELR_EL1 (PC)      : 0x%x\r\n", regs->pc);
+
+    // 打印用户 SP（EL0 栈）
+    printf("  SP_EL0            : 0x%x\r\n", regs->sp);
+
+    // 打印 PSTATE
+    printf("  SPSR_EL1 (PSTATE) : 0x%x\r\n", regs->pstate);
+
+    // 打印 ESR 解码
+    uint64_t ec = (esr >> 26) & 0x3f;
+    uint64_t iss = esr & 0xffffff;
+    printf("  ESR               : 0x%lx (EC=0x%x, ISS=0x%x)\r\n", esr, ec, iss);
+
+    // 打印当前进程
+    if (current) {
+        printf("  Process mm->pgd   : 0x%x\n", current->mm->pgd);
+    } else {
+        printf("  No current process context! ⚠️\n");
+    }
+
+    printf("Page fault at 0x%x, ESR: 0x%x\r\n", addr, esr);
+    printf("Fault context: PC=0x%x SP=0x%x\r\n", 
            get_elr_el1(), get_sp_el0());
     
     // 检查地址是否应用户空间
@@ -140,11 +166,11 @@ void handle_user_page_fault(u64 addr, u64 esr) {
         u64 phys_page = get_free_page();
         if (!phys_page) printf("OOM for stack");
         
-        //map_page(pgd, addr & PAGE_MASK, phys_page, 
-        //        PTE_USER | PTE_WRITE | PTE_UXN);
+        map_page(pgd, addr & PAGE_MASK, phys_page, 
+                PTE_USER | PTE_WRITE | PTE_UXN);
         
-        //printf("Mapped stack page: VA=0x%x → PA=0x%x\n", 
-        //       addr & PAGE_MASK, phys_page);
+        printf("User Mapped stack page: VA=0x%x → PA=0x%x\n", 
+               addr & PAGE_MASK, phys_page);
         goto success;
     }
 

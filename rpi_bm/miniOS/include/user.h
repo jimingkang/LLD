@@ -4,6 +4,7 @@
 void user_process1(char *array);
 void user_process();
 void loop();
+void user_start();
 extern unsigned long user_begin[];
 extern unsigned long  user_data_begin[];
 extern unsigned long user_end[];
