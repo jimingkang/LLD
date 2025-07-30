@@ -56,18 +56,13 @@
 
 	stp	x30, x21, [sp, #16 * 15] 
 	stp	x22, x23, [sp, #16 * 16]
-	/*
-	str	x30, [sp, #16 * 15] 
-	mrs x26, elr_el1                 //Jimmy add
-    mrs x27, spsr_el1
-    stp x26, x27, [sp, #16 * 16]
-	*/
+	
 
 .endm
 
 .macro kernel_exit ,el
 	ldp	x22, x23, [sp, #16 * 16]
-	ldp	x30, x21, [sp, #16 * 15] 
+	ldp	x30, x21, [sp, #16 * 15] // Load x30 (LR), x21 (SP_EL0)
 
 	.if	\el == 0
 	msr	sp_el0, x21
@@ -90,15 +85,11 @@
 	ldp	x24, x25, [sp, #16 * 12]
 	ldp	x26, x27, [sp, #16 * 13]
 	ldp	x28, x29, [sp, #16 * 14]
-	/*
-	ldr	x30, [sp, #16 * 15]    
-	     
-	ldp x26, x27, [sp, #16 * 16]  //jimmy add
-    msr elr_el1, x26
-    msr spsr_el1, x27
-*/
+
 	add	sp, sp, #S_FRAME_SIZE
 	
+    dsb     sy
+    isb
     eret
 .endm
 
@@ -240,7 +231,7 @@ ret_from_syscall:
 	str	x0, [sp, #S_X0]				// returned x0
 	kernel_exit 0
 
-	/*
+/*	
 el0_da:
 	bl	irq_enable
 	mrs	x0, far_el1
@@ -248,13 +239,13 @@ el0_da:
 	bl	do_mem_abort
 	cmp x0, 0
 	b.eq 1f
-	handle_invalid_entry 0, DATA_ABORT_ERROR
+	handle_invalid_entry 0, 18
 1:
 	bl irq_disable			
 	kernel_exit 0
-
 */
 el0_da:
+	bl	irq_enable
     mrs    x0, far_el1               // 读取 FAR_EL1（缺页地址）
     mov    x1, x25                   // 传递 ESR_EL1（异常原因）
     bl     handle_user_page_fault    // 调用 C 函数处理缺页
@@ -264,38 +255,39 @@ el0_da:
 
 .globl ret_from_fork
 ret_from_fork:
-	bl	schedule_tail
+	bl preempt_enable
 	cbz	x19, ret_to_user			// not a kernel thread
-
 	mov	x0, x20
 	blr	x19
 
-
+.globl ret_to_user
 ret_to_user:
+bl irq_disable
 
-   // mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
-	//bl dump_pt_regs
-    
-    // 从 childregs 中恢复 PC/SP/PSTATE，然后 eret 跳 EL0/EL1
+
+  // mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
+//	bl dump_pt_regs
+
+	
     mov   x1,sp         //# x29                   // x1 = childregs (pt_regs 的基地址)
-
-	ldr   x0, =str_regs_el1        // Load "str_regs_el1: "
-    mov   x2, #1                 // Print hex
-    bl    uart_send_string2
-
 	ldr   x0, [x1, #31*8]
     msr   SP_EL0, x0                // 给 EL0 的栈
 	ldr   x0, =str_sp_el0        // Load "SP_EL0: "
     mrs   x1, SP_EL0             // Read SP_EL0
     mov   x2, #1                 // Print hex
     bl    uart_send_string2
+
+    mov   x1,sp         //# x29                   // x1 = childregs (pt_regs 的基地址)
  	ldr   x0, [x1, #32*8]
-    msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里    
+    msr   ELR_EL1, x0               // 下一条 eret 会把 PC 设成这里  
+
 	ldr   x0, =str_elr_el1       // Load "ELR_EL1: "
     mrs   x1, ELR_EL1            // Read ELR_EL1
     mov   x2, #1                 // Print hex
     bl    uart_send_string2
 
+
+    mov   x1,sp         //# x29                   // x1 = childregs (pt_regs 的基地址)
     ldr   x0, [x1, #33*8]
     msr   SPSR_EL1, x0              // 下一条 eret 会把 PSTATE 设成这里 
 // Print SPSR_EL1
@@ -303,7 +295,9 @@ ret_to_user:
     mrs   x1, SPSR_EL1           // Read SPSR_EL1
     mov   x2, #1                 // Print hex
     bl    uart_send_string2
-	eret
+
+  kernel_exit 0
+//	eret
 	// --------- 2) 刷新所有 Stage-1 TLB (EL1+EL0) ----------
 	//msr    TTBR0_EL1, x0
     //dsb ish
@@ -315,8 +309,8 @@ ret_to_user:
 	             // 从 EL1 → EL0，跳到用户入口
 	// bl irq_disable
    //kernel_exit 0
-//ret_to_user:
- //   kernel_exit                     // 从内核栈恢复用户态寄存器
+	//ret_to_user:
+ 	//   kernel_exit                     // 从内核栈恢复用户态寄存器
                                  // 返回用户态
 	/* 
 	ldr x1, =current
@@ -332,19 +326,15 @@ ret_to_user:
 	*/
 
 
-
 ret_to_user_error:
 	ldr x0, =strr_error
 	bl uart_send_string
     mov    x0, #-1                  // 设置错误码
     kernel_exit 0
 
-.global ret_from_kernel_thread
-ret_from_kernel_thread:
- bl      __ret_from_kernel_thread
-//mov     x0, x20              // Move arg (x20) to x0 (first parameter)
-//blr     x19                  // Call kernel thread function (address in x19)
-//bl      do_exit               // If function returns, exit the thread
+//.global ret_from_kernel_thread
+//ret_from_kernel_thread:
+// bl      __ret_from_kernel_thread
 
 .globl err_hang
 err_hang: b err_hang

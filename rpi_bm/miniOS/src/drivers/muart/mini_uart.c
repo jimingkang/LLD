@@ -35,7 +35,7 @@ void uart_send_string2(char *str, uint64_t value, int print_hex) {
     // Print the string prefix
     while (*str) {
         if (*str == '\n') {
-            uart_send('\r');
+          //  uart_send('\r');
         }
         uart_send(*str);
         str++;
@@ -43,18 +43,18 @@ void uart_send_string2(char *str, uint64_t value, int print_hex) {
 
     // If print_hex is non-zero, print the value as hexadecimal
     if (print_hex) {
-        char hex_buf[19]; // Buffer for "0x" + 16 digits + newline + null
+        char hex_buf[20]; // Buffer for "0x" + 16 digits + newline + null
         hex_buf[0] = '0';
         hex_buf[1] = 'x';
-        hex_buf[18] = '\0';
+        hex_buf[19] = '\0';
 
         // Convert value to hex (16 digits for 64-bit)
-        for (int i = 17; i >= 2; i--) {
+        for (int i = 2; i <= 18; i++) {
             int nibble = value & 0xF;
             hex_buf[i] = (nibble < 10) ? ('0' + nibble) : ('a' + nibble - 10);
             value >>= 4;
         }
-        hex_buf[17] = '\n'; // Add newline
+        hex_buf[18] = '\n'; // Add newline
 
         // Send hex string
         char *ptr = hex_buf;

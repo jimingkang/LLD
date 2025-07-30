@@ -2,6 +2,7 @@
 
 #include "common.h"
 
+
 #include "peripherals/base.h"
 
 struct AuxRegs {
@@ -21,4 +22,5 @@ struct AuxRegs {
     reg32 mu_baud_rate;
 };
 
-#define REGS_AUX ((struct AuxRegs *)(PBASE + 0x00215000))
+#define REGS_AUX ((struct AuxRegs *) (PBASE + 0x00215000))
+//#define REGS_AUX ((struct AuxRegs *)(PBASE + 0x00201000))  //for qemu PL011 UART

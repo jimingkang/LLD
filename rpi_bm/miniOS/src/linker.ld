@@ -43,11 +43,14 @@ ENTRY(_start)
 
 /* 用户代码段（用户模式执行）   . = KERNEL_VIRT_BASE + 0x00400000; */
 
- . = 0x00400000;  /* 用户态起始地址 */
+ /* 用户态起始地址    */
+ . = 0x00400000;
     user_begin = .;
     .user.text : AT(0x00400000)
      {  
-          *(.user.text)         /* 明确包含 .user.text 段 */
+          user_start = .;       /* 段内第一个位置，绝对安全 */
+        /*  KEEP(*(user_start_section)); */
+         *(.user.text)         /* 明确包含 .user.text 段 */
     }
       .user.rodata : { 
           *(.user.rodata)

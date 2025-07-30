@@ -59,7 +59,7 @@ static u32 mailbox_read(u8 channel) {
 bool mailbox_process(mailbox_tag *tag, u32 tag_size) {
     int buffer_size = tag_size + 12;
 
-    memcpy(&property_data[2], tag, tag_size);
+    _memcpy(&property_data[2], tag, tag_size);
 
     property_buffer *buff = (property_buffer *)property_data;
     buff->size = buffer_size;
@@ -70,7 +70,7 @@ bool mailbox_process(mailbox_tag *tag, u32 tag_size) {
 
     int result = mailbox_read(MAIL_TAGS);
 
-    memcpy(tag, property_data + 2, tag_size);
+    _memcpy(tag, property_data + 2, tag_size);
 
     return true;
 }

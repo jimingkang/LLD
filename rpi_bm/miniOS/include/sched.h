@@ -3,26 +3,75 @@
 
 #include "mem.h"
 
+
+#define CORE_CONTEXT_OFFSET 0
 #define THREAD_CPU_CONTEXT			0 		// offset of cpu_context in task_struct 
-
 #ifndef __ASSEMBLER__
-
 #define THREAD_SIZE				4096
-
-#define NR_TASKS				64/8
-
+#define NR_TASKS				64
 #define FIRST_TASK task[0]
 #define LAST_TASK task[NR_TASKS-1]
-
 #define TASK_RUNNING				0
 #define TASK_ZOMBIE				1
 #define PF_KTHREAD		            	0x00000002
 #define MAX_PROCESS_PAGES			2048	
+#define TASK_RUNNING      0
+#define TASK_ZOMBIE       1
+#define MAX_PAGE_COUNT    16
 
 extern struct task_struct *current;
 extern struct task_struct * task[NR_TASKS];
 extern int nr_tasks;
 
+
+/*
+
+struct core_context
+{
+    u64 x19;
+    u64 x20;
+    u64 x21;
+    u64 x22;
+    u64 x23;
+    u64 x24;
+    u64 x25;
+    u64 x26;
+    u64 x27;
+    u64 x28;
+    u64 fp;
+    u64 sp;
+    u64 lr;
+};
+
+struct user_page
+{
+    u64 pa;
+    u64 uva;
+};
+
+struct mm_struct
+{
+    u64 pgd;
+    struct user_page user_pages[MAX_PAGE_COUNT];
+    u64 kernel_pages[MAX_PAGE_COUNT];
+		int user_pages_count;
+	int kernel_pages_count;
+};
+
+struct task_struct
+{
+    struct core_context core_context;
+    long state;
+    long counter;
+    long priority;
+    long preempt_count;
+    u64 flags;
+    struct mm_struct mm;
+	unsigned long stack; 
+};
+*/
+
+/**/
 struct cpu_context {
 	unsigned long x19;
 	unsigned long x20;
@@ -41,12 +90,12 @@ struct cpu_context {
 
 
 struct user_page {
-	unsigned long phys_addr;
-	unsigned long virt_addr;
+	unsigned long pa;
+	unsigned long uva;
 };
 
 struct mm_struct {
-	unsigned long * pgd;
+	unsigned long pgd;
 	int user_pages_count;
 	struct user_page user_pages[MAX_PROCESS_PAGES];
 	int kernel_pages_count;
@@ -62,8 +111,10 @@ struct task_struct {
 
 
 	unsigned long flags;
-    // virtual mem
-	struct mm_struct * mm;
+	unsigned long  pgd;
+
+	struct mm_struct *mm;
+
 };
 
 extern void sched_init(void);

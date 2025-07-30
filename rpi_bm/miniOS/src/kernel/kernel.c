@@ -77,10 +77,38 @@ void init_main(void *arg) {
          delay(1000000);
     }
 }
+void kernel_process2()
+{
+ // extern u64 user_start;
+  //  extern u64 user_end;
+    u64 user_size = ((u64)(&user_end)) - ((u64)(&user_start));
 
+    int err = prepare_move_to_user((u64)&user_start, user_size, ((u64)user_process) - (u64)&user_start);
+    if (err < 0)
+        printf("Failed to move to user mode!\n");
+}
 
+int prepare_move_to_user(u64 start_addr, u64 size, u64 fn)
+{
+    struct pt_regs *regs = task_pt_regs(current);
+    memzero((u64)regs, sizeof(*regs));
+    /* jump to fn as EL0 after eret in kernel_exit */
+    regs->pc = fn;
+    regs->pstate = 0;
+    regs->sp = USER_SP_INIT_POS;
+    u64 code_page = allocate_user_page(current, 0,USER_FLAGS_CODE);
+    if (code_page == 0)
+        return -1;
+    _memcpy((u64*)code_page, (u64*)start_addr, size);
+    set_pgd(current->mm->pgd);
+    return 0;
+}
 
-
+struct ke_regs * task_ke_regs(struct task_struct *tsk)
+{
+    u64 p = (u64)tsk + THREAD_SIZE - sizeof(struct ke_regs);
+    return (struct ke_regs *)p;
+}
 void kernel_process(){
 	printf("\r\nKernel process started. EL %d\r\n", get_el());
 
@@ -88,47 +116,49 @@ void kernel_process(){
     if (!current->mm) {
         current->mm = (struct mm_struct *)allocate_kernel_page();
         if (!current->mm) {
-            printf("Failed to allocate mm_struct\n\r");
+           printf("Failed to allocate mm_struct\n\r");
             return;
-        }
+       }
         memzero(current->mm, sizeof(struct mm_struct));
       
         // 复制内核映射
         u64 kernel_pgd = kernel_pgd_addr();
-        current->mm->pgd = allocate_pagetable_page();
-        create_mmio_mapping(kernel_pgd);
-        printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
+        current->mm->pgd = allocate_pagetable_page(); //get_pgd();//
+                if (!current->mm->pgd) {
+            printf("Failed to copy kernel mappings\n\r");
+//            free_kernel_page((unsigned long)current->mm);
+           // current->mm = 0;
+            return;
+        }
+       // create_mmio_mapping(kernel_pgd);
+        //printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
              
         dump_pgd(kernel_pgd);
         irq_disable(); 
-        copy_kernel_mappings(__va(current->mm->pgd),kernel_pgd);
+       copy_kernel_mappings(__va(current->mm->pgd),kernel_pgd);
         irq_enable();  
-        if (!current->mm->pgd) {
-            printf("Failed to copy kernel mappings\n\r");
-//            free_kernel_page((unsigned long)current->mm);
-            current->mm = 0;
-            return;
-        }
+
     }
 
     printf(" after copy_kernel_mappings\n\r");
     unsigned long begin = (unsigned long)user_begin;
 	unsigned long end = (unsigned long)user_end;
-	unsigned long process = (unsigned long)&user_start;
+	unsigned long main = (unsigned long)user_main;
 
     unsigned long user_va = 0x400000;  // 映射目标地址
-    unsigned long entry_va = user_va + ((unsigned long)&user_start - begin);
-    printf("&user_begin = 0x%x\n", begin);
-    printf("&user_start = 0x%x\n", process);
-    printf("entry_va      = 0x%x\n", entry_va);
-    int err = move_to_user_mode(user_va, end - begin, entry_va);
-    //printf("after move_to_user_mode err=%d\r\n",err);
+    unsigned long entry_va = user_va + (main- begin);
+    printf("hi &user_begin = 0x%x,low &user_begin = 0x%x\n", begin>>32,begin);
+    printf("user_main=%x, &main= 0x%x\n",user_main, main);
+    printf("hi entry_va      = 0x%x,low  entry_va      = 0x%x\n", entry_va>>32,entry_va);
+  //  int err=prepare_move_to_user(begin, end - begin, entry_va);
+    int err = move_to_user_mode(begin, end - begin, entry_va);
+    printf("after move_to_user_mode err=%d\r\n",err);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");
 	} 
-    //while(1){
-    //    printf("not move_to_user_mode in kernel_process \r\n");
-    //}
+   // while(1){
+   //     printf(" in kernel_process \r\n");
+   // }
 
 
 }
@@ -147,19 +177,7 @@ void kernel_process(){
 
 void kernel_main() {
 
-  
-    
-    unsigned long init_stack = allocate_pagetable_page();
-   // u64 kernel_pgd = kernel_pgd_addr();
-   // current->mm= allocate_pagetable_page();
-   // current->mm->pgd= kernel_pgd;
- 
-    //print_user_mapping(current->mm->pgd,KERNEL_VIRT_OFFSET);
 
-    current->state = TASK_RUNNING;     // 标记为可运行
-    current->stack = init_stack;       // 指向栈内存基地址
-    current->cpu_context.sp = (unsigned long)init_stack + THREAD_SIZE;  // 栈顶指针（ARM64 栈向下增长）
-    current->cpu_context.pc = (unsigned long)init_main;  // 入口函数
     uart_init();
     init_printf(0, io_device_find("muart"));
     printf("\nRasperry PI Bare Metal OS Initializing...\n");

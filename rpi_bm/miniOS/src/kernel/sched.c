@@ -32,8 +32,16 @@ void _schedule(void)
 			p = task[i];
 			if (p && p->state == TASK_RUNNING && p->counter > c) {
 				printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
-				c = p->counter;
-				next = i;
+			//	c = p->counter;
+			//	next = i;
+			  int eff = p->counter;
+            if (i == 1)   // task1 额外加分
+                eff += 5;
+
+            if (eff > c) {
+                c = eff;
+                next = i;
+            }
 			}
 		}
 		if (c) {
@@ -45,7 +53,7 @@ void _schedule(void)
 			if (p) {
 				
 			printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
-				p->counter = (p->counter >> 1) + p->priority+1;
+				p->counter = (p->counter >> 1) + p->priority;
 			}
 		}
 	}
@@ -68,6 +76,8 @@ void switch_to(struct task_struct * next)
 		return;
 	struct task_struct * prev = current;
 	current = next;
+
+	 
 	cpu_switch_to(prev, next);
 }
 
@@ -121,10 +131,10 @@ void exit_process(){
 			task[i]->state = TASK_ZOMBIE;
 
 			// 释放用户内存
-            if (task[i]->mm) {
+       //     if (task[i]->mm) {
 //                free_user_memory(task[i]->mm);
-                task[i]->mm = 0;
-            }
+       //         task[i]->mm = 0;
+       //     }
 
 			break;
 		}

@@ -65,17 +65,17 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 
 	} else {
 		struct pt_regs * cur_regs = task_pt_regs(current);
-		*childregs=	*cur_regs; 	
-		childregs->regs[0] = 0;
-        unsigned long user_kstack = allocate_kernel_page();  // 返回 KVA
-        if (!user_kstack) return -1;
-        p->stack = user_kstack;  // 把 p->stack 设成新分配的内核栈虚拟地址
-        childregs->sp = user_kstack + PAGE_SIZE;
+		//*childregs=	*cur_regs; 	
+	//	childregs->regs[0] = 0;
+     //   unsigned long user_kstack = allocate_kernel_page();  // 返回 KVA
+      //  if (!user_kstack) return -1;
+     //   p->stack = user_kstack;  // 把 p->stack 设成新分配的内核栈虚拟地址
+     //   childregs->sp = user_kstack + PAGE_SIZE;
 		//childregs->sp = stack + PAGE_SIZE; 
 		//p->stack = stack;
 		printf("else in copy_process\n\r");
-        p->cpu_context.x19 = 0;
-        p->cpu_context.x20 = 0;
+      //  p->cpu_context.x19 = 0;
+      //  p->cpu_context.x20 = 0;
 
 
        
@@ -137,7 +137,7 @@ unsigned long map_and_copy_user_code(void)
     void *dst_va  = (void *)__va(new_pa);    /* direct-map 转高半区 */
 
     /* —— 4) 拷贝整个 .user.text 段 —— */
-    memcpy(dst_va, src_va, code_size);
+    _memcpy(dst_va, src_va, code_size);
 
     /* —— 5) D-Cache 写回 + I-Cache 失效 ——*/
     asm volatile(
@@ -242,7 +242,7 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
         printf("Invalid user program size or addr\n\r");
         return -1;
     }
-    printf("move_to_user_mode current->mm->pgd %x,pa=%x\n\r",current->mm->pgd,__va(current->mm->pgd));
+    printf("move_to_user_mode current->mm->pgd %x,va=%x\n\r",current->mm->pgd,__va(current->mm->pgd));
 
     struct pt_regs *regs = task_pt_regs(current);
      unsigned long dst_va=  map_and_copy_user_code();
@@ -262,17 +262,8 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 
 
-    /*
-    // In kernel page table setup (e.g., init_pagetable, before move_to_user_mode)
-unsigned long *kernel_pgd = (unsigned long *)__va(0x95000);
-unsigned long pages[] = {0x1004000, 0x1005000, 0x1006000, 0x1007000};
-for (int i = 0; i < 4; i++) {
-    int pgd_index = (pages[i] >> 39) & 0x1FF;
-    kernel_pgd[pgd_index] = (pages[i] | (1UL << 10) | (1UL << 2) | 0x3); // AF=1, AttrIndx=1, Table
-    printf("Kernel PGD[%d] for 0x%x = 0x%x\n", pgd_index, pages[i], kernel_pgd[pgd_index]);
-}
-*/
-    // 举例：打印 PGD[ <0x400000 索引> ] 的值
+ 
+
  
     regs->pstate = PSR_MODE_EL0t|PSR_DAIF_MASK;  
     regs->pc =pc;    
@@ -280,13 +271,41 @@ for (int i = 0; i < 4; i++) {
     regs->sp =stack_va + PAGE_SIZE ; 
 
 
-    printf("user jump: pc=0x%x sp=0x%x pstate=0x%x\n",regs->pc, regs->sp, regs->pstate);
+    printf("user jump: current->mm->pgd=%x, pc=0x%x sp=0x%x pstate=0x%x\n",current->mm->pgd,regs->pc, regs->sp, regs->pstate);
 	//debug_pgd_recursive(current->mm->pgd);
    
-   // set_pgd(current->mm->pgd);
+    //set_pgd(current->mm->pgd,regs);
+
+    __asm__ volatile (
+        "msr ttbr0_el1, %0\n\t"
+     //   "tlbi vmalle1is\n\t"
+     //   "dsb ish\n\t"
+        "isb\n\t"
+        :
+        : "r"(current->mm->pgd)
+        : "memory"
+    );
+   printf("after flush ttbr0_el1\n");
+   unsigned long val;
+__asm__ volatile("mrs %0, ttbr0_el1\n\t" : "=r"(val));
+printf("TTBR0_EL1 right after set: 0x%x\n", val);
+    __asm__ volatile(
+        "dsb sy\n\t"
+        "tlbi vaae1is, %0\n\t"
+        "tlbi vaae1is, %1\n\t"
+        "dsb sy\n\t"
+        "isb\n\t"
+        :: "r"(0x400000 >> 12), "r"(0x8000000 >> 12)
+        : "memory"
+    );
+
+
+    dump_pagetable_walk(current->mm->pgd, 0x400000);    // 检查用户代码
+dump_pagetable_walk(current->mm->pgd, 0x7fff000);   // 检查用户栈
 
   //printf("After set_pgd, about to switch, ELR_EL1=%x, SPSR_EL1=%x, SP_EL0=%x\n",regs->pc, regs->pstate, regs->sp);
-//return 0;
+return 0;
+/*
    unsigned long entry_pc  = regs->pc;     // 例如 0x00400054
     unsigned long spsr_val  = regs->pstate; // 例如 0x00000000000003C0
     unsigned long user_sp   = regs->sp;     // 例如 0x000000000007FFF000
@@ -378,6 +397,7 @@ printf("kernel PUD[%d] = 0x%x\n", pud_idx, pud[pud_idx]);
 printf("kernel PMD[%d] = 0x%x\n", pmd_idx, pmd[pmd_idx]);
 printf("kernel PTE[%d] = 0x%x\n", pte_idx, pte[pte_idx]);
 printf("kernel PTE[%d] = 0x%x\n", pte_idx2, pte2[pte_idx2]);
+*/
 
 // 1) 为 TTBR0_EL1 指定的页表设定合适的翻译控制
 //unsigned long tcr = 0;
@@ -405,10 +425,10 @@ __asm__ volatile("msr TCR_EL1, %0\n\t" :: "r"(tcr) : "memory");
 __asm__ volatile("isb\n\t");
 printf("TCR_EL1 = 0x%x\n", tcr);
     // 1) 配置 MAIR_EL1 → 让 AttrIndx0 代表 Normal, WB&WA
-    unsigned long mair = ( (0x00UL << 0) | (0xffUL << 8)) ;//0xffULL << (8*0));
-    __asm__ volatile("msr MAIR_EL1, %0\n\t" :: "r"(mair) : "memory");
-    __asm__ volatile("isb\n\t");
-    printf("MAIR_EL1 set to 0x%x\n", mair);
+   // unsigned long mair = ( (0x00UL << 0) | (0xffUL << 8)) ;//0xffULL << (8*0));
+    //__asm__ volatile("msr MAIR_EL1, %0\n\t" :: "r"(mair) : "memory");
+   // __asm__ volatile("isb\n\t");
+    //printf("MAIR_EL1 set to 0x%x\n", mair);
 
 
     // 2) 写 TTBR0_EL1
@@ -416,8 +436,6 @@ printf("TCR_EL1 = 0x%x\n", tcr);
 dump_pagetable_walk(current->mm->pgd, 0x400000);    // 检查用户代码
 dump_pagetable_walk(current->mm->pgd, 0x7fff000);   // 检查用户栈
 
-
-  //  u64 kernel_pgd = kernel_pgd_addr();
     unsigned long pgd_phys = (unsigned long)current->mm->pgd;
     
    
@@ -427,75 +445,33 @@ printf("sp = 0x%x\n", (unsigned long)__builtin_frame_address(0));
 //__asm__ volatile("isb\n\t");
 //__asm__ volatile("tlbi vmalle1\n\t");
 //__asm__ volatile("dsb ish\n\t");
-uint64_t ttbr1_el1;
-__asm__ volatile("mrs %0, TTBR1_EL1" : "=r"(ttbr1_el1));
-printf("TTBR1_EL1: 0x%x\n", ttbr1_el1);
-
-__asm__ volatile("msr TTBR0_EL1, %0\n\t" :: "r"(pgd_phys) : "memory");
-/**/
 
 
-//__asm__ volatile("isb\n\t");
-
-     
-    printf("TTBR0_EL1 = 0x%x (expect 0x%x)\n", pgd_phys, pgd_phys);
-
-    // 验证
-    unsigned long check_ttbr0;
-    __asm__ volatile("mrs %0, TTBR0_EL1\n\t" : "=r"(check_ttbr0));
-    printf("TTBR0_EL1 = 0x%x (expect 0x%x)\n", check_ttbr0, pgd_phys);
-
-
-    // 3) 打开 MMU：设置 SCTLR_EL1.M = 1
-    unsigned long sctlr;
-    __asm__ volatile("mrs %0, SCTLR_EL1\n\t" : "=r"(sctlr));
-    printf("Old SCTLR_EL1 = 0x%x\n", sctlr);
-    sctlr |= 1;  // bit0 = 1 → 开启 MMU
-    sctlr |= (1 << 2);  // C: Data cache enable
-    sctlr |= (1 << 12); // I: Instruction cache enable
-     sctlr |=(1UL << 29);
-    __asm__ volatile("msr SCTLR_EL1, %0\n\t" :: "r"(sctlr) : "memory");
-    __asm__ volatile("isb\n\t");
-    // 验证
-    __asm__ volatile("mrs %0, SCTLR_EL1\n\t" : "=r"(sctlr));
-    printf("New SCTLR_EL1 = 0x%x (bit0 should be 1)\n", sctlr);
-
+  
 
 
     // ——— 写 ELR_EL1 ———
-    __asm__ volatile("msr ELR_EL1, %0\n\t" :: "r"(entry_pc) : "memory");
+   // __asm__ volatile("msr ELR_EL1, %0\n\t" :: "r"(entry_pc) : "memory");
     // 立即读取 ELR_EL1 并打印，确认写入生效
-    __asm__ volatile("mrs %0, ELR_EL1\n\t" : "=r"(tmp));
-    printf("VERIFY ELR_EL1 = 0x%x (expect 0x%x)\n", tmp, entry_pc);
+   // __asm__ volatile("mrs %0, ELR_EL1\n\t" : "=r"(tmp));
+  //  printf("VERIFY ELR_EL1 = 0x%x (expect 0x%x)\n", tmp, entry_pc);
 
     // ——— 写 SPSR_EL1 ———
-    __asm__ volatile("msr SPSR_EL1, %0\n\t" :: "r"(spsr_val) : "memory");
+   // __asm__ volatile("msr SPSR_EL1, %0\n\t" :: "r"(spsr_val) : "memory");
     // 立即读取 SPSR_EL1 并打印
-    __asm__ volatile("mrs %0, SPSR_EL1\n\t" : "=r"(tmp));
-    printf("VERIFY SPSR_EL1 = 0x%x (expect 0x%x)\n", tmp, spsr_val);
+    //__asm__ volatile("mrs %0, SPSR_EL1\n\t" : "=r"(tmp));
+    //printf("VERIFY SPSR_EL1 = 0x%x (expect 0x%x)\n", tmp, spsr_val);
 
     // ——— 写 SP_EL0 ———
-    __asm__ volatile("msr SP_EL0, %0\n\t" :: "r"(user_sp) : "memory");
+    //__asm__ volatile("msr SP_EL0, %0\n\t" :: "r"(user_sp) : "memory");
     // 立即读取 SP_EL0 并打印
-    __asm__ volatile("mrs %0, SP_EL0\n\t" : "=r"(tmp));
-    printf("VERIFY SP_EL0  = 0x%x (expect 0x%x)\n", tmp, user_sp);
+    //__asm__ volatile("mrs %0, SP_EL0\n\t" : "=r"(tmp));
+    //printf("VERIFY SP_EL0  = 0x%x (expect 0x%x)\n", tmp, user_sp);
     //__asm__ volatile("isb\n\t");
 
 
     //验证
 
-
-
-//printf("Instruction at PA 0x100a060: 0x%x\n", *((uint64_t *)__va(0x100a060)));
-uint32_t *phys_ptr = (uint32_t *)__va(0x1008000);
-printf("Phys [0x1008000 ] = 0x%x\n", *phys_ptr);
-    printf(">>> About to eret to EL0 <<<\n");
-
- //   __asm__ volatile("eret\n\t");
-   
- // unsigned long elr = regs->pc;       // 应该是 0x400050
-//unsigned long spsr = regs->pstate;  // 应该是 0x0 （EL0t）
-//unsigned long sp0 = regs->sp;       // 应该是 0x7fff000
 
 __asm__ volatile(
     "dsb sy\n\t"
@@ -507,12 +483,7 @@ __asm__ volatile(
     : "memory"
 );
 
-// In kernel page table setup (before move_to_user_mode)
-//unsigned long *kernel_pgd2= (unsigned long *)__va(0x95000);
-// pgd_index = (0x1004000 >> 39) & 0x1FF;
-//kernel_pgd2[pgd_index] = (0x1004000 | (1UL << 10) | (1UL << 2) | 0x3); // AF=1, AttrIndx=1, Table
-//printf("Kernel PGD[%d] for 0x1004000 = 0x%x\n", pgd_index, kernel_pgd2[pgd_index]);
-// Repeat for 0x1005000, 0x1006000, 0x1007000
+
   __asm__ volatile(
     "msr    ELR_EL1, %0\n\t"   // 把 regs->pc（0x400050）写到 ELR_EL1
     "msr    SPSR_EL1, %1\n\t"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1
@@ -544,7 +515,7 @@ void copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *kernel_pgd) {
     for (int i = 0; i < 2; ++i) {
     printf("copy_kernel_mappings kernel_pgd[%d] = 0x%x\n", i, pgd_val(kernel_pgd[i]));
 }
- for (int i =500; i < 512; ++i) {
+ for (int i =510; i < 512; ++i) {
     printf(" copy_kernel_mappings kernel_pgd[%d] = 0x%x\n", i, pgd_val(kernel_pgd[i]));
 }
 

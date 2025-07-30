@@ -33,6 +33,7 @@
 #ifndef __ASSEMBLER__
 
 void ret_from_fork(void);
+void ret_to_user(void);
 void ret_from_kernel_thread();
 
 #endif

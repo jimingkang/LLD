@@ -4,17 +4,20 @@
 #include "fork.h"
 #include "entry.h"
 #include "printf.h"
+#include "user.h"
 #define PF_KTHREAD		            	0x00000002
+
+
 extern pg_dir;
 int copy_process_inkernel(unsigned long fn, unsigned long arg)
 {
 	preempt_disable();
 	struct task_struct *p;
 
-	p = (struct task_struct *) get_free_pages(1);
+	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return 1;
-	p->priority = current->priority;
+	p->priority = current->priority+10;
 	p->state = TASK_RUNNING;
 	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
@@ -28,12 +31,23 @@ int copy_process_inkernel(unsigned long fn, unsigned long arg)
 	preempt_enable();
 	return 0;
 }
+
+static inline void copy_ke_regs(struct pt_regs *dst, struct pt_regs *src) {
+    // 手动复制每个字段，防止潜在gcc调用memcpy
+    for (int i = 0; i < 31; ++i) {
+        dst->regs[i] = src->regs[i];
+    }
+    dst->sp = src->sp;
+    dst->pc = src->pc;
+    dst->pstate = src->pstate;
+    // 如果有扩展字段，也一并拷贝
+    // dst->foo = src->foo;
+}
 int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg, unsigned long stack)
 {
-
-	
 	printf("first in copy_process%x\n\r",fn);
 	preempt_disable();
+    int pid = nr_tasks++;
 	struct task_struct *p;
 	unsigned long page = allocate_kernel_page();
 	printf("allocate_kernel_page in copy_process%x\n\r",page);
@@ -43,7 +57,6 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 		return -1;
 	}
 
-	/**/
 	unsigned long kernel_stack = allocate_kernel_page(); // 分配内核栈
     if (!kernel_stack) {
         printf("Failed to allocate kernel stack\n\r");
@@ -53,29 +66,6 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	p->stack = kernel_stack; // 所有任务都设置内核栈指针
     printf("Allocated kernel stack at 0x%x\n\r", kernel_stack);
 
-	// 2. 初始化内存管理
-    if (clone_flags & PF_KTHREAD) {
-        // 内核线程不需要用户页表
-        p->mm = 0;
-    } else {
-        // 用户进程需要完整的页表
-        p->mm = (struct mm_struct *)allocate_kernel_page();
-        if (!p->mm)return -1;
-        memzero(p->mm,  sizeof(struct mm_struct));
-        
-        p->mm->pgd = alloc_new_pgd();
-        if (!p->mm->pgd)return -1;
-        
-        // 复制内核映射并初始化用户空间
-		 u64 kernel_pgd = kernel_pgd_addr();
-		 	 p->mm->pgd = allocate_kernel_page();
-        copy_kernel_mappings(p->mm->pgd, kernel_pgd);
-       // if (init_user_mappings(p->mm->pgd, 0x0, 0x8000000) != 0)
-		//printf("error  init_user_mappings \r\n");
-         //   goto user_mapping_fail;
-    }
-
-
 	struct pt_regs *childregs = task_pt_regs(p);
 	memzero((unsigned long)childregs, sizeof(struct pt_regs));
 	memzero((unsigned long)&p->cpu_context, sizeof(struct cpu_context));
@@ -84,28 +74,206 @@ int copy_process(unsigned long clone_flags, unsigned long fn, unsigned long arg,
 	if (clone_flags & PF_KTHREAD) {
 		p->cpu_context.x19 = fn;
 		p->cpu_context.x20 = arg;
+        p->flags = clone_flags;
+        p->priority = current->priority;
+        p->state = TASK_RUNNING;
+        p->counter = p->priority;
+        p->preempt_count = 1; //disable preemtion until schedule_tail
+
+        p->cpu_context.pc = (unsigned long)ret_from_fork;
+        p->cpu_context.sp = (unsigned long)childregs;
+        
+        task[pid] = p;	
+        printf("before return in copy_process,ret_from_fork=%x,childregs=%x ,p=%x\r\n",ret_from_fork,childregs,p);
+
+
 	} else {
+        
+       /* if(!p->mm) {
+                p->mm = (struct mm_struct *)allocate_kernel_page();
+                if (!p->mm) {
+                    printf("Failed to allocate mm_struct\n\r");
+                    return;
+                }
+                memzero(p->mm, sizeof(struct mm_struct));
+            
+                // 复制内核映射
+                u64 kernel_pgd = kernel_pgd_addr();
+                p->pgd =allocate_pagetable_page();//get_pgd() ;//get_pgd();
+
+                printf("p->mm->pgd=%x\n\r",p->pgd);
+                dump_pgd(kernel_pgd);
+                irq_disable(); 
+                copy_kernel_mappings(__va(p->pgd),kernel_pgd);
+                irq_enable();  
+                if (!p->mm->pgd) {
+                    printf("Failed to copy kernel mappings\n\r");
+        //            free_kernel_page((unsigned long)current->mm);
+                    p->mm = 0;
+                    return;
+                }
+            }
+                */
+
+      // 1. 确保目标地址按页对齐
+    unsigned long user_code_va = 0x400000;  // 用户代码虚拟地址
+    unsigned long user_code_va_aligned = user_code_va & ~(PAGE_SIZE - 1);
+    
+    printf("Mapping user code: high VA=0x%x,low VA=0x%x\n", user_code_va_aligned>>32,user_code_va_aligned);
+    
+    // 2. 分配并映射用户代码页
+    unsigned long flag=USER_FLAGS_CODE &~(1<<54|1<<53);
+    printf("flag=%x\n",flag);
+    unsigned long phys_page = allocate_user_page(p, user_code_va_aligned);//, flag); // 可执行
+    if (!phys_page) {
+        printf("ERROR: Failed to allocate user code page\n");
+        return -1;
+    }
+        unsigned long src_va_begin = (unsigned long)&user_begin;
+    unsigned long src_va_end   = (unsigned long)&user_data_begin;
+    size_t         code_size   = src_va_end - src_va_begin;
+      printf("src_va_begin=%x\n",src_va_begin);
+      printf("src_va_end=%x\n",src_va_end);
+      printf("code_size=%x\n",code_size);
+    // 3. 复制代码到用户页
+    void *kernel_va = __va(phys_page);
+    _memcpy(kernel_va, (void *)src_va_begin, code_size);
+
+    
+    
+    // 4. 确保指令缓存一致性
+    flush_icache_range((unsigned long)kernel_va, (unsigned long)kernel_va + code_size);
+
 		struct pt_regs * cur_regs = task_pt_regs(current);
-		*childregs=	*cur_regs; 	
+       // copy_ke_regs(childregs,_va(curr));
+       for (int i = 0; i < 31; ++i) {
+        childregs->regs[i] = cur_regs->regs[i];
+    }
+    // 拷贝堆栈指针、PC、状态
+    childregs->sp = cur_regs->sp;
+    childregs->pc = cur_regs->pc;
+    childregs->pstate = cur_regs->pstate;
+        
 		childregs->regs[0] = 0;
-		childregs->sp = stack + PAGE_SIZE; 
-		p->stack = stack;
-		printf("else in copy_process\n\r");
-	}
-	
-	p->flags = clone_flags;
+        // 举例：打印 PGD[ <0x400000 索引> ] 的值
+    unsigned long *pgd_base = (unsigned long *)__va(p->mm.pgd);
+    int pgd_index = (0x400000 >> 39) & 0x1FF;  // AArch64 通常每级用 9 位索引
+//    printf("Child PGD[%d] = 0x%x\n", pgd_index, pgd_base[pgd_index]);
+
+    // 分配栈页（从栈底向下增长）
+    unsigned long stack_va = USER_STACK_BASE  - USER_STACK_SIZE;
+    unsigned long stack_page = allocate_user_page(p, stack_va ); // User-writable, no execute);
+    if (!stack_page) {
+      //  free_page(code_page - VA_START);
+        return -1;
+    }
+    printf(" after  allocate stack_page %x,stack_va=%x \n\r",stack_page,stack_va);
+
+
+    childregs->pstate = PSR_MODE_EL0t|PSR_DAIF_MASK;  
+    childregs->pc =user_code_va_aligned;    
+    printf(" childregs->pc  =%x\r\n",childregs->pc);            
+    childregs->sp =stack_va + USER_STACK_SIZE ; 
+
+    //printf("user jump: current->mm->pgd=%x, pc=0x%x sp=0x%x pstate=0x%x\n",current->mm->pgd,regs->pc, regs->sp, regs->pstate);
+
+   // __asm__ volatile (
+   //     "msr ttbr0_el1, %0\n\t"
+  //     "tlbi vmalle1is\n\t"
+   //     "dsb ish\n\t"
+    //    "isb\n\t"
+   //     :
+   //     : "r"(p->mm->pgd)
+   //     : "memory"
+   // );
+   __asm__ volatile (
+    // 1) 载入新的用户页表根
+    "msr    ttbr0_el1, %0\n\t"
+    // 2) 确保对寄存器写入和页表修改可见
+    "dsb    ish\n\t"
+    "isb\n\t"
+    // 3) 清空旧的用户 TLB（虚拟地址到物理地址缓存）
+    "tlbi   vmalle1\n\t"
+    "dsb    ish\n\t"
+    "isb\n\t"
+    // 4) 如果刚刚 memcpy 了新代码页，再清 I‑cache
+    "ic     iallu\n\t"
+    "dsb    ish\n\t"
+    "isb\n\t"
+    :
+    : "r"(p->mm.pgd)
+    : "memory"
+);
+   printf("after flush ttbr0_el1\n");
+   unsigned long val;
+    __asm__ volatile("mrs %0, ttbr0_el1\n\t" : "=r"(val));
+    printf("TTBR0_EL1 right after set: 0x%x\n", val);
+  
+    // asm volatile(
+   // "dsb ishst\n"
+   // "isb\n"
+   // "tlbi vmalle1\n"
+  //  "dsb ish\n"
+  //  "isb\n"
+//);
+     
+         __asm__ volatile(
+            "dsb sy\n\t"
+            "tlbi vaae1is, %0\n\t"
+            "tlbi vaae1is, %1\n\t"
+            "dsb sy\n\t"
+            "isb\n\t"
+            :: "r"(0x400000 >> 12), "r"(0x7fff000 >> 12)
+            : "memory"
+        );
+       __asm__ volatile("ic iallu; dsb sy; isb" ::: "memory");
+		printf(" for user process in copy_process\n\r");
+        p->cpu_context.x19 = 0;
+       p->cpu_context.x20 = 0;
+
+        p->cpu_context.pc= (unsigned long)ret_from_fork;
+        p->cpu_context.sp = (unsigned long)childregs;
+
+         p->flags = clone_flags;
+        p->priority = current->priority;
+        p->state = TASK_RUNNING;
+        p->counter = p->priority;
+        p->preempt_count = 1; //disable preemtion until schedule_tail
+
+        dump_pagetable_walk(p->mm.pgd, 0x400000);    // 检查用户代码
+dump_pagetable_walk(p->mm.pgd, 0x7fff000);   // 检查用户栈
+        
+        task[pid] = p;	
+
+
+/*
+struct pt_regs * cur_regs = task_pt_regs(current);
+for (int i = 0; i < 31; ++i) {
+        childregs->regs[i] = cur_regs->regs[i];
+    }
+    // 拷贝堆栈指针、PC、状态
+    childregs->sp = cur_regs->sp;
+    childregs->pc = cur_regs->pc;
+    childregs->pstate = cur_regs->pstate;
+
+		childregs->regs[0] = 0;
+copy_virt_memory(p);
+    p->flags = clone_flags;
 	p->priority = current->priority;
 	p->state = TASK_RUNNING;
-	p->counter = p->priority=1;
+	p->counter = p->priority;
 	p->preempt_count = 1; //disable preemtion until schedule_tail
-
-	p->cpu_context.pc = (unsigned long)ret_from_fork;
-	p->cpu_context.sp = (unsigned long)childregs;
+	p->core_context.pc = (unsigned long)ret_from_fork;
+	p->core_context.sp = (unsigned long)childregs;
 	int pid = nr_tasks++;
 	task[pid] = p;	
-	printf("before return in copy_process,ret_from_fork=%x,childregs=%x ,p=%x\r\n",ret_from_fork,childregs,p);
-	preempt_enable();
+       */
+	}
+   
+   		
+	
 
+	preempt_enable();
 	return pid;
 }
 
@@ -115,83 +283,490 @@ static inline bool is_aligned(unsigned long addr, unsigned long align)
     return !(addr & (align - 1));
 }
 
+unsigned long map_and_copy_user_code(   unsigned long src_va_begin, size_t  code_size )
+{
+
+
+    printf("\r\nDEBUG: src_va_begin @ %x,   size = %d\r\n",
+           src_va_begin, code_size);
+           
+    //printf("DEBUG: hi src_va_begin @ %x,code_size=%x\n",      src_va_begin>>32, code_size);
+
+     //   dump_pagetable_walk(current->mm->pgd, 0x400000);    // 检查用户代码
+    /* —— 2) 分配一页用户物理页，并映射到用户空间 VA=0x0040_0000 —— */
+
+    unsigned long new_pa = allocate_user_page(
+                                            current,
+                                            USER_CODE_BASE    /* = 0x00400000 in EL0 */
+                                           ); //0xbf3//USER_FLAGS_DATA
+    if (!new_pa) {
+        printf("ERROR: alloc user code page failed\n");
+        return 0;
+    }
+    printf("Mapped user code VA=0x%x → new PA=0x%x\n",
+           USER_CODE_BASE, new_pa);
+
+    /* —— 3) 在内核高半区找出源/目地的可访问地址 —— */
+    void *src_va  = (void *)src_va_begin;    /* 高半区虚地址 */
+    void *dst_va  = (void *)__va(new_pa);    /* direct-map 转高半区 */
+
+    /* —— 4) 拷贝整个 .user.text 段 —— */
+    _memcpy(dst_va, src_va, code_size);
+     //  for(int i=0;i<64;i++)
+    //     printf("code_rec[%d]=0x%x\n",i,((char*)dst_va)[i]);
+    /* —— 5) D-Cache 写回 + I-Cache 失效 ——*/
+    asm volatile(
+        "dsb ish\n\t"
+        "ic iallu\n\t"
+        "dsb ish\n\t"
+        "isb\n\t"
+    );
+ 
+    /* —— 验证一下第一个指令 —— */
+    {
+        uint32_t first_instr = *(uint32_t *)dst_va;
+        printf("After copy, first instr = 0x%x (expect a9bd7bfd)\n",
+               first_instr);
+    }
+    /* 6) 再次调试：验证 offset=0 处，和 user_process 处的指令都正确 */
+    {
+        uint32_t ins0 = *(uint32_t *)dst_va;
+        unsigned long entry_off = (unsigned long)&user_start - src_va_begin;
+        uint32_t ins1 = *(uint32_t *)((char *)dst_va + entry_off);
+        printf( "USER COPY: [0x0] = 0x%x (expect a9bd7bfd)\n", ins0);
+        printf( "USER COPY: [entry_off=0x%x] = 0x%x (expect a9bf7bfd)\n",
+               entry_off, ins1);
+    }
+
+    printf("User code mapped: src_va=0x%x , dest_va=%x\n\r", src_va, dst_va);
+    return new_pa;
+}
+
+
+void walk_page_table(uint64_t table_phys, int level, uint64_t base_va) {
+    uint64_t* table = (uint64_t*)__va(table_phys);
+    for (int i = 0; i < 512; ++i) {
+        uint64_t entry = table[i];
+        if (entry & 1) { // valid
+            uint64_t pa = entry & ~(PAGE_SIZE - 1);
+            printf("[%d] @ leve%d, va=0x%x, entry=0x%x, pa=0x%x, flags=0x%x\n",
+                i, level, base_va | ((uint64_t)i << (12 + 9 * (3 - level))),
+                entry, pa, entry & 0xFFF);
+            // 如果不是叶子，还递归
+            if (level < 3 && ((entry & 0x3) == 0x3)) // Table descriptor
+                walk_page_table(pa, level + 1, base_va | ((uint64_t)i << (12 + 9 * (3 - level))));
+        }
+    }
+}
+
+void dump_pagetable_walk(uint64_t pgd_phys, uint64_t va) {
+    printf("==== ARM64 Page Table Walk for VA=0x%x ====\n", va);
+    uint64_t idx[4];
+    idx[0] = (va >> PGD_SHIFT) & LEVEL_MASK;
+    idx[1] = (va >> PUD_SHIFT) & LEVEL_MASK;
+    idx[2] = (va >> PMD_SHIFT) & LEVEL_MASK;
+    idx[3] = (va >> PTE_SHIFT) & LEVEL_MASK;
+
+    uint64_t pa, entry;
+    printf("PGD PA: 0x%x\n", pgd_phys);
+
+    uint64_t* pgd = (uint64_t*)__va(pgd_phys);
+    entry = pgd[idx[0]];
+    printf("  [PGD][%u] = 0x%x\n", idx[0], entry);
+    if (!(entry & 1)) { printf("    INVALID PGD ENTRY\n"); return; }
+    pa = entry & PAGE_MASK;
+
+    uint64_t* pud = (uint64_t*)__va(pa);
+    entry = pud[idx[1]];
+    printf("  [PUD][%u] = 0x%x\n", idx[1], entry);
+    if (!(entry & 1)) { printf("    INVALID PUD ENTRY\n"); return; }
+    pa = entry & PAGE_MASK;
+
+    uint64_t* pmd = (uint64_t*)__va(pa);
+    entry = pmd[idx[2]];
+    printf("  [PMD][%u] = 0x%x\n", idx[2], entry);
+    if (!(entry & 1)) { printf("    INVALID PMD ENTRY\n"); return; }
+    pa = entry & PAGE_MASK;
+
+    uint64_t* pte = (uint64_t*)__va(pa);
+    entry = pte[idx[3]];
+    printf("  [PTE][%u] = 0x%x\n", idx[3], entry);
+    if (!(entry & 1)) { printf("    INVALID PTE ENTRY\n"); return; }
+    pa = entry & PAGE_MASK;
+
+    printf("  -> Final PA: 0x%x (Page flags: 0x%x)\n", pa, entry & ~PAGE_MASK);
+    // 你可以在这里检查物理页内容，比如首字节
+    printf("  [Phys 0x%x] = 0x%x\n", pa, *(volatile uint32_t*)__va(pa));
+}
+
+
 
 
 int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 {
-	printf(" in move_to_user_mode\n\r");
-    
-    if (size > PAGE_SIZE || !start || !pc) {
+    if (!start || !size || size > 0x100000) {
+        printf("Invalid user program size or addr\n\r");
         return -1;
     }
-  
+    printf("move_to_user_mode current->mm->pgd %x,pa=%x\n\r",current->mm.pgd,__va(current->mm.pgd));
+
     struct pt_regs *regs = task_pt_regs(current);
-    
-    unsigned long code_page = allocate_user_page(current, pc & PAGE_MASK, PTE_VALID | PTE_USER  );
-    if (!code_page) {
-        return -1;
-    }
-    
-  
-    unsigned long stack_page = allocate_user_page(current, 0, PTE_VALID | PTE_USER | PTE_WRITE|PTE_UXN  ); // User-writable, no execute);
+     unsigned long dst_pa=  map_and_copy_user_code(start, size);
+     char code_rec[64]={0};
+         _memcpy(code_rec,(void*)__va(dst_pa), 64);
+         for(int i=0;i<64;i++)
+         printf("code_rec[%d]=0x%x\n",i,code_rec[i]);
+
+        // 举例：打印 PGD[ <0x400000 索引> ] 的值
+    unsigned long *pgd_base = (unsigned long *)__va(current->mm.pgd);
+    int pgd_index = (0x400000 >> 39) & 0x1FF;  // AArch64 通常每级用 9 位索引
+    printf("Child PGD[%d] = 0x%x\n", pgd_index, pgd_base[pgd_index]);
+
+    // 分配栈页（从栈底向下增长）
+    unsigned long stack_va = USER_STACK_BASE  - USER_STACK_SIZE;
+    unsigned long stack_page = allocate_user_page(current, stack_va);//0xb43 // User-writable, no execute);USER_FLAGS_DATA
     if (!stack_page) {
-        free_page(code_page - VA_START);
+      //  free_page(code_page - VA_START);
         return -1;
     }
-    printf(" after  allocate stack_page %x \n\r",stack_page);
+    printf(" after  allocate stack_page %x,stack_va=%x \n\r",stack_page,stack_va);
+
+
  
-    memcpy((void*)code_page, (void*)start, size);
-     
-
-    regs->pstate = PSR_MODE_EL0t;  
-    regs->pc = pc;                
-    regs->sp = stack_page + USER_STACK_SIZE; 
+    regs->pstate = PSR_MODE_EL0t|PSR_DAIF_MASK;  
+    regs->pc =pc;    
+    printf(" regs->pc  pc=%x\r\n",pc);            
+    regs->sp =stack_va + USER_STACK_SIZE ; 
 
 
+    printf("user jump: current->mm->pgd=%x, pc=0x%x sp=0x%x pstate=0x%x\n",current->mm.pgd,regs->pc, regs->sp, regs->pstate);
+	//debug_pgd_recursive(current->mm->pgd);
+   
+    u64 kernel_pgd = kernel_pgd_addr();
+    //set_pgd(current->mm->pgd,regs);
+ //dump_pagetable_walk(get_pgd(), 0xFFFFF83f000000);    // 检查用户代码
+    //__asm__ volatile (
+   //     "msr ttbr0_el1, %0\n\t"
+     //   "tlbi vmalle1is\n\t"
+     //   "dsb ish\n\t"
+    //    "isb\n\t"
+     //   :
+     //   : "r"(current->mm->pgd)
+    //    : "memory"
+    //);
+       // 1) 载入新的用户页表根
+       __asm__ volatile (
+          // 0) Configure TCR_EL1 for Inner‑Shareable (SH0 = 01)
+    "mrs    x2, tcr_el1            \n\t"
+    "orr    x2, x2, #(1 << 8)       \n\t"  // set SH0 field to 01b
+    "msr    tcr_el1, x2            \n\t"
+    "isb                            \n\t"
 
-	debug_pgd(current->mm->pgd);
-    set_pgd(current->mm->pgd);
+    "msr    ttbr0_el1, %0\n\t"
+    "msr    ttbr1_el1, %1\n\t"
+    // 2) 确保对寄存器写入和页表修改可见
+    "dsb    sy\n\t"
+    "isb\n\t"
+    // 3) 清空旧的用户 TLB（虚拟地址到物理地址缓存）
+
+  //  "tlbi   vmalle1is\n\t"
+  //  "dsb    sy\n\t"
+  // "isb\n\t"
+
+      // 3) Invalidate only the user code and stack pages by VA
+    "tlbi   vaae1is, %2           \n\t"  // code VA 0x400000
+    "tlbi   vaae1is, %3           \n\t"  // stack VA 0x7fff000
+    "dsb    sy                    \n\t"
+    "isb                          \n\t"
+    // 4) 如果刚刚 memcpy 了新代码页，再清 I‑cache
+    "ic     iallu\n\t"
+   // "ic ivau, %4\n\t"
+    "dsb    sy\n\t"
+    "isb\n\t"
+    :
+    : "r"(current->mm.pgd),"r"(kernel_pgd),"r"(0x400000 >> 12), "r"(0x7fff000 >> 12),"r"(0x400000)
+    : "x2", "memory"
+);
+
+
+
+   printf("after flush ttbr0_el1\n");
+   unsigned long val;
+__asm__ volatile("mrs %0, ttbr0_el1\n\t" : "=r"(val));
+printf("TTBR0_EL1 right after set: 0x%x\n", val);
+
+dump_pagetable_walk(current->mm.pgd, 0x400000);    // 检查用户代码
+dump_pagetable_walk(current->mm.pgd, 0x7fff000);   // 检查用户栈
+   return 0;
+
+
+  //printf("After set_pgd, about to switch, ELR_EL1=%x, SPSR_EL1=%x, SP_EL0=%x\n",regs->pc, regs->pstate, regs->sp);
+return 0;
+
+// 1) 为 TTBR0_EL1 指定的页表设定合适的翻译控制
+//unsigned long tcr = 0;
+//tcr |= (32UL << 0);   // T0SZ = 32 → VA [31:0] 有效
+//tcr |= (16UL << 0);    // T0SZ=16 → 用户空间 48-bit (0x0000_0000_0000_0000 - 0x0000_FFFF_FFFF_FFFF)
+//tcr |= (16UL << 16);   // T1SZ=16 → 内核空间 48-bit (0xFFFF_0000_0000_0000 - 0xFFFF_FFFF_FFFF_FFFF)
+//tcr |= (1UL  << 8);   // IRGN0 = 01 → Inner WB WA
+//tcr |= (1UL  << 10);  // ORGN0 = 01 → Outer WB WA
+//tcr |= (3UL  << 12);  // SH0   = 11 → Inner Shareable
+//tcr |= (0UL  << 14);  // TG0   = 00 → 4KB granule
+
+unsigned long tcr = 
+      (16UL    <<  0)   /* T0SZ = 16 → 48-bit VA */ 
+    | (1UL     <<  8)   /* IRGN0 = 01 (NC) */  
+    | (1UL     << 10)   /* ORGN0 = 01 (NC) */  
+    | (3UL     << 12)   /* SH0  = 11 (inner) */  
+    | (0UL     << 14)   /* TG0  = 00 (4K) */  
+    | (16UL    << 16)   /* T1SZ = 16 → 48-bit VA */  
+    | (1UL     << 24)   /* IRGN1 = 01 (WBWA) */  
+    | (1UL     << 26)   /* ORGN1 = 01 (WBWA) */  
+    | (3UL     << 28)   /* SH1  = 11 (inner) */  
+    | (2UL     << 30);  /* TG1  = 10 (4K) */  
+    
+__asm__ volatile("msr TCR_EL1, %0\n\t" :: "r"(tcr) : "memory");
+__asm__ volatile("isb\n\t");
+printf("TCR_EL1 = 0x%x\n", tcr);
+    // 1) 配置 MAIR_EL1 → 让 AttrIndx0 代表 Normal, WB&WA
+   // unsigned long mair = ( (0x00UL << 0) | (0xffUL << 8)) ;//0xffULL << (8*0));
+    //__asm__ volatile("msr MAIR_EL1, %0\n\t" :: "r"(mair) : "memory");
+   // __asm__ volatile("isb\n\t");
+    //printf("MAIR_EL1 set to 0x%x\n", mair);
+
+
+    // 2) 写 TTBR0_EL1
+    pgd_t * user_pgd =(pgd_t*)current->mm.pgd;
+
+    unsigned long pgd_phys = (unsigned long)current->mm.pgd;
+    
+   
+printf("sp = 0x%x\n", (unsigned long)__builtin_frame_address(0));
     return 0;
 }
-
-pgd_t *copy_kernel_mappings(pgd_t *dest_pgd,pgd_t *src_pgd) {
-    // 分配新的顶级页表
-    pgd_t *new_pgd =dest_pgd;// (pgd_t *)allocate_kernel_page();
-    if (!new_pgd) {
-        printf("Failed to allocate new PGD\n\r");
-        return 0;
-    }
-    memzero(new_pgd, PAGE_SIZE);
-
-    // 内核空间在ARM64中通常使用TTBR1，地址范围从PAGE_OFFSET开始
-    unsigned long kernel_start = 0x80000;
-    unsigned long kernel_end = (unsigned long)(-1);
-
-    // 复制内核空间映射
-    for (unsigned long addr = kernel_start; addr < kernel_end; addr += PGDIR_SIZE) {
-        int pgd_idx = pgd_index(addr);
-        pgd_t pgd = src_pgd[pgd_idx];
-        
-      
+ 
+void copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *kernel_pgd) {
+    if (!dest_pgd || !kernel_pgd) {
+        printf("Invalid PGD pointers\n");
+        return;
     }
 
-    // 复制固定映射区域（如设备映射）
-    // 这里需要根据你的具体架构添加
 
-    printf("Copied kernel mappings from 0x%lx to 0x%lx\n\r", (unsigned long)src_pgd, (unsigned long)new_pgd);
-    return new_pgd;
-}
 
-void debug_pgd(pgd_t *pgd) {
-    for (int i = 0; i < 5; i++) { // 打印前5项
-        printf("pgd[%d] = 0x%x\n", i, pgd[i]);
-    }
+    // 只拷贝 PGD[511]：内核映射在最高虚拟地址区
+    dest_pgd[511] = kernel_pgd[511];  // 共享内核PUD，避免复制
+
+
+    printf("Shared kernel mapping: dest PGD[511] = 0x%x,src PGD[511]=%x\n", pgd_val(dest_pgd[511]),pgd_val(kernel_pgd[511]));
 }
 
 
+/*
 
+内核栈页面 (4KB):
+内核栈页面 (4KB):
+┌─────────────────────┐ <- 0x2000 (tsk->stack + THREAD_SIZE, 栈顶边界)
+│                     │
+│    struct pt_regs   │ ← 0x1EE0 - 0x2000 这整个区域都是 pt_regs
+│                     │   (假设 sizeof(struct pt_regs) = 0x120 = 288字节)
+│ ├── regs[0] (x0)    │
+│ ├── regs[1] (x1)    │
+│ ├── ...             │
+│ ├── regs[30] (x30)  │
+│ ├── sp              │
+│ ├── pc              │
+│ └── pstate          │
+├─────────────────────┤ <- 0x1EE0 (task_pt_regs 返回的地址)
+│                     │
+│   可用栈空间        │
+│   (向下增长)        │
+│        ↓            │
+│                     │
+└─────────────────────┘ <- 0x1000 (tsk->stack, 栈底)
+*/
 struct pt_regs * task_pt_regs(struct task_struct *tsk){
 	unsigned long p = (unsigned long)tsk->stack + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
+}
+unsigned long create_user_executable_pte(unsigned long phys_addr) {
+    unsigned long pte_val = 0;
+    
+    // 基本页表条目
+    pte_val |= PTE_VALID;           // bit 0: 有效
+    pte_val |= PTE_TYPE_PAGE;       // bits [1:0]: 页面类型
+    pte_val |= PTE_USER;            // bit 6: 用户可访问
+    // 注意：不设置 PTE_RDONLY，这样页面是可读写的
+    pte_val |= PTE_SHARED;          // bits [9:8]: 内部共享
+    pte_val |= PTE_AF;              // bit 10: 访问标志
+    pte_val |= PTE_NG;              // bit 11: 非全局
+   // pte_val |= PTE_PXN;
+    pte_val |= PTE_RDONLY;  // 使其只读
+    
+    // 关键：不设置 UXN 位，允许用户执行
+    // 不设置 PXN 位，允许特权执行
+    
+    // 添加物理地址 (bits [47:12])
+    pte_val |= (phys_addr & 0xFFFFFFFFF000UL);
+    
+    return pte_val;
+}
+#define PTE_VALID       (1UL << 0)   // bit 0: Valid
+#define PTE_TYPE_TABLE  (3UL << 0)   // bits [1:0] = 11 for table
+#define PTE_TYPE_PAGE   (3UL << 0)   // bits [1:0] = 11 for page
+#define PTE_USER        (1UL << 6)   // bit 6: AP[1] - User accessible
+#define PTE_RDONLY      (1UL << 7)   // bit 7: AP[2] - Read only
+#define PTE_SHARED      (3UL << 8)   // bits [9:8]: SH[1:0] - Inner shareable
+#define PTE_AF          (1UL << 10)  // bit 10: Access flag
+#define PTE_NG          (1UL << 11)  // bit 11: nG (not global)
+#define PTE_PXN         (1UL << 53)  // bit 53: PXN (Privileged execute never)
+#define PTE_UXN         (1UL << 54)  // bit 54: UXN (User execute never)
+
+// 分析当前PTE值 0x7c1
+void analyze_pte_permissions(unsigned long pte_val) {
+    printf("PTE value: 0x%x analysis:\n", pte_val);
+       printf("PTE high value: 0x%x analysis:\n", pte_val>>32);
+    printf("  Valid: %s\n", (pte_val & PTE_VALID) ? "Yes" : "No");
+    printf("  Type: %s\n", ((pte_val & 3) == 3) ? "Page" : "Other");
+    printf("  User accessible (AP[1]): %s\n", (pte_val & PTE_USER) ? "Yes" : "No");
+    printf("  Read-only (AP[2]): %s\n", (pte_val & PTE_RDONLY) ? "Yes" : "No");
+    printf("  Access flag: %s\n", (pte_val & PTE_AF) ? "Set" : "Not set");
+    printf("  Shareable: 0x%x\n", (pte_val >> 8) & 3);
+    printf("  Not global: %s\n", (pte_val & PTE_NG) ? "Yes" : "No");
+    
+    // 检查执行权限 (这些位在高位，需要扩展检查)
+    if (pte_val & (1UL << 53)) printf("  PXN: Set (Privileged XN)\n");
+    if (pte_val & (1UL << 54)) printf("  UXN: Set (User XN)\n");
+}
+
+int move_to_user_mode_fixed(unsigned long start, unsigned long size, unsigned long pc) {
+    struct pt_regs *regs = task_pt_regs(current);
+    
+    // 1. 确保目标地址按页对齐
+    
+    printf("Mapping user code:  start=0x%x, size=%u\n", start, size);
+    
+    // 2. 分配并映射用户代码页
+    unsigned long phys_page = allocate_user_page(current, start); //USER_FLAGS_DATA// 可执行
+    if (!phys_page) {
+        printf("ERROR: Failed to allocate user code page\n");
+        return -1;
+    }
+           void *src_va  = (void *)start; 
+    printf(" user code: phys_page=0x%x, \n", phys_page);
+    // 3. 复制代码到用户页
+    void *kernel_va = __va(phys_page);
+    _memcpy(kernel_va, src_va, size);
+    printf(" user code: _memcpy kernel_va=0x%x,0x%x, \n", kernel_va);
+//unsigned long   pte_val=create_user_executable_pte(phys_page);
+ //printf("Creating executable PTE: 0x%x\n", pte_val);
+//analyze_pte_permissions(pte_val);
+    
+    
+    // 4. 确保指令缓存一致性
+    flush_icache_range((unsigned long)kernel_va, (unsigned long)kernel_va + size);
+    
+    // 5. 分配用户栈
+    unsigned long stack_va = USER_STACK_BASE - USER_STACK_SIZE;
+    
+   unsigned long stack_page = allocate_user_page(current, stack_va); //USER_FLAGS_DATA
+   if (!stack_page) {
+       printf("ERROR: Failed to allocate user stack page\n");
+       return -1;
+    }
+
+    
+    // 6. 设置寄存器状态
+    memzero(regs,  sizeof(*regs));
+    regs->pstate = 0x3c0;  // 0x3c0 是正确的
+regs->pc = pc;               // 确保是映射的虚拟地址
+  regs->sp = stack_va + USER_STACK_SIZE;         // 栈顶
+
+    
+    printf("User mode setup:\n");
+    printf("  PC = 0x%x\n", regs->pc);
+    printf("  SP = 0x%x\n", regs->sp);
+    printf("  PSTATE = 0x%x\n", regs->pstate);
+
+     // __asm__ volatile (
+      //  "msr ttbr0_el1, %0\n\t"
+     //   "tlbi vmalle1is\n\t"
+     //   "dsb ish\n\t"
+     //   "isb\n\t"
+     //   :
+      //  : "r"(current->mm->pgd)
+      //  : "memory"
+    //);
+
+     uint16_t user_asid = 1;  // 为用户进程分配ASID=1
+    
+    // 设置TTBR0_EL1时包含ASID
+    uint64_t ttbr0 = (uint64_t)user_asid << 48 | (uint64_t)current->mm.pgd;
+    asm volatile("msr ttbr0_el1, %0" :: "r"(ttbr0));
+    
+    // 设置页表后，只无效化这个ASID的条目
+    asm volatile("tlbi aside1is, %0" :: "r"(user_asid));
+    asm volatile("dsb ish");
+    asm volatile("isb");
+
+
+    dump_pagetable_walk(current->mm.pgd, 0x400000);    // 检查用户代码
+    dump_pagetable_walk(current->mm.pgd, 0x7fff000);   // 检查用户栈
+    
+
+__asm__ volatile(
+    "dsb sy\n\t"
+    "tlbi vaae1is, %0\n\t"
+    "tlbi vaae1is, %1\n\t"
+        "tlbi vaae1is, %2\n\t"
+    "dsb sy\n\t"
+    "isb\n\t"
+    :: "r"(0x400000 >> 12), "r"(0x7fff000 >> 12),"r"(0x8000000 >> 12)
+    : "memory"
+);
+
+
+  __asm__ volatile(
+    "msr    ELR_EL1, %0\n\t"   // 把 regs->pc（0x400050）写到 ELR_EL1
+    "msr    SPSR_EL1, %1\n\t"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1
+    "msr    SP_EL0, %2\n\t"    // 把 regs->sp（0x7fff000）写到 SP_EL0
+  // "eret\n"                 // 一条指令跳到 EL0 执行用户态
+    :
+    : "r"(regs->pc), "r"(regs->pstate), "r"(regs->sp)
+    : "memory"
+);
+    
+    // 7. 调试：验证页表映射
+    //debug_page_table_mapping(regs->pc);
+    return 0;
+}
+
+//方法1: 完整的缓存刷新实现
+void flush_icache_range(unsigned long start, unsigned long end)
+{
+    unsigned long addr;
+    unsigned long cache_line_size;
+    
+    // 获取缓存行大小 (通常是64字节)
+    asm volatile("mrs %0, ctr_el0" : "=r" (cache_line_size));
+    cache_line_size = 4 << ((cache_line_size >> 16) & 0xF); // DminLine字段
+    
+    // 1. 数据缓存清理 (Clean) - 确保数据写入内存
+    for (addr = start & ~(cache_line_size - 1); addr < end; addr += cache_line_size) {
+        asm volatile("dc cvau, %0" : : "r" (addr) : "memory");
+    }
+    
+    // 2. 数据同步屏障 - 确保所有缓存操作完成
+    asm volatile("dsb ish" : : : "memory");
+    
+    // 3. 指令缓存无效化 (Invalidate)
+    for (addr = start & ~(cache_line_size - 1); addr < end; addr += cache_line_size) {
+        asm volatile("ic ivau, %0" : : "r" (addr) : "memory");
+    }
+    
+    // 4. 数据同步屏障 - 确保指令缓存操作完成
+    asm volatile("dsb ish" : : : "memory");
+    
+    // 5. 指令同步屏障 - 确保后续指令获取使用新的缓存内容
+    asm volatile("isb" : : : "memory");
 }
 

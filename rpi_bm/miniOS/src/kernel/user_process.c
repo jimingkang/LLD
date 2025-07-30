@@ -6,16 +6,18 @@
 #include "mem.h"
 #include <mmu.h>
 
-const char msg[] __attribute__((section(".user.rodata"))) = 
-    "Hello from user_process!\n";
-	
-	const char err[] __attribute__((section(".user.rodata"))) = 
-    	"Error during fork\n\r";
 
-
-		
+const char msg[] __attribute__((section(".user.rodata"))) = "Hello";
+const char err[] __attribute__((section(".user.rodata"))) = "Err";
 __attribute__((section(".user.text")))
 void user_main(){
+	while (1){
+	for (int i = 0; i < 5; i++){
+		//	buf[0] = str[i];
+			call_sys_write(msg);
+			user_delay(1000000);
+		}	
+	}
 	return 0;
 }
 __attribute__((section(".user.text")))
@@ -30,11 +32,29 @@ void loop(char* str)
 		}
 	}
 }
+
 __attribute__((section(".user.text")))
-void user_process(){
+void user_process() 
+{
+	call_sys_write(msg);
+	int pid = call_sys_fork();
+	if (pid < 0) {
+		call_sys_write(err);
+		call_sys_exit();
+		return;
+	}
+	if (pid == 0){
+		loop(msg);
+	} else {
+		loop(err);
+	}
+}
+
+__attribute__((section(".user.text")))
+void user_process2(){
 
 	//call_sys_write(msg);
-	loop(err);
+	//loop(err);
 	//int pid = call_sys_fork();
 	//if (pid < 0) {
 	//	call_sys_write(err);

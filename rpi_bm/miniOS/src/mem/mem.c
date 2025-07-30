@@ -67,6 +67,17 @@ void *get_free_pages(int num_pages) {
     }
 }
 
+void *_memcpy(void *dest, const void *src, u32 n) {
+    //simple implementation...
+    u8 *bdest = (u8 *)dest;
+    u8 *bsrc = (u8 *)src;
+
+    for (int i=0; i<n; i++) {
+        bdest[i] = bsrc[i];
+    }
+
+    return dest;
+}
 void *memcpy(void *dest, const void *src, u32 n) {
     //simple implementation...
     u8 *bdest = (u8 *)dest;
@@ -170,32 +181,32 @@ unsigned long map_table_level(unsigned long parent_va, int shift,
 #define PTE_AP_EL0_RX  (0UL << 6) 
 #define PTE_PXN         (1UL << 53)       // 禁止 EL1 执行（用户代码页用）
 #define PTE_UXN_MASK   (1 << 54)  // UXN 位
-
+/*  */
 
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {
 
   struct mm_struct *mm = task->mm;
 
-    /* 1. 如果顶层 PGD 还没分配，就先分配一页物理内存作为 PGD */
-    if (!mm->pgd) {
+
+    if (!task->mm->pgd) {
         unsigned long new_pgd_pa = get_free_page();
         if (!new_pgd_pa) {
             printf("Failed to alloc PGD page\n\r");
             return 0;
         }
-        /* 清零 PGD 页面 */
+       
         memzero((void *)__va(new_pgd_pa), PAGE_SIZE);
-        mm->pgd = new_pgd_pa;
+        task->mm->pgd = new_pgd_pa;
         mm->kernel_pages[ mm->kernel_pages_count++ ] = new_pgd_pa;
     }
 
-    /* 2. 按四级页表逐层分配/查找 */
+ 
 
-    /* 2.1 PGD → PUD */
-    unsigned long pgd_pa = mm->pgd;
+
+    unsigned long pgd_pa = task->mm->pgd;
     unsigned long *pgd_va = (unsigned long *)__va(pgd_pa);
     int new_tbl;
-
+  printf("before map_table_level\n\r");
     unsigned long pud_pa = map_table_level((unsigned long)pgd_va,
                                            PGD_SHIFT, va, &new_tbl);
     if (!pud_pa) {
@@ -203,7 +214,7 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
         return 0;
     }
 
-    /* 2.2 PUD → PMD */
+  
     unsigned long *pud_va = (unsigned long *)__va(pud_pa);
     unsigned long pmd_pa = map_table_level((unsigned long)pud_va,
                                            PUD_SHIFT, va, &new_tbl);
@@ -211,8 +222,8 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
         printf("Failed at PUD→PMD for VA=0x%x\n\r", va);
         return 0;
     }
+      printf("after map_table_level\n\r");
 
-    /* 2.3 PMD → PTE */
     unsigned long *pmd_va = (unsigned long *)__va(pmd_pa);
     unsigned long pte_pa = map_table_level((unsigned long)pmd_va,
                                            PMD_SHIFT, va, &new_tbl);
@@ -221,50 +232,42 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
         return 0;
     }
 
-    /* 3. 在 PTE 中写入数据页描述符 */
+
+
     unsigned long *pte_va = (unsigned long *)__va(pte_pa);
     unsigned long pte_index = (va >> PTE_SHIFT) & LEVEL_MASK;
-      printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%x, pte_index=%d, old PTE=0x%x\n",
-           va, pte_pa, pte_va, pte_index, pte_va[pte_index]);
+    
 
-    /* 3.1 分配一个“用户数据页”物理地址 */
     unsigned long new_data_pa = get_free_page();
     if (!new_data_pa) {
         printf("Failed to alloc user data page for VA=0x%x\n\r", va);
         return 0;
     }
-    /* 清零新分配的数据页 */
+
     memzero((void *)__va(new_data_pa), PAGE_SIZE);
 
  unsigned long flags = (unsigned long)prot;
- //|
-                      //   PTE_DESCRIPTOR_PAGE
-                       //  | PTE_AF
-                       //  | PTE_ATTR_IDX0
-                      //   |PTE_SH_INNER
-                      //  ;
-    // 如果想让 EL0 可读执行（示例），就加上 PTE_AP_EL0_RX；并加 PXN 禁止 EL1
- //  flags |= PTE_AP_EL0_RX |PTE_PXN|PTE_UXN_MASK; 
-
-//flags=USER_FLAGS_CODE;
 
 
-    /* 3.2 写入 PTE = data_pa | prot */
-    pte_va[pte_index] = (new_data_pa & ~(PAGE_SIZE - 1)) |  (flags );// (flags );
+    //pte_va[pte_index] = (new_data_pa & ~(PAGE_SIZE - 1)) |  (flags );// (flags );
+    pte_va[pte_index] = (new_data_pa ) |  (flags );
+    unsigned long final_entry = pte_va[pte_index];
+    unsigned long mapped_pa   = final_entry & ~(PAGE_SIZE - 1);
+    printf("  Written PTE[%d] = 0x%x → physical page = 0x%x, flags = 0x%x\n",pte_index, final_entry, mapped_pa, ( (flags )));
 
-      {
-        unsigned long final_entry = pte_va[pte_index];
-        unsigned long mapped_pa   = final_entry & ~(PAGE_SIZE - 1);
-        printf("  Written PTE[%d] = 0x%x → physical page = 0x%x, flags = 0x%x\n",
-               pte_index, final_entry, mapped_pa, ( (flags )));
-    }
-    /* 4. 记录“用户数据页” */
-    mm->user_pages[ mm->user_pages_count++ ].phys_addr = new_data_pa;
-    mm->user_pages[ mm->user_pages_count   ].virt_addr = va;
+    printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%x, pte_index=%d,  PTE=0x%x\n",
+           va, pte_pa, pte_va, pte_index, pte_va[pte_index]);
 
-    /* 5. 返回 新分配的“用户数据页”PA */
+           printf("high32 of pte_va=%x, UXN=%d PXN=%d\n",(long unsigned int)pte_va[pte_index]>>32, ((long unsigned int)pte_va[pte_index]>>54)&1, ((long unsigned int)pte_va[pte_index]>>53)&1);
+    
+
+    mm->user_pages[ mm->user_pages_count++ ].pa = new_data_pa;
+    mm->user_pages[ mm->user_pages_count   ].uva = va;
+
     return new_data_pa;
 }
+
+
 void map_table_entry(unsigned long *pte, unsigned long va, unsigned long pa) {
 	unsigned long index = va >> PAGE_SHIFT;
 	index = index & (PTRS_PER_TABLE - 1);
@@ -288,8 +291,8 @@ unsigned long map_table(unsigned long *table, unsigned long shift, unsigned long
 }
 
 
-void map_page(struct task_struct *task, unsigned long va, unsigned long pa, int prot) {
-    if (!task || !task->mm) {
+void map_page(struct task_struct *task, unsigned long va, unsigned long pa) {
+    if (!task ) {
         printf("Invalid task or mm_struct\n\r");
         return;
     }
@@ -325,7 +328,7 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long pa, int 
        unsigned long ptd_pa = __pa(pte);
      unsigned long *pte_va=  (unsigned long *)__va(pmd_pa);
     unsigned long index = (va >> PAGE_SHIFT) & (PTRS_PER_TABLE - 1);
-    pte_va[index] = pa | prot;
+    pte_va[index] = pa ;//| prot;
 
     // 记录 user page 映射
     struct user_page p = { pa, va };
@@ -334,7 +337,7 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long pa, int 
     unsigned long pgd_index = va >> PGD_SHIFT;
     printf("VA=0x%x → PGD[%x]\n", va, pgd_index);
 }
-
+   
 unsigned long get_free_page()
 {
 	for (int i = 0; i < PAGING_PAGES; i++){
@@ -351,10 +354,12 @@ unsigned long get_free_page()
 void free_page(unsigned long p){
 	mem_map[(p - LOW_MEMORY) / PAGE_SIZE] = 0;
 }
+   
+
 void free_user_memory(struct mm_struct *mm) {
     // 释放用户空间页面
     for (int i = 0; i < mm->user_pages_count; i++) {
-        free_page(mm->user_pages[i].phys_addr);  // 物理地址
+        free_page(mm->user_pages[i].pa);  // 物理地址
     }
 
     // 释放内核页表结构（例如PTE、PMD、PUD等）
@@ -363,12 +368,12 @@ void free_user_memory(struct mm_struct *mm) {
     }
 
     // 释放 PGD 自身
-    if (mm->pgd) {
-        free_page(mm->pgd);
-        mm->pgd = 0;
-    }
+    //if (task->pgd) {
+    //    free_page(task->pgd);
+   //     mm->pgd = 0;
+    //}
 
-    mm->user_pages_count = 0;
+   mm->user_pages_count = 0;
     mm->kernel_pages_count = -1;
 }
 
@@ -670,7 +675,7 @@ uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel
 static pte_T* pgd_create_table_entry(pte_T* tbl, uint64_t virt_addr, int level_shift) 
 {
     // 计算当前层级的索引（9位）
-    int index = (virt_addr >> level_shift) & (PTRS_PER_TABLE - 1);
+    int index = (virt_addr >> level_shift) & (512 - 1);
     
     // 如果表项不存在则分配新页表
     if (!(tbl[index] & 0x1)) {
@@ -967,7 +972,7 @@ void print_user_mapping(pgd_t *pgd, unsigned long va) {
 
 
 #define MMIO_BASE       0x3F000000UL       // 树莓派 MMIO 起始地址
-#define MMIO_SIZE       0x00400000UL       // 映射 (jimmy  这里打下原来是 0x01000000UL16MB)（覆盖 UART、GPIO、SPI 等）
+#define MMIO_SIZE       0x01000000UL       // 映射 (jimmy  这里打下原来是 0x01000000UL16MB)（覆盖 UART、GPIO、SPI 等）
 #define PAGE_SIZE       0x1000UL
 #define PAGE_MASK       (~(PAGE_SIZE - 1))
 // 页表级别偏移
@@ -993,26 +998,8 @@ void print_user_mapping(pgd_t *pgd, unsigned long va) {
 // 示例设备内存权限（你可根据定义改名或宏定义方式）
 #define PROT_DEVICE_FLAGS  (PTE_VALID | PROT_DEVICE_nGnRnE | PTE_PXN | PTE_UXN)
 
-/**
- * 为 task 映射外设地址区（MMIO）
- */
-void OLd_create_mmio_mapping(struct task_struct *task) {
-    if (!task || !task->mm) {
-        printf("create_mmio_mapping: Invalid task or mm_struct\n\r");
-        return;
-    }
 
-    unsigned long va = MMIO_BASE;
-    unsigned long pa = MMIO_BASE;
-    unsigned long end = va + MMIO_SIZE;
-
-    printf("Mapping MMIO region: VA=0x%x → PA=0x%x, size=%x KB\n", va, pa, MMIO_SIZE / 1024);
-
-    for (; va < end; va += PAGE_SIZE, pa += PAGE_SIZE) {
-        map_page(task, va, pa, PROT_DEVICE_FLAGS);
-    }
-}
-#define MMIO_VA_BASE  0xFFFFFF3F000000UL  // 属于 PGD[511] 管辖
+#define MMIO_VA_BASE  0xFFFFF83F000000UL  // 属于 PGD[511] 管辖
 #define MMIO_PA_BASE  0x3F000000UL
 void create_mmio_mapping(unsigned long *pgd) {
     unsigned long va =MMIO_VA_BASE;//MMIO_BASE;
@@ -1051,3 +1038,58 @@ void create_mmio_mapping(unsigned long *pgd) {
 
     printf("create_mmio_mapping: MMIO region VA=0x%x → PA=0x%x mapped.\n", MMIO_BASE, MMIO_BASE);
 }
+
+void set_pgd(unsigned long pgd_phys_addr, struct pt_regs *regs) {
+    // 打印调试
+   printf("pgd_phys_addr=%x\n",pgd_phys_addr);
+
+   
+    __asm__ volatile (
+        "msr ttbr0_el1, %0\n\t"
+     //   "tlbi vmalle1\n\t"
+      //  "dsb ish\n\t"
+        "isb\n\t"
+        :
+        : "r"(pgd_phys_addr)
+        : "memory"
+    );
+   printf("after flush ttbr0_el1\n");
+    __asm__ volatile(
+        "dsb sy\n\t"
+        "tlbi vaae1is, %0\n\t"
+        "tlbi vaae1is, %1\n\t"
+        "dsb sy\n\t"
+        "isb\n\t"
+        :: "r"(0x400000 >> 12), "r"(0x8000000 >> 12)
+        : "memory"
+    );
+
+
+    __asm__ volatile(
+        "msr    ELR_EL1, %0\n\t"   // 把 regs->pc（0x400050）写到 ELR_EL1
+        "msr    SPSR_EL1, %1\n\t"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1
+        "msr    SP_EL0, %2\n\t"    // 把 regs->sp（0x7fff000）写到 SP_EL0
+        "eret\n"                 // 一条指令跳到 EL0 执行用户态
+        :
+        : "r"(regs->pc), "r"(regs->pstate), "r"(regs->sp)
+        : "memory"
+    );
+}
+
+
+
+/*
+
+int copy_virt_memory(struct task_struct *dst) {
+	struct task_struct* src = current;
+	for (int i = 0; i < src->mm->user_pages_count; i++) {
+		unsigned long kernel_va = allocate_user_page(dst, src->mm->user_pages[i].virt_addr,USER_FLAGS_CODE);
+		if( kernel_va == 0) {
+			return -1;
+		}
+		_memcpy(__va(kernel_va), src->mm->user_pages[i].virt_addr, PAGE_SIZE);
+	}
+	return 0;
+}
+
+*/

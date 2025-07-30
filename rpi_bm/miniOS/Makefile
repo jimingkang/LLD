@@ -71,4 +71,4 @@ QEMU_FLAGS  += -machine raspi3
 run:
 	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img
 debug:
-	qemu-system-aarch64 -S -s $(QEMU_FLAGS) -kernel kernel8.img 
+	qemu-system-aarch64 -S -s $(QEMU_FLAGS) -kernel kernel8.elf 
