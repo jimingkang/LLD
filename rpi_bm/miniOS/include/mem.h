@@ -49,27 +49,27 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define TD_KERNEL_TABLE_FLAGS (TD_TABLE | TD_VALID)
 
 // Page table entry attributes for ARMv8-A
-#define PTE_TYPE_PAGE   (1UL << 1)   // Final-level descriptor (PTE)
-#define PTE_TYPE_TABLE  (1UL << 1)   // Non-final, points to next-level table
-#define PTE_TYPE_BLOCK  (0UL << 1)   // Block entry (used in PMD/PUD)
-#define PTE_VALID          (1UL << 0)
-#define PTE_TABLE          (1UL << 1)  // This is what you're missing
-#define PTE_BLOCK          (0UL << 1)
-#define PTE_PAGE           (0UL << 1)
-#define PTE_AF             (1UL << 10)
-#define PTE_NG             (1UL << 11)
-#define PTE_USER           (1UL << 6)  // User-accessible
-#define PTE_RDONLY         (1UL << 7)  // Read-only
-//#define PTE_WRITE      (1UL << 55)   // Writable (if not RDONLY)
-#define PTE_SHARED         (10UL << 8)  // Inner shareable
-#define PTE_UXN        (1UL << 54)   // User Execute Never
-#define PTE_ATTRINDX(x)    ((x) << 2)  // Normal memory
+#define PTE_TYPE_PAGE   (0x3UL)      // Final-level descriptor (PTE) - bits [1:0] = 11
+#define PTE_TYPE_TABLE  (0x3UL)      // Non-final, points to next-level table  
+#define PTE_TYPE_BLOCK  (0x1UL)      // Block entry (used in PMD/PUD)
+#define PTE_VALID       (1UL << 0)
+#define PTE_TABLE       (1UL << 1)   // This is what you're missing
+#define PTE_BLOCK       (0UL << 1)
+#define PTE_PAGE        (0UL << 1)
+#define PTE_AF          (1UL << 10)
+#define PTE_NG          (1UL << 11)
+#define PTE_USER        (1UL << 6)   // User-accessible
+#define PTE_RDONLY      (1UL << 7)   // Read-only
+//#define PTE_WRITE     (1UL << 55)   // Writable (if not RDONLY)
+#define PTE_SHARED      (10UL << 8)  // Inner shareable
+#define PTE_UXN         (1UL << 54)  // User Execute Never
+#define PTE_PXN         (1UL << 53)  // Privileged Execute Never
+#define PTE_ATTRINDX(x) ((x) << 2)   // Normal memory
 
 // 用户权限（软件定义，但需和硬件匹配）
 #define PTE_USER       (1UL << 6)   // 用户可访问（AP[1] = 0）
-#define PTE_UXN        (1UL << 54)  // 禁止用户执行（Unprivileged Execute Never）
+// Note: UXN and PXN already defined above
 #define PTE_EUXN        (0UL << 54)  // 允许用户执行
-#define PTE_PXN        (1UL << 53)  // 禁止内核执行（Privileged Execute Never）
 #define PTE_WRITE      (0UL << 7)   // 假设你设置AP[2:1]=00 表示读写
 #define PTE_READ       0            // 只读页可不设置（取决于你的AP位编码）
 #define PTE_EXEC       0            // 是否允许执行由 UXN/PXN 控制
@@ -115,8 +115,10 @@ typedef struct { pteval_t pgd; } pgd_t;
 #define PTE_USER_RDONLY ((1UL << 7) | (1UL << 6)) // AP = 11
 #define PTE_USER_RW ((0UL << 7) | (1UL << 6)) // AP = 01
 #define MT_NORMAL (0x0UL)
-#define USER_FLAGS_CODE (PTE_VALID | PTE_TYPE_PAGE | PTE_USER_RDONLY | PTE_SHARED | PTE_AF | PTE_NG | (MT_NORMAL << 2))
-#define USER_FLAGS_DATA (PTE_VALID | PTE_TYPE_PAGE | PTE_USER_RW | PTE_SHARED | PTE_AF | PTE_NG | (MT_NORMAL << 2))
+// For user code: executable by user (UXN=0), not executable by kernel (PXN=1)
+// Note: UXN=0 means user CAN execute, PXN=1 means privileged CANNOT execute
+#define USER_FLAGS_CODE 0x20000000000ec3 //(PTE_TYPE_PAGE | PTE_USER_RDONLY | PTE_SHARED | PTE_AF | PTE_NG | (MT_NORMAL << 2) | PTE_PXN)
+#define USER_FLAGS_DATA (PTE_TYPE_PAGE | PTE_USER_RW | PTE_SHARED | PTE_AF | PTE_NG | (MT_NORMAL << 2) | PTE_PXN | PTE_UXN)
 
 /* 栈页和普通数据页用同一权限 */
 #define USER_FLAGS_STACK   USER_FLAGS_DATA

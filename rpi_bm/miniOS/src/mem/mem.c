@@ -253,12 +253,16 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
     pte_va[pte_index] = (new_data_pa ) |  (flags );
     unsigned long final_entry = pte_va[pte_index];
     unsigned long mapped_pa   = final_entry & ~(PAGE_SIZE - 1);
-    printf("  Written PTE[%d] = 0x%x → physical page = 0x%x, flags = 0x%x\n",pte_index, final_entry, mapped_pa, ( (flags )));
+    printf("  Written PTE[%d] = 0x%lx → physical page = 0x%x, flags = 0x%lx\n",pte_index, final_entry, mapped_pa, ( (flags )));
 
-    printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%x, pte_index=%d,  PTE=0x%x\n",
-           va, pte_pa, pte_va, pte_index, pte_va[pte_index]);
+    printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%lx, pte_index=%d,  PTE=0x%lx\n",
+           va, pte_pa, (unsigned long)pte_va, pte_index, pte_va[pte_index]);
 
-           printf("high32 of pte_va=%x, UXN=%d PXN=%d\n",(long unsigned int)pte_va[pte_index]>>32, ((long unsigned int)pte_va[pte_index]>>54)&1, ((long unsigned int)pte_va[pte_index]>>53)&1);
+    // Check execution permission bits in the full 64-bit PTE
+    unsigned long pte_full = pte_va[pte_index];
+    int uxn = (pte_full >> 54) & 1;  // UXN bit
+    int pxn = (pte_full >> 53) & 1;  // PXN bit
+    printf("Full PTE=0x%lx, UXN=%d PXN=%d (UXN=0 allows user exec)\n", pte_full, uxn, pxn);
     
 
     mm->user_pages[ mm->user_pages_count++ ].pa = new_data_pa;

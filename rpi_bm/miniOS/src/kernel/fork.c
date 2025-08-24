@@ -139,12 +139,26 @@ unsigned long map_and_copy_user_code(void)
     /* —— 4) 拷贝整个 .user.text 段 —— */
     _memcpy(dst_va, src_va, code_size);
 
-    /* —— 5) D-Cache 写回 + I-Cache 失效 ——*/
+    /* —— 5) Enhanced cache maintenance for executable pages —— */
+    // Clean data cache for the destination physical address
+    unsigned long dst_pa = new_pa;
+    for (unsigned long addr = dst_pa; addr < dst_pa + code_size; addr += 64) {
+        asm volatile("dc cvac, %0\n\t" :: "r"(addr) : "memory");
+    }
+    
+    // Data synchronization barrier
+    asm volatile("dsb sy\n\t");
+    
+    // Invalidate instruction cache for the virtual address range
+    for (unsigned long addr = (unsigned long)dst_va; addr < (unsigned long)dst_va + code_size; addr += 64) {
+        asm volatile("ic ivau, %0\n\t" :: "r"(addr) : "memory");
+    }
+    
+    // Full memory barriers and instruction synchronization
     asm volatile(
         "dsb ish\n\t"
-        "ic iallu\n\t"
-        "dsb ish\n\t"
         "isb\n\t"
+        ::: "memory"
     );
  
     /* —— 验证一下第一个指令 —— */
@@ -303,8 +317,10 @@ printf("TTBR0_EL1 right after set: 0x%x\n", val);
     dump_pagetable_walk(current->mm->pgd, 0x400000);    // 检查用户代码
 dump_pagetable_walk(current->mm->pgd, 0x7fff000);   // 检查用户栈
 
-  //printf("After set_pgd, about to switch, ELR_EL1=%x, SPSR_EL1=%x, SP_EL0=%x\n",regs->pc, regs->pstate, regs->sp);
-return 0;
+    // The process is now set up for user mode. The actual transition will happen
+    // when this process is scheduled and ret_to_user is called by the scheduler.
+    printf("User mode setup complete: ELR_EL1=%x, SPSR_EL1=%x, SP_EL0=%x\n", regs->pc, regs->pstate, regs->sp);
+    return 0;
 /*
    unsigned long entry_pc  = regs->pc;     // 例如 0x00400054
     unsigned long spsr_val  = regs->pstate; // 例如 0x00000000000003C0
@@ -534,4 +550,6 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk){
 	unsigned long p = (unsigned long)tsk->stack + THREAD_SIZE - sizeof(struct pt_regs);
 	return (struct pt_regs *)p;
 }
+
+
 
