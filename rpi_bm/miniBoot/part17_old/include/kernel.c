@@ -1,0 +1,347 @@
+#include "common.h"
+#include "mini_uart.h"
+#include "printf.h"
+#include "irq.h"
+#include "timer.h"
+#include "i2c.h"
+#include "spi.h"
+#include "led_display.h"
+#include "mailbox.h"
+#include "video.h"
+#include <io.h>
+#include "peripherals/emmc.h"
+#include "fork.h"
+#include "sched.h"
+#include "user.h"
+#include "entry.h"
+#define PF_KTHREAD		            	0x00000002
+#define PF_UTHREAD		            	0x00000000
+#define MAX_DEVS 10
+io_device *devices[MAX_DEVS] = {0};
+void thread_entry(void* arg) {
+    printf("Thread running with arg: %p\n", arg);
+    while(1);
+}
+
+void putc(void *p, char c) {
+    if (c == '\n') {
+        uart_send('\r');
+    }
+
+    uart_send(c);
+}
+
+u32 get_el();
+
+
+#define BOOT_SIGNATURE 0xAA55
+
+typedef struct PACKED {
+    u8 head;
+    u8 sector : 6;
+    u8 cylinder_hi : 2;
+    u8 cylinder_lo;
+} chs_address ;
+
+typedef struct PACKED {
+    u8 status;
+    chs_address first_sector;
+    u8 type;
+    chs_address last_sector;
+    u32 first_lba_sector;
+    u32 num_sectors;
+} partition_entry ;
+
+typedef struct PACKED {
+    u8 bootCode[0x1BE];
+    partition_entry partitions[4];
+    u16 bootSignature;
+} master_boot_record;
+
+
+void kernel_func(void *arg) {
+    printf("kernel_func\r\n");
+    int i=0;
+    while (1) {
+
+         printf("kernel_func !\r\n");
+         delay(1000000);
+    }
+}
+
+void init_main(void *arg) {
+    printf("init_main\r\n");
+    int i=0;
+    while (1) {
+
+         printf("init_main i=%d!\r\n",i);
+         delay(1000000);
+    }
+}
+
+
+
+struct ke_regs * task_ke_regs(struct task_struct *tsk)
+{
+    u64 p = (u64)tsk + THREAD_SIZE - sizeof(struct ke_regs);
+    return (struct ke_regs *)p;
+}
+
+
+static unsigned long map_and_copy_user_code_for(struct task_struct *t,
+                                                unsigned long user_entry_off,
+                                                unsigned long *out_entry_va)
+{
+    // (1) 计算代码段范围（仍沿用你的 user_begin/user_data_begin）
+    unsigned long src_va_begin = (unsigned long)&user_begin;
+    unsigned long src_va_end   = (unsigned long)&user_data_begin;
+    size_t        code_size    = src_va_end - src_va_begin;
+
+    // (2) 从 t 的 mm 上，为 VA=USER_CODE_BASE 连续映射若干页（注意：可能 >4KB）
+    size_t copied = 0;
+    while (copied < code_size) {
+        unsigned long va = USER_CODE_BASE + copied;
+        unsigned long pa = allocate_user_page(t, va, USER_FLAGS_CODE);
+        if (!pa) { printf("alloc user code page failed\n"); return 0; }
+        size_t n = (size_t)PAGE_SIZE>(code_size - copied) ? (code_size - copied) : PAGE_SIZE;
+
+        void *dst = (void *)__va(pa);
+        void *src = (void *)(src_va_begin + copied);
+        _memcpy(dst, src, n);
+        copied += n;
+    }
+
+    // (3) 计算用户入口 VA（按你原逻辑：entry = base + (user_start - user_begin)）
+    unsigned long entry_va = USER_CODE_BASE + ((unsigned long)&user_start - src_va_begin);
+    if (out_entry_va) *out_entry_va = entry_va;
+
+    // (4) 按块做必要的 cache 维护（可先简化成粗暴的 iallu/dsb/isb）
+    asm volatile("dsb ish; ic iallu; dsb ish; isb");
+
+    return 1; // 成功
+}
+void kernel_process(){
+	printf("\r\nKernel process started. EL %d\r\n", get_el());
+
+      // 确保有有效的mm_struct
+
+
+    printf(" after copy_kernel_mappings\n\r");
+    unsigned long begin = (unsigned long)user_begin;
+	unsigned long end = (unsigned long)user_end;
+	unsigned long main = (unsigned long)user_main;
+
+    unsigned long user_va = 0x400000;  // 映射目标地址
+    unsigned long entry_va = user_va + (main- begin);
+    printf("hi &user_begin = 0x%x,low &user_begin = 0x%x\n", begin>>32,begin);
+    printf("user_main=%x, &main= 0x%x\n",user_main, main);
+    printf("hi entry_va      = 0x%x,low  entry_va      = 0x%x\n", entry_va>>32,entry_va);
+    int err = move_to_user_mode(current,begin, end - begin,  entry_va);
+    //printf("after move_to_user_mode err=%d\r\n",err);
+	if (err < 0){
+		printf("Error while moving process to user mode\n\r");
+	} 
+    
+
+    
+
+
+}
+
+void kernel_main() {
+
+
+    uart_init();
+    init_printf(0, io_device_find("muart"));
+    printf("\nRasperry PI Bare Metal OS Initializing...\n");
+
+    irq_init_vectors();
+    enable_interrupt_controller();
+    irq_enable();
+    timer_init();
+
+#if RPI_VERSION == 3
+    printf("\tBoard: Raspberry PI 3\n");
+#endif
+
+#if RPI_VERSION == 4
+    printf("\tBoard: Raspberry PI 4\n");
+#endif
+
+#if INIT_MMU == 1
+    printf("Initialized MMU\n");
+#endif
+
+    if (!emmc_init()) {
+        printf("FAILED TO INIT EMMC\n");
+        return;
+    }
+
+    printf("EMMC Disk initialized\n");
+
+    master_boot_record mbr;
+
+    io_device *disk = io_device_find("disk");
+    
+    int r = disk->read(disk, &mbr, sizeof(mbr));
+
+    printf("Read disk returned: %d\n", r);
+
+    if (mbr.bootSignature != BOOT_SIGNATURE) {
+        printf("BAD BOOT SIGNATURE: %X\n", mbr.bootSignature);
+    }
+
+    for (int i=0; i<4; i++) {
+        if (mbr.partitions[i].type == 0) {
+            break;
+        }
+
+        printf("Partition %d:\n", i);
+        printf("\t Type: %d\n", mbr.partitions[i].type);
+        printf("\t NumSecs: %d\n", mbr.partitions[i].num_sectors);
+        printf("\t Status: %d\n", mbr.partitions[i].status);
+        printf("\t Start: %X\n", mbr.partitions[i].first_lba_sector);
+    }
+
+
+	//int res = copy_process_inkernel((unsigned long)&kernel_func,0);
+	//if (res != 0) {
+	//	printf("error while starting process in kernel mode");
+	//	//return;
+	//}
+
+      int  res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
+	if (res<0) {
+		printf("error while starting from kernel_process to user process");
+		return;
+	}
+
+	while (1){
+        printf("before schedule\r\n");
+        printf(current); 
+		schedule();
+	}	
+        
+
+
+    /*
+    timer_sleep(15000);
+
+    void *p1 = get_free_pages(10);
+    void *p2 = get_free_pages(4);
+    void *p3 = allocate_memory(20 * 4096 + 1);
+
+    free_memory(p1);
+    free_memory(p2);
+    free_memory(p3);
+
+    printf("\nException Level: %d\n", get_el());
+
+    printf("Sleeping 200 ms...\n");
+    timer_sleep(200);
+
+    printf("Initializing I2C...\n");
+    i2c_init();
+
+    for (u8 i=0x20; i<0x30; i++) {
+        if (i2c_send(i, &i, 1) == I2CS_SUCCESS) {
+            //we know there is an i2c device here now.
+            printf("Found device at address 0x%X\n", i);
+        }
+    }
+
+    printf("Initializing SPI...\n");
+    spi_init();
+
+    printf("MAILBOX:\n");
+
+    printf("CORE CLOCK: %d\n", mailbox_clock_rate(CT_CORE));
+    printf("EMMC CLOCK: %d\n", mailbox_clock_rate(CT_EMMC));
+    printf("UART CLOCK: %d\n", mailbox_clock_rate(CT_UART));
+    printf("ARM  CLOCK: %d\n", mailbox_clock_rate(CT_ARM));
+
+    printf("I2C POWER STATE:\n");
+
+    for (int i=0; i<3; i++) {
+        bool on = mailbox_power_check(i);
+
+        printf("POWER DOMAIN STATUS FOR %d = %d\n", i, on);
+    }
+
+    //timer_sleep(2000);
+
+    for (int i=0; i<3; i++) {
+        u32 on = 1;
+        mailbox_generic_command(RPI_FIRMWARE_SET_DOMAIN_STATE, i, &on);
+
+        printf("SET POWER DOMAIN STATUS FOR %d = %d\n", i, on);
+    }
+
+    //timer_sleep(1000);
+
+    for (int i=0; i<3; i++) {
+        bool on = mailbox_power_check(i);
+
+        printf("POWER DOMAIN STATUS FOR %d = %d\n", i, on);
+    }
+
+    u32 max_temp = 0;
+
+    mailbox_generic_command(RPI_FIRMWARE_GET_MAX_TEMPERATURE, 0, &max_temp);
+
+    //Do video...
+    video_init();
+
+    printf("NO DMA...\n");
+    video_set_dma(false);
+
+    printf("Resolution 1900x1200\n");
+    video_set_resolution(1900, 1200, 32);
+
+    printf("Resolution 1024x768\n");
+    video_set_resolution(1024, 768, 32);
+
+    printf("Resolution 800x600\n");
+    video_set_resolution(800, 600, 32);
+
+    printf("Resolution 1900x1200\n");
+    video_set_resolution(1900, 1200, 8);
+
+    printf("Resolution 1024x768\n");
+    video_set_resolution(1024, 768, 8);
+
+    printf("Resolution 800x600\n");
+    video_set_resolution(800, 600, 8);
+
+    printf("YES DMA...\n");
+    video_set_dma(true);
+
+    printf("Resolution 1900x1200\n");
+    video_set_resolution(1900, 1200, 32);
+
+    printf("Resolution 1024x768\n");
+    video_set_resolution(1024, 768, 32);
+
+    printf("Resolution 800x600\n");
+    video_set_resolution(800, 600, 32);
+
+    printf("Resolution 1900x1200\n");
+    video_set_resolution(1900, 1200, 8);
+
+    printf("Resolution 1024x768\n");
+    video_set_resolution(1024, 768, 8);
+
+    printf("Resolution 800x600\n");
+    video_set_resolution(800, 600, 8);
+
+    while(1) {
+        u32 cur_temp = 0;
+
+        mailbox_generic_command(RPI_FIRMWARE_GET_TEMPERATURE, 0, &cur_temp);
+
+        printf("Cur temp: %dC MAX: %dC\n", cur_temp / 1000, max_temp / 1000);
+
+        timer_sleep(1000);
+    }
+    */
+}

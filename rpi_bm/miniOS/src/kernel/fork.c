@@ -276,9 +276,6 @@ int move_to_user_mode(unsigned long start, unsigned long size, unsigned long pc)
 
 
 
- 
-
- 
     regs->pstate = PSR_MODE_EL0t|PSR_DAIF_MASK;  
     regs->pc =pc;    
     printf(" regs->pc  pc=%x\r\n",pc);            
@@ -321,198 +318,7 @@ dump_pagetable_walk(current->mm->pgd, 0x7fff000);   // 检查用户栈
     // when this process is scheduled and ret_to_user is called by the scheduler.
     printf("User mode setup complete: ELR_EL1=%x, SPSR_EL1=%x, SP_EL0=%x\n", regs->pc, regs->pstate, regs->sp);
     return 0;
-/*
-   unsigned long entry_pc  = regs->pc;     // 例如 0x00400054
-    unsigned long spsr_val  = regs->pstate; // 例如 0x00000000000003C0
-    unsigned long user_sp   = regs->sp;     // 例如 0x000000000007FFF000
-    unsigned long tmp;
 
-
-    unsigned long *pgd_base2 = (unsigned long *)__va(current->mm->pgd);
-unsigned long pgd_val = pgd_base2[(0x400000 >> 39) & 0x1FF];
-unsigned long *pud_base2= (unsigned long *)__va(pgd_val & 0x7ffffff000);
-unsigned long pud_val = pud_base2[(0x400000 >> 30) & 0x1FF];
-unsigned long *pmd_base2 = (unsigned long *)__va(pud_val & 0x7ffffff000);
-unsigned long pmd_val = pmd_base2[(0x400000 >> 21) & 0x1FF];
-unsigned long *pte_base2 = (unsigned long *)__va(pmd_val & 0x7ffffff000);
-unsigned long pte_val = pte_base2[(0x400000 >> 12) & 0x1FF];
-printf("Before eret: PGD=0x%x, PUD=0x%x, PMD=0x%x, PTE=0x%x\n",pgd_val, pud_val, pmd_val, pte_val);
-pgd_base2[(0x400000 >> 39) & 0x1FF] |= (1UL << 10); // Set AF
-pud_base2[(0x400000 >> 30) & 0x1FF] |= (1UL << 10);
-pmd_base2[(0x400000 >> 21) & 0x1FF] |= (1UL << 10);
-pte_base2[(0x400000 >> 12) & 0x1FF] |= (1UL << 10);
-printf("Updated: PGD=0x%x, PUD=0x%x, PMD=0x%x, PTE=0x%x\n",
-       pgd_base2[(0x400000 >> 39) & 0x1FF],
-       pud_base2[(0x400000 >> 30) & 0x1FF],
-       pmd_base2[(0x400000 >> 21) & 0x1FF],
-       pte_base2[(0x400000 >> 12) & 0x1FF]);
-
-//Clean and invalidate caches for coherency
-__asm__ volatile(
-    "dc civac, %0\n\t" // Clean and invalidate user code
-    "dc civac, %1\n\t" // Clean and invalidate stack
-    "dc civac, %2\n\t" // Clean and invalidate PGD
-    "dc civac, %3\n\t" // Clean and invalidate PUD
-    "dc civac, %4\n\t" // Clean and invalidate PMD
-    "dc civac, %5\n\t" // Clean and invalidate PTE
-    "dsb sy\n\t"
-    :: "r"(0x1008000), "r"(0x100a000), "r"(0x1004000),
-       "r"(0x1005000), "r"(0x1006000), "r"(0x1007000)
-    : "memory"
-);
-printf("Cache cleaned for user code, stack, and page tables\n");
-
-
-    unsigned long user_va = 0x400000;      // 用户空间虚拟地址
-unsigned long pgd_phys1 =0x95000;// 0x1004000;    // PGD 物理地址
-unsigned long pud_phys = 0x1005000;    // PUD 物理地址
-unsigned long pmd_phys = 0x1006000;    // PMD 物理地址
-unsigned long pte_phys = 0x1007000;    // PTE 物理地址
-unsigned long page_phys = 0x1008000;   // 最终映射的物理页
-int pgd_idx = (user_va >> 39) & 0x1FF;
-int pud_idx = (user_va >> 30) & 0x1FF;
-int pmd_idx = (user_va >> 21) & 0x1FF;
-int pte_idx = (user_va >> 12) & 0x1FF;
-unsigned long *pgd1= (unsigned long *)__va(pgd_phys1);
-unsigned long *pud = (unsigned long *)__va(pud_phys);
-unsigned long *pmd = (unsigned long *)__va(pmd_phys);
-unsigned long *pte = (unsigned long *)__va(pte_phys);
-// PGD -> PUD
-pgd1[pgd_idx] = pud_phys | 0x3;   // Valid + Table
-// PUD -> PMD
-pud[pud_idx] = pmd_phys | 0x3;   // Valid + Table
-// PMD -> PTE
-pmd[pmd_idx] = pte_phys | 0x3;   // Valid + Table
-// PTE -> 最终物理页
-pte[pte_idx] = page_phys | 0x7c1;  // 如 0x741/0x7c1 等（见前文）
-
-
-unsigned long stack_va2 = 0x7fff000;         // 用户栈虚拟地址
-//unsigned long pud_phys2 = 0x1005000;        // PUD 物理地址
-unsigned long pmd_phys2 = 0x1009000;        // PMD 物理地址
-unsigned long pte_phys2 = 0x100a000;        // PTE 物理地址
-unsigned long stack_page_phys = 0x100a000;  // 栈物理页（和 PTE 指向同一物理页，举例）
-int pgd_idx2 = (stack_va2 >> 39) & 0x1FF;
-int pud_idx2 = (stack_va2 >> 30) & 0x1FF;
-int pmd_idx2 = (stack_va2 >> 21) & 0x1FF;
-int pte_idx2 = (stack_va2 >> 12) & 0x1FF;
-//unsigned long *pud2 = (unsigned long *)__va(pud_phys2);
-unsigned long *pmd2 = (unsigned long *)__va(pmd_phys2);
-unsigned long *pte2 = (unsigned long *)__va(pte_phys2);
-// PGD -> PUD
-//pgd1[pgd_idx2] = pud_phys2 | 0x3;      // Valid + Table
-// PUD -> PMD
-//pud2[pud_idx2] = pmd_phys2 | 0x3;      // Valid + Table
-// PMD -> PTE
-pmd2[pmd_idx2] = pte_phys2 | 0x3;      // Valid + Table
-// PTE -> 最终物理页
-pte2[pte_idx2] = stack_page_phys | 0x741;   // 0x741, 用户数据页标准flag
-
-printf("kernel PGD[%d] = 0x%x\n", pgd_idx, pgd1[pgd_idx]);
-printf("kernel PUD[%d] = 0x%x\n", pud_idx, pud[pud_idx]);
-printf("kernel PMD[%d] = 0x%x\n", pmd_idx, pmd[pmd_idx]);
-printf("kernel PTE[%d] = 0x%x\n", pte_idx, pte[pte_idx]);
-printf("kernel PTE[%d] = 0x%x\n", pte_idx2, pte2[pte_idx2]);
-*/
-
-// 1) 为 TTBR0_EL1 指定的页表设定合适的翻译控制
-//unsigned long tcr = 0;
-//tcr |= (32UL << 0);   // T0SZ = 32 → VA [31:0] 有效
-//tcr |= (16UL << 0);    // T0SZ=16 → 用户空间 48-bit (0x0000_0000_0000_0000 - 0x0000_FFFF_FFFF_FFFF)
-//tcr |= (16UL << 16);   // T1SZ=16 → 内核空间 48-bit (0xFFFF_0000_0000_0000 - 0xFFFF_FFFF_FFFF_FFFF)
-//tcr |= (1UL  << 8);   // IRGN0 = 01 → Inner WB WA
-//tcr |= (1UL  << 10);  // ORGN0 = 01 → Outer WB WA
-//tcr |= (3UL  << 12);  // SH0   = 11 → Inner Shareable
-//tcr |= (0UL  << 14);  // TG0   = 00 → 4KB granule
-
-unsigned long tcr = 
-      (16UL    <<  0)   /* T0SZ = 16 → 48-bit VA */ 
-    | (1UL     <<  8)   /* IRGN0 = 01 (NC) */  
-    | (1UL     << 10)   /* ORGN0 = 01 (NC) */  
-    | (3UL     << 12)   /* SH0  = 11 (inner) */  
-    | (0UL     << 14)   /* TG0  = 00 (4K) */  
-    | (16UL    << 16)   /* T1SZ = 16 → 48-bit VA */  
-    | (1UL     << 24)   /* IRGN1 = 01 (WBWA) */  
-    | (1UL     << 26)   /* ORGN1 = 01 (WBWA) */  
-    | (3UL     << 28)   /* SH1  = 11 (inner) */  
-    | (2UL     << 30);  /* TG1  = 10 (4K) */  
-    
-__asm__ volatile("msr TCR_EL1, %0\n\t" :: "r"(tcr) : "memory");
-__asm__ volatile("isb\n\t");
-printf("TCR_EL1 = 0x%x\n", tcr);
-    // 1) 配置 MAIR_EL1 → 让 AttrIndx0 代表 Normal, WB&WA
-   // unsigned long mair = ( (0x00UL << 0) | (0xffUL << 8)) ;//0xffULL << (8*0));
-    //__asm__ volatile("msr MAIR_EL1, %0\n\t" :: "r"(mair) : "memory");
-   // __asm__ volatile("isb\n\t");
-    //printf("MAIR_EL1 set to 0x%x\n", mair);
-
-
-    // 2) 写 TTBR0_EL1
-    pgd_t * user_pgd =(pgd_t*)current->mm->pgd;
-dump_pagetable_walk(current->mm->pgd, 0x400000);    // 检查用户代码
-dump_pagetable_walk(current->mm->pgd, 0x7fff000);   // 检查用户栈
-
-    unsigned long pgd_phys = (unsigned long)current->mm->pgd;
-    
-   
-printf("sp = 0x%x\n", (unsigned long)__builtin_frame_address(0));
-//__asm__ volatile("dsb ishst\n\t");   // 强制所有cache写回
-//__asm__ volatile("dsb ish\n\t");
-//__asm__ volatile("isb\n\t");
-//__asm__ volatile("tlbi vmalle1\n\t");
-//__asm__ volatile("dsb ish\n\t");
-
-
-  
-
-
-    // ——— 写 ELR_EL1 ———
-   // __asm__ volatile("msr ELR_EL1, %0\n\t" :: "r"(entry_pc) : "memory");
-    // 立即读取 ELR_EL1 并打印，确认写入生效
-   // __asm__ volatile("mrs %0, ELR_EL1\n\t" : "=r"(tmp));
-  //  printf("VERIFY ELR_EL1 = 0x%x (expect 0x%x)\n", tmp, entry_pc);
-
-    // ——— 写 SPSR_EL1 ———
-   // __asm__ volatile("msr SPSR_EL1, %0\n\t" :: "r"(spsr_val) : "memory");
-    // 立即读取 SPSR_EL1 并打印
-    //__asm__ volatile("mrs %0, SPSR_EL1\n\t" : "=r"(tmp));
-    //printf("VERIFY SPSR_EL1 = 0x%x (expect 0x%x)\n", tmp, spsr_val);
-
-    // ——— 写 SP_EL0 ———
-    //__asm__ volatile("msr SP_EL0, %0\n\t" :: "r"(user_sp) : "memory");
-    // 立即读取 SP_EL0 并打印
-    //__asm__ volatile("mrs %0, SP_EL0\n\t" : "=r"(tmp));
-    //printf("VERIFY SP_EL0  = 0x%x (expect 0x%x)\n", tmp, user_sp);
-    //__asm__ volatile("isb\n\t");
-
-
-    //验证
-
-
-__asm__ volatile(
-    "dsb sy\n\t"
-    "tlbi vaae1is, %0\n\t"
-    "tlbi vaae1is, %1\n\t"
-    "dsb sy\n\t"
-    "isb\n\t"
-    :: "r"(0x400000 >> 12), "r"(0x8000000 >> 12)
-    : "memory"
-);
-
-
-  __asm__ volatile(
-    "msr    ELR_EL1, %0\n\t"   // 把 regs->pc（0x400050）写到 ELR_EL1
-    "msr    SPSR_EL1, %1\n\t"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1
-    "msr    SP_EL0, %2\n\t"    // 把 regs->sp（0x7fff000）写到 SP_EL0
-   // "eret\n"                 // 一条指令跳到 EL0 执行用户态
-    :
-    : "r"(regs->pc), "r"(regs->pstate), "r"(regs->sp)
-    : "memory"
-);
-
-
-   //__asm__ volatile("eret\n\t");
-    return 0;
 }
  
 void copy_kernel_mappings(pgd_t *dest_pgd, pgd_t *kernel_pgd) {
@@ -551,5 +357,166 @@ struct pt_regs * task_pt_regs(struct task_struct *tsk){
 	return (struct pt_regs *)p;
 }
 
+
+
+extern char user_begin[];       // 由 linker.ld 导出
+extern char user_data_begin[];  // 放在 .user.rodata 后面
+//extern char user_start[];       // 用户入口符号
+
+
+/* 你已有：页表切换、TLBI、cache 维护等原语 */
+static inline void cache_sync_exec_region(unsigned long dst_pa, void* dst_va, size_t size_bytes) {
+    /* D-cache clean by PA to PoC */
+    for (unsigned long pa = dst_pa; pa < dst_pa + size_bytes; pa += 64)
+        asm volatile("dc cvac, %0" :: "r"(pa) : "memory");
+    asm volatile("dsb sy" ::: "memory");
+    /* I-cache invalidate by VA to PoU */
+    for (unsigned long va = (unsigned long)dst_va; va < (unsigned long)dst_va + size_bytes; va += 64)
+        asm volatile("ic ivau, %0" :: "r"(va) : "memory");
+    asm volatile("dsb ish; isb" ::: "memory");
+}
+
+static inline u64 pa_from_desc(u64 d) { return d & ~0xFFFULL; }
+
+void walk_and_dump(struct mm_struct *mm, u64 va) {
+    u64 *l0 = mm->pgd;                           // KVA！
+    u64 i0 = (va >> 39) & 0x1ff, d0 = l0[i0];
+    printf("L0[%u]=0x%x\n", i0, d0);
+
+    u64 *l1 = (u64 *)__va(pa_from_desc(d0));
+    u64 i1 = (va >> 30) & 0x1ff, d1 = l1[i1];
+    printf("L1[%u]=0x%x\n", i1, d1);
+
+    u64 *l2 = (u64 *)__va(pa_from_desc(d1));
+    u64 i2 = (va >> 21) & 0x1ff, d2 = l2[i2];
+    printf("L2[%u]=0x%0x  (UXNTable=%u PXNTable=%u)\n",
+           i2, d2, (d2>>60)&1, (d2>>59)&1);
+
+    // 如果 d2 是 Table 描述符 (bits[1:0]==11)，继续到 L3
+    if ((d2 & 3) == 3) {
+        u64 *l3 = (u64 *)__va(pa_from_desc(d2));
+        u64 i3 = (va >> 12) & 0x1ff, d3 = l3[i3];
+        printf("L3[%u]=0x%x  (UXN=%u PXN=%u AP=%u AttrIdx=%u)\n",
+               i3, d3, (d3>>54)&1, (d3>>53)&1, (d3>>6)&3, (d3>>2)&7);
+    } else {
+        printf("L2 entry is **BLOCK or INVALID**, not a table!\n");
+    }
+}
+
+/* 把 [user_begin, user_data_begin) 拷贝到 USER_CODE_BASE 起的一串用户页 */
+int map_and_copy_user_segment(struct task_struct *p, unsigned long *entry_va_out)
+{
+    printf("map_and_copy_user_segment");
+    unsigned long src_va_begin = (unsigned long)user_begin;
+    unsigned long src_va_end   = (unsigned long)user_data_begin; // 覆盖 .user.text + .user.rodata
+    unsigned long seg_sz = src_va_end - src_va_begin;
+        printf("p=%x,src_va_begin=%x,src_va_end=%x,seg_sz=%x,*(uint32_t*)src_va_begin=%x\n\r",p,src_va_begin,src_va_end,seg_sz,*(uint32_t*)src_va_begin);
+    if (seg_sz == 0) return -1;
+
+    unsigned long dst_base_va = USER_CODE_BASE;
+    size_t        off         = 0;
+
+    while (off < seg_sz) {
+        size_t   chunk = PAGE_SIZE;
+        unsigned long va = dst_base_va + off;
+                printf("allocate_user_page\n\r");
+        unsigned long pa = allocate_user_page(p, va,USER_FLAGS_CODE ); //USER_CODE_FLAGS
+        //walk_and_dump(p->mm,va);
+        if (!pa) return -2;
+
+        void *dst = __va(pa);
+        void *src = (void *)(src_va_begin + off);
+
+        size_t tocpy = (off + chunk <= seg_sz) ? chunk : (seg_sz - off);
+        _memcpy(dst, src, tocpy);
+
+        cache_sync_exec_region(pa, dst, tocpy);
+        off += chunk;
+    }
+
+    /* 计算入口 VA：基址 + 入口相对偏移 */
+    unsigned long entry_off = (unsigned long)user_start - (unsigned long)user_begin;
+    *entry_va_out = USER_CODE_BASE + entry_off;
+    return 0;
+}
+/* 分配 N 页栈（向下增长），返回用户栈顶 VA */
+unsigned long map_user_stack(struct task *p, int pages)
+{
+    unsigned long top = USER_STACK_TOP;
+    for (int i = 1; i <= pages; ++i) {
+        unsigned long va = top - i * PAGE_SIZE;   // 向下映射
+        unsigned long pa = allocate_user_page(p, va, USER_DATA_FLAGS);
+        if (!pa) return 0;
+        /* 栈页是数据页，不执行，不需要做 I$ 失效 */
+        /* 如需清零栈页：memset(__va(pa), 0, PAGE_SIZE); 并做 D-cache clean */
+    }
+    return top; // sp_el0 设为 top（空栈）
+}
+
+/* 进入用户态的最小桥（你可以把它放到 .S 汇编里） */
+static inline void enter_user(unsigned long pc, unsigned long sp, unsigned long ttbr0)
+{
+    unsigned long spsr = 0x0; /* EL0t，DAIF 全开，按需可屏蔽 I/F：spsr |= (1<<7)|(1<<6) */
+
+    asm volatile(
+        "msr ttbr0_el1, %0      \n"
+        "dsb ish                 \n"
+        "isb                     \n"
+        "msr sp_el0,  %1         \n"
+        "msr elr_el1, %2         \n"
+        "msr spsr_el1, %3        \n"
+        "eret                    \n"
+        :
+        : "r"(ttbr0), "r"(sp), "r"(pc), "r"(spsr)
+        : "memory");
+}
+int fork_user_and_run(void)
+{
+    struct task_struct *p =0;   // 你的进程/线程结构
+  	unsigned long page = allocate_kernel_page();
+	printf("allocate_kernel_page in copy_process%x\n\r",page);
+	p = (struct task_struct *)page ;
+    
+    if (!p->mm) {
+        p->mm = (struct mm_struct *)allocate_kernel_page();
+        if (!p->mm) {
+           printf("Failed to allocate mm_struct\n\r");
+            return;
+       }
+        memzero(p->mm, sizeof(struct mm_struct));
+      
+        // 复制内核映射
+        u64 kernel_pgd = kernel_pgd_addr();
+        p->mm->pgd = allocate_pagetable_page(); //get_pgd();//
+        if (!p->mm->pgd) {
+            printf("Failed to copy kernel mappings\n\r");
+            return;
+        }
+        memzero(__va(p->mm->pgd), PAGE_SIZE);
+
+             
+       // dump_pgd(kernel_pgd);
+        irq_disable(); 
+       copy_kernel_mappings(__va(p->mm->pgd),kernel_pgd);
+        irq_enable();  
+    }
+
+    /* 2) 映射代码段（text+rodata）到 USER_CODE_BASE */
+    unsigned long entry_va = 0x400000;
+    int rc = map_and_copy_user_segment(p, &entry_va);
+    if (rc) return -3;
+
+    /* 3) 建栈 */
+    unsigned long user_sp = map_user_stack(p, USER_STACK_PAGES);
+    if (!user_sp) return -4;
+
+    /* 4)（可选）.user.data/.user.bss 如有需要同理 map+memset */
+
+    /* 5) 切到用户页表并跳入 EL0 */
+    unsigned long ttbr0 = (unsigned long)p->mm->pgd; // 物理地址
+    enter_user(entry_va, user_sp, ttbr0);
+
+    __builtin_unreachable();
+}
 
 

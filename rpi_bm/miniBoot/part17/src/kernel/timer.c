@@ -2,6 +2,7 @@
 #include "peripherals/timer.h"
 #include "peripherals/irq.h"
 #include "peripherals/aux.h"
+#include "process.h"
 
 const u32 interval_1 = CLOCKHZ;
 u32 cur_val_1 = 0;
@@ -29,6 +30,9 @@ void handle_timer_3() {
     cur_val_3 += interval_3;
     REGS_TIMER->compare[3] = cur_val_3;
     REGS_TIMER->control_status |= SYS_TIMER_IRQ_3;
+    
+    // Call process scheduler tick
+    scheduler_tick();
 }
 
 u64 timer_get_ticks() {

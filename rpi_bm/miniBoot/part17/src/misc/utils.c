@@ -37,3 +37,18 @@ int strlen(char *s) {
 
     return count;
 }
+
+char* strncpy(char* dest, const char* src, int n) {
+    char* d = dest;
+    while (n-- && (*d++ = *src++));
+    while (n-- > 0) *d++ = '\0';
+    return dest;
+}
+
+void* memset(void* ptr, int value, int num) {
+    unsigned char* p = (unsigned char*)ptr;
+    while (num--) {
+        *p++ = (unsigned char)value;
+    }
+    return ptr;
+}

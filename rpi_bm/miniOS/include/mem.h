@@ -307,3 +307,26 @@ void map_page(struct task_struct *task, unsigned long va, unsigned long pa);
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot);
 
 //void set_pgd(unsigned long pgd_phys_addr, struct pt_regs *regs);
+
+#define PAGE_SIZE        4096UL
+#define PAGE_MASK        (~(PAGE_SIZE-1))
+#define PAGE_ALIGN_UP(x) (((x)+PAGE_SIZE-1) & PAGE_MASK)
+
+#define USER_CODE_BASE   0x0000000000400000UL   // 你的 VMA
+#define USER_STACK_TOP   0x0000000000800000UL   // 简单放 8MB 处
+#define USER_STACK_PAGES 4                      // 给 4 页栈=16KB
+
+/* AArch64 PTE 位（示意，按你的 MAIR/TCR 设定自行微调） */
+#define PTE_VALID   (1ULL<<0)
+#define PTE_TABLE   (1ULL<<1)     /* 对表项 vs 页项区分，页项需清这个位（不同实现略有差异） */
+#define PTE_AF      (1ULL<<10)
+#define PTE_SH_IS   (3ULL<<8)     /* Inner Shareable */
+#define PTE_AP_RO   (1ULL<<7)     /* AP[1]=1 -> RO */
+#define PTE_AP_USER (0ULL<<6)     /* AP[2]=0 -> EL0 允许 */
+#define PTE_ATTRIDX(n) ((n) << 2) /* MAIR 索引，假定 0=NormalWBWA */
+#define PTE_UXN     (1ULL<<54)    /* EL0 执行禁止 */
+#define PTE_PXN     (1ULL<<53)    /* EL1 执行禁止（给用户页一般不用管） */
+
+/* 组合：用户代码页（R-X）与用户数据/栈页（RW-） */
+#define USER_CODE_FLAGS (PTE_VALID | PTE_AF | PTE_SH_IS | PTE_AP_RO | PTE_AP_USER | PTE_ATTRIDX(0) /*UXN=0 允许执行*/ )
+#define USER_DATA_FLAGS (PTE_VALID | PTE_AF | PTE_SH_IS /*RW*/      | PTE_AP_USER | PTE_ATTRIDX(0) | PTE_UXN)

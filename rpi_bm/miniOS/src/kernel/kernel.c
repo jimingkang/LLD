@@ -77,16 +77,7 @@ void init_main(void *arg) {
          delay(1000000);
     }
 }
-void kernel_process2()
-{
- // extern u64 user_start;
-  //  extern u64 user_end;
-    u64 user_size = ((u64)(&user_end)) - ((u64)(&user_start));
 
-    int err = prepare_move_to_user((u64)&user_start, user_size, ((u64)user_process) - (u64)&user_start);
-    if (err < 0)
-        printf("Failed to move to user mode!\n");
-}
 
 int prepare_move_to_user(u64 start_addr, u64 size, u64 fn)
 {
@@ -111,7 +102,7 @@ struct ke_regs * task_ke_regs(struct task_struct *tsk)
 }
 void kernel_process(){
 	printf("\r\nKernel process started. EL %d\r\n", get_el());
-
+/*
       // 确保有有效的mm_struct
     if (!current->mm) {
         current->mm = (struct mm_struct *)allocate_kernel_page();
@@ -124,7 +115,7 @@ void kernel_process(){
         // 复制内核映射
         u64 kernel_pgd = kernel_pgd_addr();
         current->mm->pgd = allocate_pagetable_page(); //get_pgd();//
-                if (!current->mm->pgd) {
+        if (!current->mm->pgd) {
             printf("Failed to copy kernel mappings\n\r");
 //            free_kernel_page((unsigned long)current->mm);
            // current->mm = 0;
@@ -151,7 +142,9 @@ void kernel_process(){
     printf("user_main=%x, &main= 0x%x\n",user_main, main);
     printf("hi entry_va      = 0x%x,low  entry_va      = 0x%x\n", entry_va>>32,entry_va);
   //  int err=prepare_move_to_user(begin, end - begin, entry_va);
-    int err = move_to_user_mode(begin, end - begin, entry_va);
+    //int err = move_to_user_mode(begin, end - begin, entry_va);
+    */
+    int err=fork_user_and_run(); 
     printf("after move_to_user_mode err=%d\r\n",err);
 	if (err < 0){
 		printf("Error while moving process to user mode\n\r");

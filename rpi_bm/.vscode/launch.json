@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "cwd": "/home/rlk/Downloads/LLD/rpi_bm/miniOS/src/kernel",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/miniOS/src/kernel/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "miniOS-debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "miDebuggerServerAddress": ":1234",
+      "program": "${workspaceFolder}/miniOS/build/kernel8.elf",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "logging": {
+        "engineLogging": false
+      },
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/local/bin/aarch64-linux-gnu-gdb"
+    }
+  ]
+}

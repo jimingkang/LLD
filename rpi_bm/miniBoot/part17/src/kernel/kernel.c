@@ -10,6 +10,8 @@
 #include "video.h"
 #include <io.h>
 #include "peripherals/emmc.h"
+#include "process.h"
+#include "example_processes.h"
 
 void putc(void *p, char c) {
     if (c == '\n') {
@@ -209,13 +211,51 @@ void kernel_main() {
     printf("Resolution 800x600\n");
     video_set_resolution(800, 600, 8);
 
+    // Initialize process management system
+    printf("\n=== Initializing Process Management System ===\n");
+    process_init();
+    
+    // Create example processes
+    printf("Creating example processes...\n");
+    
+    u32 pid1 = process_create(process1_main, "Counter Process", 10);
+    u32 pid2 = process_create(process2_main, "Printer Process", 15);
+    u32 pid3 = process_create(process3_main, "CPU Intensive", 20);
+    u32 monitor_pid = process_create(monitor_process_main, "Monitor Process", 5);
+    
+    if (pid1 && pid2 && pid3 && monitor_pid) {
+        printf("Successfully created processes: %d, %d, %d, %d\n", 
+               pid1, pid2, pid3, monitor_pid);
+    } else {
+        printf("Failed to create some processes\n");
+    }
+    
+    // Enable the process scheduler
+    enable_scheduler();
+    
+    printf("Process scheduler enabled. Starting multitasking...\n");
+    print_process_info();
+    
+    // Kernel main loop - now acts as idle process
+    int kernel_iterations = 0;
     while(1) {
+        // Monitor temperature as kernel idle task
         u32 cur_temp = 0;
-
         mailbox_generic_command(RPI_FIRMWARE_GET_TEMPERATURE, 0, &cur_temp);
-
-        printf("Cur temp: %dC MAX: %dC\n", cur_temp / 1000, max_temp / 1000);
-
-        timer_sleep(1000);
+        
+        kernel_iterations++;
+        if (kernel_iterations % 100 == 0) {
+            printf("[Kernel Idle] Temperature: %dC (iteration %d)\n", 
+                   cur_temp / 1000, kernel_iterations);
+        }
+        
+        // Give other processes a chance to run
+        timer_sleep(500);  // Sleep for 0.5 seconds
+        
+        // Periodically print process status
+        if (kernel_iterations % 200 == 0) {
+            printf("\n[Kernel] Process status check:\n");
+            print_process_info();
+        }
     }
 }

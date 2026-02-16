@@ -135,7 +135,64 @@ unsigned long allocate_kernel_page() {
      memzero(kva, PAGE_SIZE);
 	return page+VA_START ;
 }
-unsigned long map_table_level(unsigned long parent_va, int shift,
+
+// 约束：这里 parent_va 必须是 KVA（内核可直接解引用的地址）
+static inline unsigned long make_table_desc(unsigned long pa) {
+    // 只生成“表描述符”：PA(对齐) + 0b11
+    return (pa & ~0xFFFUL) | 0x3;
+}
+
+unsigned long map_table_level(unsigned long parent_kva, int shift,
+                              unsigned long va, int *new_tbl)
+{
+    // 1) 计算槽位地址（KVA）
+    unsigned long index = (va >> shift) & 0x1FFUL;
+    unsigned long entry_addr = parent_kva + (index << 3);
+
+    // 2) 读旧值
+    unsigned long entry_val;
+    asm volatile("ldr %0, [%1]" : "=r"(entry_val) : "r"(entry_addr));
+
+    unsigned long type = entry_val & 0x3UL;
+
+    // 3) 如果已经是“表描述符”，直接返回子表PA
+    if (type == 0x3UL) {
+        if (new_tbl) *new_tbl = 0;
+        return entry_val & ~0xFFFUL;   // child table PA
+    }
+
+    // 4) 如果是“块描述符”（0x1），这里不该出现块——报错/转表都行
+    if (type == 0x1UL) {
+        // 你可以选择“拆块为表”，这里先提示调试
+        // printf("WARN: L%u entry is BLOCK @ idx=%lu, VA=0x%lx, entry=0x%lx\n",
+        //        (shift==39)?0:(shift==30)?1:2, index, va, entry_val);
+        // return 0; // 先中止，避免继续在“块”上行走导致权限错
+        // 或者实现“拆块”为表页（进阶）
+        return 0;
+    }
+
+    // 5) 否则是无效项：分配一个新的下级表页（PA），清零，写“表描述符”
+    unsigned long new_table_pa = get_free_page();
+    if (!new_table_pa) {
+        if (new_tbl) *new_tbl = 0;
+        return 0;
+    }
+
+    // 清零新表页（用 KVA 访问）
+    memzero((void *)__va(new_table_pa), PAGE_SIZE);
+
+    // 只写纯“表描述符”，不要混入 UXNTable/APTable 等任何位
+    unsigned long new_entry = make_table_desc(new_table_pa);
+
+    asm volatile("str %0, [%1]" :: "r"(new_entry), "r"(entry_addr));
+    // 关键屏障：先存储栅栏再同步取指，保证硬件看见新表项
+    asm volatile("dsb ishst; isb" ::: "memory");
+
+    if (new_tbl) *new_tbl = 1;
+    return new_table_pa; // 返回子表物理地址（对齐了）
+}
+
+unsigned long old_map_table_level(unsigned long parent_va, int shift,
                               unsigned long va, int *new_tbl)
 {
     unsigned long index = (va >> shift) & LEVEL_MASK;   // LEVEL_MASK = 0x1ff
@@ -182,6 +239,135 @@ unsigned long map_table_level(unsigned long parent_va, int shift,
 #define PTE_PXN         (1UL << 53)       // 禁止 EL1 执行（用户代码页用）
 #define PTE_UXN_MASK   (1 << 54)  // UXN 位
 /*  */
+
+
+// ===== 常量/宏（按你的工程调整） =====
+#define PAGE_SIZE        4096UL
+#define LEVEL_MASK       0x1FFUL
+#define PTE_SHIFT        12          // L3 索引用
+#define PGD_SHIFT        39          // L0
+#define PUD_SHIFT        30          // L1
+#define PMD_SHIFT        21          // L2
+
+// L3 页描述符常用位（仅示例，与你的 MAIR/TCR 需匹配）
+#define PTE_VALID        (1UL << 0)          // bits[1:0] == 11 => Page desc
+#define PTE_PAGE         (1UL << 1)
+#define PTE_AF           (1UL << 10)         // Access Flag
+#define PTE_SH_IS        (3UL << 8)          // Inner Shareable
+#define PTE_ATTRIDX(n)   ((n) << 2)          // 对应 MAIR_EL1 的 Attr 号
+#define PTE_UXN          (1UL << 54)
+#define PTE_PXN          (1UL << 53)
+// AP 位（示意：由调用方通过 prot 传入，避免在此硬编码）
+/* 例：你可以在外部定义：
+   #define PTE_AP_RW_EL0  (0UL << 6)   // 具体按你工程里 AP 定义来
+   #define PTE_AP_RO_EL0  (1UL << 7)   // ……（此处不强行给出，以免误导）
+*/
+
+// prot 由调用方传入，建议：代码页 = 允许执行(UXN=0)+只读(AP RO)；
+// 数据/栈 = UXN=1 + 可写(AP RW)。
+// 这里我们只把 prot 原样并入 L3 PTE。
+
+static inline void pte_write_with_barrier(volatile unsigned long *slot, unsigned long val) {
+    *slot = val;
+    asm volatile("dsb ishst; isb" ::: "memory");
+}
+
+
+
+// ===== 你要替换的函数 =====
+unsigned long new_allocate_user_page(struct task_struct *task, unsigned long va, int prot)
+{
+    struct mm_struct *mm = task->mm;
+
+    // 1) 确保有 PGD（存物理地址）；访问时用 __va 转成 KVA
+    if (!mm->pgd) {
+        unsigned long new_pgd_pa = get_free_page();
+        if (!new_pgd_pa) {
+            printf("Failed to alloc PGD page\n");
+            return 0;
+        }
+        memzero(__va(new_pgd_pa), PAGE_SIZE);
+        mm->pgd = new_pgd_pa;  // 这里按你现有结构：pgd 存 PA
+        mm->kernel_pages[mm->kernel_pages_count++] = new_pgd_pa;
+    }
+
+    unsigned long pgd_pa = mm->pgd;
+    unsigned long *pgd_kva = (unsigned long *)__va(pgd_pa);
+
+    // 2) 走 L0 -> L1 -> L2，map_table_level 必须只写 “PA|0x3”
+    int new_tbl = 0;
+
+    printf("before map_table_level\n");
+    unsigned long pud_pa = map_table_level((unsigned long)pgd_kva, PGD_SHIFT, va, &new_tbl);
+    if (!pud_pa) {
+        printf("Failed at PGD→PUD for VA=0x%016lx\n", va);
+        return 0;
+    }
+
+    unsigned long *pud_kva = (unsigned long *)__va(pud_pa);
+    unsigned long pmd_pa = map_table_level((unsigned long)pud_kva, PUD_SHIFT, va, &new_tbl);
+    if (!pmd_pa) {
+        printf("Failed at PUD→PMD for VA=0x%016lx\n", va);
+        return 0;
+    }
+
+    printf("after map_table_level\n");
+
+    unsigned long *pmd_kva = (unsigned long *)__va(pmd_pa);
+    unsigned long pte_pa = map_table_level((unsigned long)pmd_kva, PMD_SHIFT, va, &new_tbl);
+    if (!pte_pa) {
+        printf("Failed at PMD→PTE for VA=0x%016lx\n", va);
+        return 0;
+    }
+
+    // 3) 在 L3 页表里写页项（此处才 OR 权限/缓存属性）
+    unsigned long *pte_kva = (unsigned long *)__va(pte_pa);
+    unsigned long pte_index = (va >> PTE_SHIFT) & LEVEL_MASK;
+
+    // 为该 VA 分配一页物理内存，并清零
+    unsigned long new_data_pa = get_free_page();
+    if (!new_data_pa) {
+        printf("Failed to alloc user page for VA=0x%016lx\n", va);
+        return 0;
+    }
+    memzero(__va(new_data_pa), PAGE_SIZE);
+
+    // 组合 L3 页项：基础 + AF/SH/AttrIdx + 调用方传入的 prot + Page 标志(0b11)
+    unsigned long page_flags =
+        PTE_VALID | PTE_PAGE | PTE_AF | PTE_SH_IS | PTE_ATTRIDX(0) | (unsigned long)prot;
+
+    unsigned long entry = (new_data_pa & ~0xFFFUL) | page_flags;
+
+    pte_write_with_barrier(&pte_kva[pte_index], entry);
+
+    unsigned long mapped_pa = entry & ~0xFFFUL;
+
+    printf("  Written PTE[%lu] = 0x%016lx → PA=0x%016lx, flags=0x%03lx\n",
+           pte_index, entry, mapped_pa, entry & 0xFFFUL);
+    printf("Mapping VA=0x%016lx → PTE page phys=0x%016lx, virt=0x%016lx, idx=%lu\n",
+           va, pte_pa, (unsigned long)pte_kva, pte_index);
+
+    // 4) （可选）若该页可执行（UXN=0），进行 I-cache 维护
+    if ((entry & PTE_UXN) == 0) {
+        // Clean D$ by PA to PoC
+        for (unsigned long pa = mapped_pa; pa < mapped_pa + PAGE_SIZE; pa += 64)
+            asm volatile("dc cvac, %0" :: "r"(pa) : "memory");
+        asm volatile("dsb sy" ::: "memory");
+        // Invalidate I$ by VA to PoU（用 KVA 访问映射后的页内容）
+        void *dst_kva = __va(mapped_pa);
+        for (unsigned long va_k = (unsigned long)dst_kva;
+             va_k < (unsigned long)dst_kva + PAGE_SIZE; va_k += 64)
+            asm volatile("ic ivau, %0" :: "r"(va_k) : "memory");
+        asm volatile("dsb ish; isb" ::: "memory");
+    }
+
+    // 5) 记录（保持你原有的跟踪数组语义）
+    mm->user_pages[mm->user_pages_count++].pa  = new_data_pa;
+    mm->user_pages[mm->user_pages_count].uva   = va;
+
+    return new_data_pa;
+}
+
 
 unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int prot) {
 
@@ -246,23 +432,27 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
 
     memzero((void *)__va(new_data_pa), PAGE_SIZE);
 
- unsigned long flags = (unsigned long)prot;
+    #define PTE_AF    (1UL << 10)
+#define PTE_SH_IS (3UL << 8)   // Inner Shareable
+#define PTE_USER_FLAGS (PTE_AF | PTE_SH_IS | prot)
+
+ unsigned long flags = (unsigned long)PTE_USER_FLAGS;
 
 
     //pte_va[pte_index] = (new_data_pa & ~(PAGE_SIZE - 1)) |  (flags );// (flags );
     pte_va[pte_index] = (new_data_pa ) |  (flags );
     unsigned long final_entry = pte_va[pte_index];
     unsigned long mapped_pa   = final_entry & ~(PAGE_SIZE - 1);
-    printf("  Written PTE[%d] = 0x%lx → physical page = 0x%x, flags = 0x%lx\n",pte_index, final_entry, mapped_pa, ( (flags )));
+    printf("  Written PTE[%d] = 0x%x → physical page = 0x%x, flags = 0x%x\n",pte_index, final_entry, mapped_pa, ( (flags )));
 
-    printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%lx, pte_index=%d,  PTE=0x%lx\n",
+    printf("Mapping VA=0x%x → PTE page phys=0x%x, virt=%x, pte_index=%d,  PTE=0x%x\n",
            va, pte_pa, (unsigned long)pte_va, pte_index, pte_va[pte_index]);
 
     // Check execution permission bits in the full 64-bit PTE
     unsigned long pte_full = pte_va[pte_index];
     int uxn = (pte_full >> 54) & 1;  // UXN bit
     int pxn = (pte_full >> 53) & 1;  // PXN bit
-    printf("Full PTE=0x%lx, UXN=%d PXN=%d (UXN=0 allows user exec)\n", pte_full, uxn, pxn);
+    printf("Full PTE=0x%x, UXN=%d PXN=%d (UXN=0 allows user exec)\n", pte_full, uxn, pxn);
     
 
     mm->user_pages[ mm->user_pages_count++ ].pa = new_data_pa;

@@ -1,0 +1,102 @@
+#include "hardware.h"
+#define TXD 14
+#define RXD 15
+
+void uart_init(void) {
+    // Disable UART0
+    *UART0_CR = 0;
+    
+    // Setup GPIO pins for UART
+    gpio_init();
+    
+    // Clear pending interrupts
+    *UART0_ICR = 0x7FF;
+    
+    // Set baud rate to 115200
+    // UART clock = 3MHz, baud = 115200
+    // Divisor = 3000000 / (16 * 115200) = 1.627
+    // Integer part = 1, Fractional part = 0.627 * 64 = 40
+    *UART0_IBRD = 1;
+    *UART0_FBRD = 40;
+    
+    // Enable FIFO, 8 data bits, 1 stop bit, no parity
+    *UART0_LCRH = (1 << 4) | (1 << 5) | (1 << 6);
+    
+    // Mask all interrupts
+    *UART0_IMSC = (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) |
+                  (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10);
+    
+    // Enable UART0, receive & transfer part of UART
+    *UART0_CR = (1 << 0) | (1 << 8) | (1 << 9);
+}
+void miniuart_init(void) {
+  new_gpio_pin_set_func(TXD, GFAlt5);
+    new_gpio_pin_set_func(RXD, GFAlt5);
+
+    new_gpio_pin_enable(TXD);
+    new_gpio_pin_enable(RXD);
+
+    REGS_AUX->enables = 1;
+    REGS_AUX->mu_control = 0;
+    REGS_AUX->mu_ier = 0xD;
+    REGS_AUX->mu_lcr = 3;
+    REGS_AUX->mu_mcr = 0;
+
+    REGS_AUX->mu_baud_rate = 270; // = 115200 @ 250 Mhz
+
+
+    REGS_AUX->mu_control = 3;
+
+    uart_putc('\r');
+    uart_putc('\n');
+    uart_putc('\n');
+}
+
+void uart_putc(unsigned char c) {
+    // Wait for UART to become ready to transmit
+  //  while (*UART0_FR & (1 << 5));
+   // *UART0_DR = c;
+
+     while(!(REGS_AUX->mu_lsr & 0x20));
+
+    REGS_AUX->mu_io = c;
+}
+
+void uart_puts(const char* str) {
+    while (*str) {
+        if (*str == '\n') {
+            uart_putc('\r');
+        }
+        uart_putc(*str++);
+    }
+}
+
+unsigned char uart_getc(void) {
+    // Wait for UART to have received something
+   // while (*UART0_FR & (1 << 4));
+   // return *UART0_DR;
+    while(!(REGS_AUX->mu_lsr & 1));
+
+    return REGS_AUX->mu_io & 0xFF;
+}
+
+void uart_put_number(unsigned int num) {
+    char buffer[16];
+    int i = 0;
+    
+    if (num == 0) {
+        uart_putc('0');
+        return;
+    }
+    
+    // Convert number to string (reverse order)
+    while (num > 0) {
+        buffer[i++] = '0' + (num % 10);
+        num /= 10;
+    }
+    
+    // Print digits in correct order
+    while (i > 0) {
+        uart_putc(buffer[--i]);
+    }
+}

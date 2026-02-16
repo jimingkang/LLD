@@ -8,6 +8,7 @@
 #include "led_display.h"
 #include "mailbox.h"
 #include "video.h"
+#include "process.h"
 
 void putc(void *p, char c) {
     if (c == '\n') {
@@ -45,6 +46,10 @@ void kernel_main() {
     enable_interrupt_controller();
     irq_enable();
     timer_init();
+    
+    // Initialize process management system
+    printf("Initializing process management...\n");
+    process_init();
 
 #if RPI_VERSION == 3
     printf("\tBoard: Raspberry PI 3\n");
@@ -176,6 +181,29 @@ void kernel_main() {
 
     printf("Resolution 800x600\n");
     video_set_resolution(800, 600, 8);
+    
+    // Demonstrate kernel process creation
+    printf("\n=== Kernel Process Management Demo ===\n");
+    
+    // Create test processes
+    process_t *idle_proc = process_create("idle", kernel_idle_process, 10);
+    process_t *test_proc1 = process_create("test1", kernel_test_process_1, 5);
+    process_t *test_proc2 = process_create("test2", kernel_test_process_2, 5);
+    
+    if (idle_proc) {
+        process_start(idle_proc);
+    }
+    if (test_proc1) {
+        process_start(test_proc1);
+    }
+    if (test_proc2) {
+        process_start(test_proc2);
+    }
+    
+    // List all processes
+    process_list_all();
+    
+    printf("\n=== End Process Demo ===\n\n");
 
     while(1) {
         u32 cur_temp = 0;
