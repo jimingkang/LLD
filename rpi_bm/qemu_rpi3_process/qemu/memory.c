@@ -220,12 +220,12 @@ bool setup_uvm(uint64_t map, char *file_name)
         status = map_page(map, 0x400000, V2P(page), ENTRY_V | USER | NORMAL_MEMORY | ENTRY_ACCESSED);
 
         if (status == true) {
-            //if (load_file(file_name, (uint64_t)page) == -1) {
-            //    free_vm(map);
-           //     return false;
-           // }
-            load_user_embedded((uint64_t)page);
-            status = true;
+            if (load_file(file_name, (uint64_t)page) == -1) {
+                free_vm(map);
+                return false;
+            }
+           // load_user_embedded((uint64_t)page);
+           // status = true;
         }
         else {
             kfree((uint64_t)page);

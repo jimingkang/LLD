@@ -8,7 +8,7 @@
       "name": "rpi3_kernel.elf",
       "type": "cppdbg",
       "request": "launch",
-      "program": "/home/rlk/Downloads/LLD/qemu_rpi3_process/qemu/kernel.elf",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/qemu_rpi3_process/qemu/kernel.elf",
       "args": [],
       "stopAtEntry": true,
       "cwd": "${workspaceRoot}",
@@ -47,7 +47,7 @@
       "stopAtEntry": false,
       "externalConsole": false,
       "cwd": "/home/rlk/Downloads/LLD/qemu_rpi_process",
-      "program": "/home/rlk/Downloads/LLD/qemu_rpi_process/build/Debug/outDebug",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/qemu_rpi_process/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

@@ -76,7 +76,7 @@ static void timer_interrupt_handler(void)
          wake_up(-1);
        // check_sleep_list();
         if (ticks % 100 == 0) {
-            printk("timer %d \r\n", ticks);
+           // printk("timer %d \r\n", ticks);
         }
 
         set_timer_interval(timer_interval);
@@ -119,6 +119,15 @@ void handler(struct TrapFrame *tf)
 
         case 3:
             system_call(tf);
+            /*
+             printk("---- syscall trapframe ----\n");
+    printk(" tf=%x\n", tf);
+    printk(" sp0   = 0x%x\n", tf->sp0);
+    printk(" trapno= %d\n", tf->trapno);
+    printk(" esr   = 0x%x\n", tf->esr);
+    printk(" elr   = 0x%x\n", tf->elr);
+    printk(" spsr  = 0x%x\n", tf->spsr);
+    */
             break;
 
         default:

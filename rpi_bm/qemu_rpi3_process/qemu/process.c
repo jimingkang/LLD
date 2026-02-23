@@ -60,7 +60,7 @@ static struct Process* find_unused_process(void)
 
     // 2. 构造 kernel context (x19..x30)
     process->context =process->stack + PAGE_SIZE - sizeof(struct TrapFrame) - 12*8;
-    //process->context =process->stack + PAGE_SIZE - 12*8;
+
 
     // 3. 第一次调度进来时从 idle_thread 开始执行
     *(uint64_t*)(process->context + 11*8) = (uint64_t)idle_thread;
@@ -96,6 +96,8 @@ static struct Process* alloc_new_process(void)
     process->state = PROC_INIT;
     process->pid = pid_num++;
 
+
+    // ret-> context  ; eret(el1->el0) ->tf
     process->context = process->stack + PAGE_SIZE - sizeof(struct TrapFrame) - 12*8;
     *(uint64_t*)(process->context + 11*8) = (uint64_t)trap_return;
     process->tf = (struct TrapFrame*)(process->stack + PAGE_SIZE - sizeof(struct TrapFrame));
@@ -119,7 +121,7 @@ static void init_user_process(void)
     process = alloc_new_process();
     ASSERT(process != NULL);
 
-    ASSERT(setup_uvm((uint64_t)process->page_map, "init.bin"));
+    ASSERT(setup_uvm((uint64_t)process->page_map, "INIT.BIN"));
 
     process_control = get_pc();
     list = &process_control->ready_list;
@@ -147,8 +149,7 @@ static struct Process* alloc_new_process2(void (*fn)(void))
      * kernel context:
      * x19..x30 (12 regs)
      */
-    process->context =
-        process->stack + PAGE_SIZE - sizeof(struct TrapFrame) - 12*8;
+    process->context =process->stack + PAGE_SIZE - sizeof(struct TrapFrame) - 12*8;
 
     // return to trap_return when scheduled first time
     *(uint64_t*)(process->context + 11*8) = (uint64_t)fn;
@@ -187,7 +188,7 @@ static void create_kernel_process(void (*fn)(void))
     process->state = PROC_READY;
     append_list_tail(list, (struct List*)process);
     printk("user1: stack=%x tf=%x ctx=%x pgd=%x\n", 
-       process->stack, (uint64_t)process->tf, process->context, process->page_map);
+    process->stack, (uint64_t)process->tf, process->context, process->page_map);
 }
 
 
@@ -225,15 +226,15 @@ void move_to_user_mode(struct Process *p)
 
   
 
-    ASSERT(setup_uvm(p->page_map, NULL));
-set_ttbr0(p->page_map);
-  
+    ASSERT(setup_uvm(p->page_map, "USER.BIN"));
+    set_ttbr0(p->page_map);
+    enter_user(p->tf);
     // 5) 让该进程下一次被调度时走 trap_return -> eret
    // *(uint64_t*)(p->context + 11*8) = (uint64_t)trap_return;
 
     // 6) 触发调度，让 swap 生效，从 trap_return 进入 EL0
   //  printk("kthread1 before schedule: pid=%d, tf=%x elr=%x sp0=%x ctx=%x lr=%x\n",(unsigned int)p->pid, (uint64_t)p->tf, p->tf->elr, p->tf->sp0,p->context,*(uint64_t*)(p->context + 11*8));
-   enter_user(p->tf);
+ 
     //p->state = PROC_READY;
     //process_control = get_pc();
     //list = &process_control->ready_list;
@@ -252,7 +253,7 @@ set_ttbr0(p->page_map);
 
 void kthread1(void)
 {
-    printk("kthread1 start\n");
+    printk("user2  start in kernel mode\n");
 
     move_to_user_mode(get_pc()->current_process);
 
@@ -265,8 +266,10 @@ void kthread1(void)
 void init_process(void)
 {
     init_idle_process();
+    init_user_process();
+    
     create_kernel_process(kthread1);
-   //init_user_process();
+   
 }
 
  void switch_process(struct Process *prev, struct Process *current)
@@ -278,6 +281,74 @@ void init_process(void)
     swap(&prev->context, current->context);
   //  printk("after swap: prev pid=%d prev->context=%x\n", prev->pid, prev->context);
 }
+
+   void dump_context(const char *tag, struct Process *p)
+{
+    struct cpu_context *ctx;
+
+    if (!p) {
+        printk("[%s] process = NULL\n", tag);
+        return;
+    }
+
+    ctx = (struct cpu_context *)p->context;
+
+    printk("[%s] pid=%d proc=%x\n", tag, p->pid, p);
+    printk(" context addr = 0x%x\n", p->context);
+    printk(" stack base = %x\n", p->stack);
+    printk(" stack top  = %x\n", p->stack + PAGE_SIZE);
+    printk(" context    = %x (size=%d)\n",p->context, sizeof(struct cpu_context));
+    printk(" trapframe  = %x (size=%d)\n",p->tf, sizeof(struct TrapFrame));
+
+    if (!ctx) {
+        printk("  context is NULL\n");
+        return;
+    }
+
+    printk("  x19 = 0x%x\n", ctx->x19);
+    printk("  x20 = 0x%x\n", ctx->x20);
+    printk("  x21 = 0x%x\n", ctx->x21);
+    printk("  x22 = 0x%x\n", ctx->x22);
+    printk("  x23 = 0x%x\n", ctx->x23);
+    printk("  x24 = 0x%\n", ctx->x24);
+    printk("  x25 = 0x%x\n", ctx->x25);
+    printk("  x26 = 0x%x\n", ctx->x26);
+    printk("  x27 = 0x%x\n", ctx->x27);
+    printk("  x28 = 0x%x\n", ctx->x28);
+    printk("  fp  = 0x%x\n", ctx->fp);
+    printk("  lr  = 0x%x\n", ctx->lr);
+}
+
+void dump_backtrace(void)
+{
+    uint64_t fp, lr;
+    int depth = 0;
+
+    __asm__ volatile ("mov %0, x29" : "=r"(fp));
+
+    printk("=== kernel backtrace ===\n");
+
+    while (fp && depth < 16) {
+        uint64_t *frame = (uint64_t *)fp;
+
+        uint64_t prev_fp = frame[0];
+        uint64_t ret_addr = frame[1];
+
+        printk(" #%d: fp=%x  lr=%x\n", depth, fp, ret_addr);
+
+        // 防御性检查：必须在内核栈范围
+        if (!is_kernel_address(ret_addr))
+            break;
+
+        fp = prev_fp;
+        depth++;
+    }
+}
+int is_kernel_address(uint64_t addr)
+{
+    return (addr & 0xFFFF000000000000UL) == 0xFFFF000000000000UL;
+}
+
 
  void schedule(void)
 {
@@ -300,7 +371,11 @@ void init_process(void)
     current_proc->state = PROC_RUNNING;
     process_control->current_process = current_proc;
 
+  printk("===== schedule =====\n");
 
+dump_context("current process ", prev_proc);
+ //  dump_context("next", current_proc);
+   dump_backtrace();
 
 
     switch_process(prev_proc, current_proc);

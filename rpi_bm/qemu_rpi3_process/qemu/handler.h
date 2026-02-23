@@ -2,7 +2,21 @@
 #define _HANDLER_H
 
 #include "stdint.h"
+struct cpu_context {
 
+    int64_t x19;
+    int64_t x20;
+    int64_t x21;
+    int64_t x22;
+    int64_t x23;
+    int64_t x24;
+    int64_t x25;
+    int64_t x26;
+    int64_t x27;
+    int64_t x28;
+    int64_t fp;
+    int64_t lr;
+};
 struct TrapFrame {
     int64_t x0;
     int64_t x1;

@@ -13,7 +13,7 @@ struct Page {
 #define V2P(v) ((uint64_t)(v) - KERNEL_BASE)
 
 #define MEMORY_END  P2V(0x30000000)
-#define PAGE_SIZE   (2*1024*1024)
+#define PAGE_SIZE   (4*1024)   //2*1024*1024
 
 #define PA_UP(v)    ((((uint64_t)v + PAGE_SIZE - 1) >> 21) << 21)
 #define PA_DOWN(v)  (((uint64_t)v >> 21) << 21)

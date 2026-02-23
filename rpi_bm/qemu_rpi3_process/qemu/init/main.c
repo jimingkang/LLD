@@ -6,9 +6,9 @@ int main(void)
 
     while (1) {
        // if (counter % 1000 == 0) {
-            printf("User process %u\r\n", counter);
+            printf("User2 process %u\r\n", counter);
        // }
-        sleepu(10);
+        sleepu(5);
         counter++;
     }
 

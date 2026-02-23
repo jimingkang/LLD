@@ -1,0 +1,69 @@
+ref:
+https://github.com/rockytriton/LLD
+https://github.com/s-matyukevich/raspberry-pi-os/
+https://www.youtube.com/watch?v=pd9AVmcRc6U&list=PLVxiWMqQvhg9FCteL7I0aohj1_YiUx1x8
+https://www.udemy.com/course/raspberry-pi-write-your-own-operating-system-step-by-step
+
+
+
+
+launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "rpi3_kernel.elf",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/qemu_rpi3_process/qemu/kernel.elf",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceRoot}",
+      "environment": [],
+      "externalConsole": true,
+      "MIMode": "gdb",
+      "logging": {
+        "moduleLoad": false,
+        "engineLogging": false,
+        "trace": false
+      },
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "set architecture aarch64",
+          "text": "set architecture aarch64",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Load user init symbols",
+          "text": "add-symbol-file ${workspaceFolder}/init/init 0x400000"
+        }
+      ],
+      "miDebuggerPath": "gdb-multiarch",
+      "miDebuggerServerAddress": "localhost:1234"
+    },
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "cwd": "/home/rlk/Downloads/LLD/qemu_rpi_process",
+      "program": "/home/rlk/Downloads/LLD/rpi_bm/qemu_rpi_process/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
