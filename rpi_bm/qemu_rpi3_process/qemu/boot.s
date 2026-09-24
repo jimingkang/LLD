@@ -16,9 +16,29 @@ end:
 kernel_entry:
     mrs x0, currentel
     lsr x0, x0, #2
+    cmp x0, #3
+    beq el3_entry
     cmp x0, #2
-    bne end
+    beq el2_entry
+    cmp x0, #1
+    beq el1_entry
+    b end
 
+el3_entry:
+    // Non-secure AArch64 at the next exception level.
+    mov x0, #(1 << 10)
+    orr x0, x0, #(3 << 4)
+    orr x0, x0, #1
+    msr scr_el3, x0
+
+    // Return from EL3 to EL2h with interrupts masked.
+    mov x0, #0b1111001001
+    msr spsr_el3, x0
+    adr x0, el2_entry
+    msr elr_el3, x0
+    eret
+
+el2_entry:
     msr sctlr_el1, xzr
     mov x0, #(1 << 31)
     msr hcr_el2, x0
@@ -38,7 +58,7 @@ el1_entry:
     bl enable_mmu
 
     ldr x0, =FS_BASE
-    ldr x1, =bss_start
+    ldr x1, =kernel_binary_end
     ldr x2, =FS_SIZE
     bl memcpy
 

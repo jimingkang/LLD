@@ -1,7 +1,11 @@
 #include "process.h"
 #include "memory.h"
 #include "debug.h"
+#include "print.h"
 #include "stddef.h"
+
+void schedule(void);
+int is_kernel_address(uint64_t addr);
 
 
 struct Process *current = NULL;

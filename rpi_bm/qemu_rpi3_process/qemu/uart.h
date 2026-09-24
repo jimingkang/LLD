@@ -5,6 +5,10 @@
 
 #define IO_BASE_ADDR    P2V(0x3f200000)
 
+#define GPFSEL1         IO_BASE_ADDR + 0x04
+#define GPPUD           IO_BASE_ADDR + 0x94
+#define GPPUDCLK0       IO_BASE_ADDR + 0x98
+
 #define UART0_DR        IO_BASE_ADDR + 0x1000
 #define UART0_FR        IO_BASE_ADDR + 0x1018
 #define UART0_CR        IO_BASE_ADDR + 0x1030

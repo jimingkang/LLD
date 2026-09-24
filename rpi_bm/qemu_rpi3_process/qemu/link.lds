@@ -16,6 +16,9 @@ SECTIONS
         *(.data)
     }
 
+    /* objcopy ends the raw kernel here; os.img is appended at this offset. */
+    kernel_binary_end = .;
+
     .bss : {
         bss_start = .;
         *(.bss)

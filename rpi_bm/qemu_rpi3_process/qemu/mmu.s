@@ -40,6 +40,8 @@ enable_mmu:
     mrs x0, sctlr_el1
     orr x0, x0, #1
     msr sctlr_el1, x0
+    dsb ish
+    isb
     
     ret
 
