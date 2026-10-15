@@ -68,6 +68,9 @@ static int decimal_to_string(char *buffer, int position, int64_t digits)
 void write_console(const char *buffer, int size)
 {
     for (int i = 0; i < size; i++) {
+        if (buffer[i] == '\n') {
+            write_char('\r');
+        }
         write_char(buffer[i]);
     }
 }

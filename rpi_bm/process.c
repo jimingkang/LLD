@@ -37,9 +37,11 @@ static struct Process* find_unused_process(void)
 }
  void idle_thread(void)
 {
-  
+    
     for (;;) {
+#if SCHED_TRACE
         printk("idle_thread\r\n");
+#endif
        schedule();     // 有 ready 进程就切走
     }
 }
@@ -314,7 +316,7 @@ void init_process(void)
     printk("  x21 = 0x%x\n", ctx->x21);
     printk("  x22 = 0x%x\n", ctx->x22);
     printk("  x23 = 0x%x\n", ctx->x23);
-    printk("  x24 = 0x%\n", ctx->x24);
+    printk("  x24 = 0x%x\n", ctx->x24);
     printk("  x25 = 0x%x\n", ctx->x25);
     printk("  x26 = 0x%x\n", ctx->x26);
     printk("  x27 = 0x%x\n", ctx->x27);
@@ -375,11 +377,12 @@ int is_kernel_address(uint64_t addr)
     current_proc->state = PROC_RUNNING;
     process_control->current_process = current_proc;
 
-  printk("===== schedule =====\n");
-
-dump_context("current process ", prev_proc);
- //  dump_context("next", current_proc);
-   dump_backtrace();
+#if SCHED_TRACE
+    printk("===== schedule =====\n");
+    dump_context("current process ", prev_proc);
+    dump_context("next process ", current_proc);
+    dump_backtrace();
+#endif
 
 
     switch_process(prev_proc, current_proc);
