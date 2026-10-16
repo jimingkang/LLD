@@ -5,7 +5,7 @@
       "name": "Launch QEMU + GDB",
       "type": "cppdbg",
       "request": "launch",
-      "program": "/home/rlk/Downloads/LLD/rpi_bm/miniOS/build/kernel8.elf",
+      "program": "/Users/jimingkang/LLD/rpi_bm/miniOS/build/kernel8.elf",
       "miDebuggerServerAddress": "localhost:1234",
       "miDebuggerPath": "/usr/bin/gdb-multiarch",
       "MIMode": "gdb",
