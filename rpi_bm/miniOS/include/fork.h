@@ -54,7 +54,7 @@ int copy_process_inkernel(unsigned long fn, unsigned long arg);
 void copy_kernel_mappings(pgd_t *dest_pgd,pgd_t *src_pgd);
 int move_to_user_mode_fixed(unsigned long start, unsigned long size, unsigned long pc);
 //unsigned long map_and_copy_user_code(   unsigned long src_va_begin, size_t  code_size );
-unsigned long map_and_copy_user_code(unsigned long start, unsigned long size);
+unsigned long map_and_copy_user_code(void);
 void walk_page_table(uint64_t table_phys, int level, uint64_t base_va);
 void dump_pagetable_walk(uint64_t pgd_phys, uint64_t va);	
 void switch_user_pgd(unsigned long pgd_phys);

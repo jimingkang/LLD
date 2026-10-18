@@ -140,7 +140,7 @@ static void append_host_file(uint32_t inum, const char *path)
 int main(int argc, char **argv)
 {
     if (argc < 3) {
-        fprintf(stderr, "usage: %s fs.img init-binary [program ...]\n", argv[0]);
+        fprintf(stderr, "usage: %s minifs.img init-binary [program ...]\n", argv[0]);
         return 1;
     }
     assert(sizeof(struct dinode) == 64);
@@ -197,7 +197,7 @@ int main(int argc, char **argv)
         zero[i / 8u] |= (uint8_t)(1u << (i % 8u));
     write_block(sb.bmapstart, zero);
     close(image_fd);
-    printf("mkfs_xv6: %s blocks=%u used=%u /init inode=%u\n",
+    printf("mkfs_minifs: %s blocks=%u used=%u /init inode=%u\n",
            argv[1], FSSIZE, next_block, init);
     return 0;
 }

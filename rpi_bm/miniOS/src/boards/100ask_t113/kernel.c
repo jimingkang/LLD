@@ -1,11 +1,12 @@
 #include "platform.h"
 #include "sched.h"
-#include "fs/xv6fs.h"
+#include "fs/vfs.h"
+#include "fs/minifs.h"
 
 extern uint8_t __kernel_reserved_end[];
 
-extern uint8_t __xv6fs_image_start[];
-extern uint8_t __xv6fs_image_end[];
+extern uint8_t __minifs_image_start[];
+extern uint8_t __minifs_image_end[];
 
 void kernel_main(uint32_t dram_size)
 {
@@ -35,23 +36,29 @@ void kernel_main(uint32_t dram_size)
 
     t113_gic_init();
     t113_sched_init();
-    if (t113_xv6fs_mount(__xv6fs_image_start,
-                         (uint32_t)(__xv6fs_image_end -
-                                    __xv6fs_image_start)) < 0) {
-        t113_uart_puts("PANIC: cannot mount embedded xv6fs\n");
+    t113_vfs_init();
+    if (t113_minifs_mount_vfs(__minifs_image_start,
+                             (uint32_t)(__minifs_image_end -
+                                        __minifs_image_start)) < 0) {
+        t113_uart_puts("PANIC: cannot mount embedded minifs\n");
         for (;;)
             __asm__ volatile("wfi");
     }
-    void *init_image = t113_alloc_pages(4, 1);
+    struct vfs_file *init_file = t113_vfs_open("/init", VFS_O_RDONLY);
+    uint32_t init_pages = init_file
+                        ? (t113_vfs_file_size(init_file) + 4095u) / 4096u : 0;
+    void *init_image = init_pages ? t113_alloc_pages(init_pages, 1) : 0;
     int init_size = init_image
-                  ? t113_xv6fs_read_file("/init", init_image, 16384u) : -1;
+                  ? t113_vfs_read(init_file, init_image,
+                                  t113_vfs_file_size(init_file)) : -1;
+    t113_vfs_close(init_file);
     int init_pid = init_size < 0 ? -1
                  : t113_create_init_user_process(init_image,
                                                  (uint32_t)init_size);
     if (init_image)
-        t113_free_pages(init_image, 4);
+        t113_free_pages(init_image, init_pages);
     if (init_pid < 0) {
-        t113_uart_puts("PANIC: cannot load /init from xv6fs\n");
+        t113_uart_puts("PANIC: cannot load /init from minifs\n");
         for (;;)
             __asm__ volatile("wfi");
     }

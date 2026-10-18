@@ -200,8 +200,11 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
     const struct elf32_phdr *program =
         (const struct elf32_phdr *)(bytes + elf->phoff);
     uint32_t loaded = 0;
+    uint32_t image_end = USER_CODE_VA;
     for (uint32_t i = 0; i < elf->phnum; ++i, ++program) {
         if (program->type != PT_LOAD)
+            continue;
+        if (program->memsz == 0)
             continue;
         if (program->filesz > program->memsz ||
             program->offset > image_size ||
@@ -220,6 +223,8 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
         if (copy_to_user(vm, program->vaddr, bytes + program->offset,
                          program->filesz) < 0)
             return 0;
+        if (program->vaddr + program->memsz > image_end)
+            image_end = program->vaddr + program->memsz;
 
         t113_uart_puts("ELF: PT_LOAD va=");
         t113_uart_puthex(program->vaddr);
@@ -236,6 +241,8 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
         return 0;
     if (!map_page(vm, USER_STACK_VA, 1, 0))
         return 0;
+    vm->heap_base = (image_end + PAGE_SIZE - 1u) & PAGE_MASK;
+    vm->brk = vm->heap_base;
     sync_executable_pages(vm);
     *entry = elf->entry;
 
@@ -274,8 +281,76 @@ struct t113_user_vm *t113_user_vm_clone(const struct t113_user_vm *source)
             return 0;
         copy_bytes(dst->pa, src->pa, PAGE_SIZE);
     }
+    vm->heap_base = source->heap_base;
+    vm->brk = source->brk;
     sync_executable_pages(vm);
     return vm;
+}
+
+int t113_user_vm_range_mapped(const struct t113_user_vm *vm,
+                              uint32_t address, uint32_t length)
+{
+    if (!vm || address + length < address)
+        return 0;
+    if (length == 0)
+        return 1;
+    uint32_t page = address & PAGE_MASK;
+    uint32_t last = (address + length - 1u) & PAGE_MASK;
+    for (;;) {
+        if (!find_page((struct t113_user_vm *)vm, page))
+            return 0;
+        if (page == last)
+            return 1;
+        page += PAGE_SIZE;
+    }
+}
+
+int t113_user_vm_range_writable(const struct t113_user_vm *vm,
+                                uint32_t address, uint32_t length)
+{
+    if (!vm || address + length < address)
+        return 0;
+    if (length == 0)
+        return 1;
+    uint32_t page = address & PAGE_MASK;
+    uint32_t last = (address + length - 1u) & PAGE_MASK;
+    for (;;) {
+        struct t113_user_page *mapping =
+            find_page((struct t113_user_vm *)vm, page);
+        if (!mapping || !mapping->writable)
+            return 0;
+        if (page == last)
+            return 1;
+        page += PAGE_SIZE;
+    }
+}
+
+int t113_user_vm_copyout(struct t113_user_vm *vm, uint32_t address,
+                         const void *source, uint32_t length)
+{
+    if ((!source && length) ||
+        !t113_user_vm_range_writable(vm, address, length))
+        return -1;
+    return copy_to_user(vm, address, (const uint8_t *)source, length);
+}
+
+int32_t t113_user_vm_sbrk(struct t113_user_vm *vm, int32_t increment)
+{
+    if (!vm || increment < 0)
+        return -1;
+    uint32_t old = vm->brk;
+    uint32_t next = old + (uint32_t)increment;
+    if (next < old || next >= USER_STACK_VA)
+        return -1;
+    uint32_t page = (old + PAGE_SIZE - 1u) & PAGE_MASK;
+    uint32_t end = (next + PAGE_SIZE - 1u) & PAGE_MASK;
+    while (page < end) {
+        if (!find_page(vm, page) && !map_page(vm, page, 1, 0))
+            return -1;
+        page += PAGE_SIZE;
+    }
+    vm->brk = next;
+    return (int32_t)old;
 }
 
 static void switch_ttbr0(uint32_t table)

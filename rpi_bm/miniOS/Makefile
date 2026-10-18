@@ -26,7 +26,8 @@ SRC_DIR = src
 
 all : kernel8.img
 
-.PHONY: all clean install rpi-install run debug armstub t113 t113-kernel t113-clean
+.PHONY: all clean install rpi-install run debug qemu qemu-gdb \
+	qemu-gdb-client armstub t113 t113-kernel t113-clean
 
 clean :
 	rm -rf $(BUILD_DIR) build-t113 *.img armstub-new.bin
@@ -42,10 +43,12 @@ $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 C_FILES = $(wildcard $(SRC_DIR)/*.c)
 C_FILES += $(wildcard $(SRC_DIR)/*/*.c)
 C_FILES += $(wildcard $(SRC_DIR)/*/*/*.c)
+C_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/%,$(C_FILES))
 
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
 ASM_FILES += $(wildcard $(SRC_DIR)/*/*.S)
 ASM_FILES += $(wildcard $(SRC_DIR)/*/*/*.S)
+ASM_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/%,$(ASM_FILES))
 
 OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
 OBJ_FILES += $(ASM_FILES:$(SRC_DIR)/%.S=$(BUILD_DIR)/%_s.o)
@@ -88,14 +91,28 @@ armstub-new.bin: armstub/build/armstub_s.o
 armstub: armstub-new.bin
 	cp armstub-new.bin $(BOOTMNT)/
 	sync
-QEMU_FLAGS  += -nographic
-QEMU_FLAGS  += -machine raspi3
+QEMU ?= qemu-system-aarch64
+QEMU_GDB_PORT ?= 1234
+GDB_AARCH64 ?= $(ARMGNU)-gdb
+QEMU_FLAGS += -nographic
+QEMU_FLAGS += -machine raspi3
 
 
-run:
-	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img
-debug:
-	qemu-system-aarch64 -S -s $(QEMU_FLAGS) -kernel kernel8.elf 
+qemu run: kernel8.img
+	$(QEMU) $(QEMU_FLAGS) -kernel kernel8.img
+
+# Raspberry Pi 3 QEMU debug server.  -S leaves every CPU stopped until GDB
+# connects; the raw image is booted while GDB reads symbols from kernel8.elf.
+qemu-gdb: kernel8.img
+	@echo "QEMU/GDB: waiting on tcp::$(QEMU_GDB_PORT)"
+	@echo "Connect with: make qemu-gdb-client QEMU_GDB_PORT=$(QEMU_GDB_PORT)"
+	$(QEMU) $(QEMU_FLAGS) -S -gdb tcp::$(QEMU_GDB_PORT) -kernel kernel8.img
+
+qemu-gdb-client: kernel8.img
+	$(GDB_AARCH64) $(BUILD_DIR)/kernel8.elf \
+		-ex "target remote localhost:$(QEMU_GDB_PORT)"
+
+debug: qemu-gdb
 
 # 100ASK T113-S3 DDR-resident ARMv7 kernel. The SRAM Boot0/SPL lives in
 # ../miniBoot and embeds the binary produced here.
@@ -103,19 +120,25 @@ T113_CROSS ?= arm-none-eabi-
 T113_BUILD := build-t113
 T113_SRC := src/boards/100ask_t113
 T113_USER_SRC := user-t113
-T113_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
+T113_KERNEL_INCLUDE := include/t113
+T113_COMMON_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 	-ffreestanding -fno-builtin -fno-common -fno-stack-protector \
 	-fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -nostartfiles \
-	-Wall -Wextra -I$(T113_SRC)
+	-Wall -Wextra
+
+T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE)
+T113_USER_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_USER_SRC)/include -fno-pic
 T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
 	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
 	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o $(T113_BUILD)/fork_entry.o \
-	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/xv6fs.o \
-	$(T113_BUILD)/kernel.o $(T113_BUILD)/fs_image.o
-T113_USER_OBJS := $(T113_BUILD)/user/start.o $(T113_BUILD)/user/usys.o \
-	$(T113_BUILD)/user/init.o
-T113_USER_COMMON := $(T113_BUILD)/user/start.o $(T113_BUILD)/user/usys.o
+	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/vfs.o \
+	$(T113_BUILD)/fs/minifs.o \
+	$(T113_BUILD)/kernel.o $(T113_BUILD)/minifs_image.o
+T113_USER_LIB_OBJS := $(T113_BUILD)/user/usys.o \
+	$(T113_BUILD)/user/libc/libc.o
+T113_USER_LIB := $(T113_BUILD)/user/libc.a
+T113_USER_COMMON := $(T113_BUILD)/user/start.o
 
 t113: t113-kernel
 t113-kernel: $(T113_BUILD)/minios-kernel.bin
@@ -133,35 +156,40 @@ $(T113_BUILD)/%.o: $(T113_SRC)/%.S | $(T113_BUILD)
 
 $(T113_BUILD)/user/%.o: $(T113_USER_SRC)/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
-	$(T113_CROSS)gcc $(T113_CFLAGS) -fno-pic -c $< -o $@
+	$(T113_CROSS)gcc $(T113_USER_CFLAGS) -c $< -o $@
 
 $(T113_BUILD)/user/%.o: $(T113_USER_SRC)/%.S | $(T113_BUILD)
 	mkdir -p $(@D)
-	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+	$(T113_CROSS)gcc $(T113_USER_CFLAGS) -c $< -o $@
 
-$(T113_BUILD)/user-init.elf: $(T113_USER_OBJS) $(T113_USER_SRC)/linker.ld
+$(T113_USER_LIB): $(T113_USER_LIB_OBJS)
+	$(T113_CROSS)ar rcs $@ $^
+
+$(T113_BUILD)/user-init.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/init.o \
+		$(T113_USER_LIB) $(T113_USER_SRC)/linker.ld
 	$(T113_CROSS)ld -T $(T113_USER_SRC)/linker.ld -Map $(T113_BUILD)/user-init.map \
-		-o $@ $(T113_USER_OBJS)
+		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/init.o $(T113_USER_LIB)
 
 $(T113_BUILD)/_init: $(T113_BUILD)/user-init.elf
 	$(T113_CROSS)objcopy --strip-debug $< $@
 
 $(T113_BUILD)/user-echo.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o \
+		$(T113_USER_LIB) \
 		$(T113_USER_SRC)/linker.ld
 	$(T113_CROSS)ld -T $(T113_USER_SRC)/linker.ld -Map $(T113_BUILD)/user-echo.map \
-		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o
+		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o $(T113_USER_LIB)
 
 $(T113_BUILD)/_echo: $(T113_BUILD)/user-echo.elf
 	$(T113_CROSS)objcopy --strip-debug $< $@
 
-$(T113_BUILD)/mkfs_xv6: tools/mkfs_xv6.c | $(T113_BUILD)
+$(T113_BUILD)/mkfs_minifs: tools/mkfs_minifs.c | $(T113_BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror $< -o $@
 
-$(T113_BUILD)/fs.img: $(T113_BUILD)/mkfs_xv6 $(T113_BUILD)/_init \
+$(T113_BUILD)/minifs.img: $(T113_BUILD)/mkfs_minifs $(T113_BUILD)/_init \
 		$(T113_BUILD)/_echo
-	$(T113_BUILD)/mkfs_xv6 $@ $(T113_BUILD)/_init $(T113_BUILD)/_echo
+	$(T113_BUILD)/mkfs_minifs $@ $(T113_BUILD)/_init $(T113_BUILD)/_echo
 
-$(T113_BUILD)/fs_image.o: $(T113_BUILD)/fs.img
+$(T113_BUILD)/minifs_image.o: $(T113_BUILD)/minifs.img
 	$(T113_CROSS)objcopy -I binary -O elf32-littlearm -B arm $< $@
 
 $(T113_BUILD)/minios-kernel.elf: $(T113_OBJS) $(T113_SRC)/linker.ld

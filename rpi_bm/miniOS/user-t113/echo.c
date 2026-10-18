@@ -1,12 +1,11 @@
-/* Minimal ARM32 port of xv6 user/echo.c for the current miniOS syscall ABI. */
-typedef unsigned int uint32_t;
-int user_write(const char *text, uint32_t length);
-int user_yield(void);
+#include <stdio.h>
+#include <unistd.h>
 
-int main(void)
+int main(int argc, char **argv)
 {
-    static const char message[] = "echo: xv6fs user program\n";
-    user_write(message, sizeof(message) - 1u);
-    for (;;)
-        user_yield();
+    printf("echo: minifs user program, pid=%d\n", getpid());
+    for (int i = 1; i < argc; ++i)
+        printf("%s%s", i == 1 ? "" : " ", argv[i]);
+    putchar('\n');
+    return 0;
 }

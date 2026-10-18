@@ -24,12 +24,21 @@ struct t113_user_vm {
     uint32_t l2_count;
     struct t113_user_page pages[T113_MAX_USER_PAGES];
     uint32_t page_count;
+    uint32_t heap_base;
+    uint32_t brk;
 };
 
 struct t113_user_vm *t113_user_vm_create_elf(const void *image,
                                              uint32_t image_size,
                                              uint32_t *entry);
 struct t113_user_vm *t113_user_vm_clone(const struct t113_user_vm *source);
+int t113_user_vm_range_mapped(const struct t113_user_vm *vm,
+                              uint32_t address, uint32_t length);
+int t113_user_vm_range_writable(const struct t113_user_vm *vm,
+                                uint32_t address, uint32_t length);
+int t113_user_vm_copyout(struct t113_user_vm *vm, uint32_t address,
+                         const void *source, uint32_t length);
+int32_t t113_user_vm_sbrk(struct t113_user_vm *vm, int32_t increment);
 void t113_switch_user_vm(struct t113_user_vm *vm);
 void t113_switch_kernel_vm(void);
 

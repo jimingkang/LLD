@@ -11,6 +11,14 @@
 
 #define PF_USER           0x00000001u
 #define PF_KTHREAD        0x00000002u
+#define T113_MAX_FDS      4u
+
+/* Internal task-creation policy flags, deliberately separate from PF_*.
+ * PF_* describes what an existing task is; T113_CLONE_* describes how a
+ * new task inherits resources from its creator. */
+#define T113_CLONE_VM       0x00000001u
+#define T113_CLONE_VFORK    0x00000002u
+#define T113_CLONE_KTHREAD  0x00000004u
 
 struct arm32_trapframe {
     uint32_t r[13];
@@ -21,6 +29,7 @@ struct arm32_trapframe {
 };
 
 struct t113_user_vm;
+struct vfs_file;
 
 struct t113_cpu_context {
     uint32_t r4;
@@ -50,8 +59,10 @@ struct t113_task {
     struct t113_task *ready_prev;
     struct t113_task *ready_next;
     struct t113_task *parent;
+    struct t113_task *vfork_parent;
     uint32_t wake_tick;
     int32_t exit_status;
+    struct vfs_file *files[T113_MAX_FDS];
 };
 
 extern struct t113_task *t113_current;
@@ -61,7 +72,13 @@ void kernel_svc_entry(void);
 
 int t113_create_kernel_thread(const char *name, void (*fn)(void *), void *arg);
 int t113_create_init_user_process(const void *image, uint32_t image_size);
+int32_t t113_kernel_clone(uint32_t clone_flags,
+                          struct arm32_trapframe *parent_tf,
+                          const char *name, void (*kernel_fn)(void *),
+                          void *kernel_arg);
 int32_t t113_fork_user(struct arm32_trapframe *parent_tf);
+int32_t t113_vfork_user(struct arm32_trapframe *parent_tf);
+void t113_vfork_complete(struct t113_task *task);
 void t113_sleep_seconds(uint32_t seconds);
 int32_t t113_wait_child(int32_t *status);
 void t113_exit_current(int32_t status) __attribute__((noreturn));

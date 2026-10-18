@@ -1,6 +1,7 @@
 #include "platform.h"
 #include "sched.h"
 #include "user_vm.h"
+#include "fs/vfs.h"
 
 #define TASK_COUNT      8u
 #define TASK_STACK_SIZE 4096u
@@ -102,19 +103,7 @@ static void ready_append(struct t113_task *task)
 
 int t113_create_kernel_thread(const char *name, void (*fn)(void *), void *arg)
 {
-    struct t113_task *task = alloc_process_common();
-    if (!task)
-        return -1;
-
-    task->flags = PF_KTHREAD;
-    task->name = name;
-    task->entry = fn;
-    task->arg = arg;
-    task->cpu_context.r5 = (uint32_t)(uintptr_t)fn;
-    task->cpu_context.r6 = (uint32_t)(uintptr_t)arg;
-    ready_append(task);
-    print_task_layout(task);
-    return (int)task->pid;
+    return (int)t113_kernel_clone(T113_CLONE_KTHREAD, 0, name, fn, arg);
 }
 
 int t113_create_init_user_process(const void *image, uint32_t image_size)
@@ -138,28 +127,96 @@ int t113_create_init_user_process(const void *image, uint32_t image_size)
     return (int)task->pid;
 }
 
-int32_t t113_fork_user(struct arm32_trapframe *parent_tf)
+int32_t t113_kernel_clone(uint32_t clone_flags,
+                          struct arm32_trapframe *parent_tf,
+                          const char *name, void (*kernel_fn)(void *),
+                          void *kernel_arg)
 {
-    if (!parent_tf || !(t113_current->flags & PF_USER))
+    uint32_t supported = T113_CLONE_VM | T113_CLONE_VFORK |
+                         T113_CLONE_KTHREAD;
+    if (clone_flags & ~supported)
+        return -1;
+    if ((clone_flags & T113_CLONE_VFORK) &&
+        !(clone_flags & T113_CLONE_VM))
+        return -1;
+    if (!(clone_flags & T113_CLONE_KTHREAD) &&
+        (!parent_tf || !(t113_current->flags & PF_USER)))
         return -1;
 
     struct t113_task *child = alloc_process_common();
     if (!child)
         return -1;
-    child->flags = PF_USER;
-    child->name = "fork-child";
-    child->parent = t113_current;
-    child->mm = t113_user_vm_clone(t113_current->mm);
-    if (!child->mm) {
-        child->state = T113_TASK_IDLE;
-        return -1;
+
+    child->name = name;
+    if (clone_flags & T113_CLONE_KTHREAD) {
+        child->flags = PF_KTHREAD;
+        child->entry = kernel_fn;
+        child->arg = kernel_arg;
+        child->cpu_context.r5 = (uint32_t)(uintptr_t)kernel_fn;
+        child->cpu_context.r6 = (uint32_t)(uintptr_t)kernel_arg;
+    } else {
+        child->flags = PF_USER;
+        child->parent = t113_current;
+        child->mm = (clone_flags & T113_CLONE_VM)
+                  ? t113_current->mm
+                  : t113_user_vm_clone(t113_current->mm);
+        if (!child->mm) {
+            child->state = T113_TASK_IDLE;
+            return -1;
+        }
+        if (clone_flags & T113_CLONE_VFORK)
+            child->vfork_parent = t113_current;
+
+        for (uint32_t i = 0; i < sizeof(*parent_tf) / sizeof(uint32_t); ++i)
+            ((uint32_t *)child->trapframe)[i] =
+                ((const uint32_t *)parent_tf)[i];
+        child->trapframe->r[0] = 0; /* clone returns zero in the child. */
+        for (uint32_t i = 0; i < T113_MAX_FDS; ++i) {
+            child->files[i] = t113_current->files[i];
+            t113_vfs_file_get(child->files[i]);
+        }
     }
-    for (uint32_t i = 0; i < sizeof(*parent_tf) / sizeof(uint32_t); ++i)
-        ((uint32_t *)child->trapframe)[i] = ((const uint32_t *)parent_tf)[i];
-    child->trapframe->r[0] = 0; /* fork returns zero in the child. */
     ready_append(child);
     print_task_layout(child);
+    if (clone_flags & T113_CLONE_VFORK) {
+        t113_uart_puts("vfork: parent=");
+        t113_uart_puthex(child->parent->pid);
+        t113_uart_puts(" child=");
+        t113_uart_puthex(child->pid);
+        t113_uart_puts(" shared-L1=");
+        t113_uart_puthex((uint32_t)(uintptr_t)child->mm->l1);
+        t113_uart_putc('\n');
+    }
     return (int32_t)child->pid;
+}
+
+int32_t t113_fork_user(struct arm32_trapframe *parent_tf)
+{
+    return t113_kernel_clone(0, parent_tf, "fork-child", 0, 0);
+}
+
+int32_t t113_vfork_user(struct arm32_trapframe *parent_tf)
+{
+    struct t113_task *parent = t113_current;
+    int32_t pid = t113_kernel_clone(T113_CLONE_VM | T113_CLONE_VFORK,
+                                    parent_tf, "vfork-child", 0, 0);
+    if (pid < 0)
+        return pid;
+
+    /* vfork does not return in the parent until the child has either
+     * installed a new address space with exec or exited. */
+    parent->state = T113_TASK_WAITING;
+    t113_sched_yield();
+    return pid;
+}
+
+void t113_vfork_complete(struct t113_task *task)
+{
+    if (!task || !task->vfork_parent)
+        return;
+    if (task->vfork_parent->state == T113_TASK_WAITING)
+        task->vfork_parent->state = T113_TASK_RUNNING;
+    task->vfork_parent = 0;
 }
 
 void t113_sleep_seconds(uint32_t seconds)
@@ -197,6 +254,11 @@ int32_t t113_wait_child(int32_t *status)
 void t113_exit_current(int32_t status)
 {
     struct t113_task *task = t113_current;
+    t113_vfork_complete(task);
+    for (uint32_t i = 0; i < T113_MAX_FDS; ++i) {
+        t113_vfs_close(task->files[i]);
+        task->files[i] = 0;
+    }
     task->exit_status = status;
     task->state = T113_TASK_ZOMBIE;
     if (task->parent && task->parent->state == T113_TASK_WAITING)

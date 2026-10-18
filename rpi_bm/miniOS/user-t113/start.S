@@ -6,6 +6,7 @@
 .global _start
 _start:
     bl main
+    bl exit
 1:
-    bl user_yield
+    bl yield
     b 1b
