@@ -14,6 +14,9 @@ SECTIONS
         KEEP(*kernel_entry.o(.text.kernel_entry))
         *(.text .text.* .rodata .rodata.*)
         . = ALIGN(16);
+        __xv6fs_image_start = .;
+        *fs_image.o(.data)
+        __xv6fs_image_end = .;
         *(.data .data.*)
         __kernel_load_end = .;
     } > dram

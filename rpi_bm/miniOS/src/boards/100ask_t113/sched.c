@@ -197,7 +197,7 @@ static void switch_task_mm(struct t113_task *task)
         t113_switch_kernel_vm();
 }
 
-void t113_sched_tick(void)
+static void schedule_next(void)
 {
     struct t113_task *prev = t113_current;
     struct t113_task *next = (prev->state == T113_TASK_IDLE)
@@ -214,4 +214,14 @@ void t113_sched_tick(void)
     t113_uart_putc('\n');
     switch_task_mm(next);
     t113_cpu_switch_to(prev, next);
+}
+
+void t113_sched_tick(void)
+{
+    schedule_next();
+}
+
+void t113_sched_yield(void)
+{
+    schedule_next();
 }

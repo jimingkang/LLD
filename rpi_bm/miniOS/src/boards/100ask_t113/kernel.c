@@ -1,13 +1,11 @@
 #include "platform.h"
 #include "sched.h"
+#include "fs/xv6fs.h"
 
 extern uint8_t __kernel_reserved_end[];
 
-/* Minimal ARM user image: an intentional busy loop. Timer IRQs must still
- * preempt it, proving User mode, its page table and the kernel return path. */
-static const uint32_t init_user_image[] = {
-    0xeafffffeu, /* b . */
-};
+extern uint8_t __xv6fs_image_start[];
+extern uint8_t __xv6fs_image_end[];
 
 void kernel_main(uint32_t dram_size)
 {
@@ -37,10 +35,20 @@ void kernel_main(uint32_t dram_size)
 
     t113_gic_init();
     t113_sched_init();
-    if (t113_create_init_user_process(init_user_image,
-                                      sizeof(init_user_image),
+    if (t113_xv6fs_mount(__xv6fs_image_start,
+                         (uint32_t)(__xv6fs_image_end -
+                                    __xv6fs_image_start)) < 0) {
+        t113_uart_puts("PANIC: cannot mount embedded xv6fs\n");
+        for (;;)
+            __asm__ volatile("wfi");
+    }
+    void *init_image = t113_alloc_page();
+    int init_size = init_image
+                  ? t113_xv6fs_read_file("/init", init_image, 4096u) : -1;
+    if (init_size < 0 ||
+        t113_create_init_user_process(init_image, (uint32_t)init_size,
                                       0x00100000u) < 0) {
-        t113_uart_puts("PANIC: cannot create init user process\n");
+        t113_uart_puts("PANIC: cannot load /init from xv6fs\n");
         for (;;)
             __asm__ volatile("wfi");
     }

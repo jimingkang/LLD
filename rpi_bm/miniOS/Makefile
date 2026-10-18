@@ -102,6 +102,7 @@ debug:
 T113_CROSS ?= arm-none-eabi-
 T113_BUILD := build-t113
 T113_SRC := src/boards/100ask_t113
+T113_USER_SRC := user-t113
 T113_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 	-ffreestanding -fno-builtin -fno-common -fno-stack-protector \
 	-fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -nostartfiles \
@@ -110,7 +111,11 @@ T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
 	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
 	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o $(T113_BUILD)/fork_entry.o \
-	$(T113_BUILD)/kernel.o
+	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/xv6fs.o \
+	$(T113_BUILD)/kernel.o $(T113_BUILD)/fs_image.o
+T113_USER_OBJS := $(T113_BUILD)/user/start.o $(T113_BUILD)/user/usys.o \
+	$(T113_BUILD)/user/init.o
+T113_USER_COMMON := $(T113_BUILD)/user/start.o $(T113_BUILD)/user/usys.o
 
 t113: t113-kernel
 t113-kernel: $(T113_BUILD)/minios-kernel.bin
@@ -119,10 +124,45 @@ $(T113_BUILD):
 	mkdir -p $@
 
 $(T113_BUILD)/%.o: $(T113_SRC)/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
 $(T113_BUILD)/%.o: $(T113_SRC)/%.S | $(T113_BUILD)
+	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/user/%.o: $(T113_USER_SRC)/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -fno-pic -c $< -o $@
+
+$(T113_BUILD)/user/%.o: $(T113_USER_SRC)/%.S | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/user-init.elf: $(T113_USER_OBJS) $(T113_USER_SRC)/linker.ld
+	$(T113_CROSS)ld -T $(T113_USER_SRC)/linker.ld -Map $(T113_BUILD)/user-init.map \
+		-o $@ $(T113_USER_OBJS)
+
+$(T113_BUILD)/_init: $(T113_BUILD)/user-init.elf
+	$(T113_CROSS)objcopy -O binary $< $@
+
+$(T113_BUILD)/user-echo.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o \
+		$(T113_USER_SRC)/linker.ld
+	$(T113_CROSS)ld -T $(T113_USER_SRC)/linker.ld -Map $(T113_BUILD)/user-echo.map \
+		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o
+
+$(T113_BUILD)/_echo: $(T113_BUILD)/user-echo.elf
+	$(T113_CROSS)objcopy -O binary $< $@
+
+$(T113_BUILD)/mkfs_xv6: tools/mkfs_xv6.c | $(T113_BUILD)
+	$(CC) -O2 -Wall -Wextra -Werror $< -o $@
+
+$(T113_BUILD)/fs.img: $(T113_BUILD)/mkfs_xv6 $(T113_BUILD)/_init \
+		$(T113_BUILD)/_echo
+	$(T113_BUILD)/mkfs_xv6 $@ $(T113_BUILD)/_init $(T113_BUILD)/_echo
+
+$(T113_BUILD)/fs_image.o: $(T113_BUILD)/fs.img
+	$(T113_CROSS)objcopy -I binary -O elf32-littlearm -B arm $< $@
 
 $(T113_BUILD)/minios-kernel.elf: $(T113_OBJS) $(T113_SRC)/linker.ld
 	$(T113_CROSS)ld -T $(T113_SRC)/linker.ld -Map $(T113_BUILD)/minios-t113.map \

@@ -51,6 +51,7 @@ struct t113_task {
 extern struct t113_task *t113_current;
 void t113_cpu_switch_to(struct t113_task *prev, struct t113_task *next);
 void ret_from_fork(void);
+void kernel_svc_entry(void);
 
 int t113_create_kernel_thread(const char *name, void (*fn)(void *), void *arg);
 int t113_create_init_user_process(const void *image, uint32_t image_size,
@@ -58,5 +59,6 @@ int t113_create_init_user_process(const void *image, uint32_t image_size,
 uint32_t t113_finish_fork(struct t113_task *task);
 struct arm32_trapframe *t113_task_trapframe(struct t113_task *task);
 void t113_task_exit(void) __attribute__((noreturn));
+void t113_sched_yield(void);
 
 #endif

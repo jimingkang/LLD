@@ -13,7 +13,7 @@ kernel_entry:
 kernel_vectors:
     b kernel_reset
     b kernel_exception_hang
-    b kernel_exception_hang
+    b kernel_svc_entry
     b kernel_exception_hang
     b kernel_exception_hang
     b kernel_exception_hang
