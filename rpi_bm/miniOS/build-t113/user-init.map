@@ -1,0 +1,243 @@
+Archive member included to satisfy reference by file (symbol)
+
+build-t113/user/libc.a(libc.o)
+                              build-t113/user/init.o (open)
+build-t113/user/libc.a(usys.o)
+                              build-t113/user/libc.a(libc.o) (__sys_write)
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .ARM.attributes
+                0x00000000       0x2d build-t113/user/start.o
+ .comment       0x00000000       0x13 build-t113/user/init.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/user/init.o
+ .comment       0x00000000       0x13 build-t113/user/libc.a(libc.o)
+ .ARM.attributes
+                0x00000000       0x33 build-t113/user/libc.a(libc.o)
+ .ARM.attributes
+                0x00000000       0x2d build-t113/user/libc.a(usys.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+                0x00100000                        . = 0x100000
+
+.text           0x00100000      0xe18
+ *(.text.start)
+ .text.start    0x00100000       0x10 build-t113/user/start.o
+                0x00100000                _start
+ *(.text .text.*)
+ .text          0x00100010        0x0 build-t113/user/start.o
+ .text          0x00100010        0x0 build-t113/user/init.o
+ .text.startup  0x00100010      0x124 build-t113/user/init.o
+                0x00100010                main
+ .text          0x00100134      0xc04 build-t113/user/libc.a(libc.o)
+                0x00100200                write
+                0x0010023c                open
+                0x0010026c                read
+                0x001002ac                close
+                0x001002bc                uptime
+                0x001002c0                exec
+                0x001002f0                sbrk
+                0x00100314                malloc
+                0x001003b8                free
+                0x001003c8                getpid
+                0x001003d8                yield
+                0x001003e8                fork
+                0x001003f8                vfork
+                0x00100408                sleep
+                0x00100424                wait
+                0x00100434                exit
+                0x0010043c                strlen
+                0x0010045c                strnlen
+                0x00100484                memcpy
+                0x001004a0                realloc
+                0x00100508                memmove
+                0x00100550                memset
+                0x00100568                calloc
+                0x001005c0                memcmp
+                0x00100604                memchr
+                0x00100638                strcpy
+                0x00100650                strncpy
+                0x00100690                strcat
+                0x001006ac                strncat
+                0x001006f4                strcmp
+                0x0010071c                strncmp
+                0x00100764                strchr
+                0x00100788                strrchr
+                0x001007b0                strstr
+                0x00100818                isdigit
+                0x0010082c                islower
+                0x00100840                isupper
+                0x00100854                isalpha
+                0x0010086c                isalnum
+                0x00100894                isascii
+                0x001008a4                isblank
+                0x001008b8                iscntrl
+                0x001008cc                isgraph
+                0x001008e0                isprint
+                0x001008f4                isspace
+                0x0010090c                isxdigit
+                0x00100938                ispunct
+                0x0010095c                tolower
+                0x0010096c                toupper
+                0x0010097c                abs
+                0x00100988                labs
+                0x00100994                strtoul
+                0x00100ab4                strtol
+                0x00100ab8                atoi
+                0x00100ac4                atol
+                0x00100ac8                putchar
+                0x00100af8                puts
+                0x00100b44                vsnprintf
+                0x00100c9c                snprintf
+                0x00100cc4                vprintf
+                0x00100d10                printf
+ .text          0x00100d38       0xe0 build-t113/user/libc.a(usys.o)
+                0x00100d38                __sys_write
+                0x00100d48                __sys_getpid
+                0x00100d58                __sys_yield
+                0x00100d68                __sys_fork
+                0x00100d78                __sys_vfork
+                0x00100d88                __sys_sleep
+                0x00100d98                __sys_wait
+                0x00100da8                __sys_exit
+                0x00100db8                __sys_open
+                0x00100dc8                __sys_read
+                0x00100dd8                __sys_close
+                0x00100de8                __sys_uptime
+                0x00100df8                __sys_exec
+                0x00100e08                __sys_sbrk
+
+.glue_7         0x00100e18        0x0
+ .glue_7        0x00100e18        0x0 linker stubs
+
+.glue_7t        0x00100e18        0x0
+ .glue_7t       0x00100e18        0x0 linker stubs
+
+.vfp11_veneer   0x00100e18        0x0
+ .vfp11_veneer  0x00100e18        0x0 linker stubs
+
+.v4_bx          0x00100e18        0x0
+ .v4_bx         0x00100e18        0x0 linker stubs
+
+.iplt           0x00100e18        0x0
+ .iplt          0x00100e18        0x0 build-t113/user/start.o
+
+.rodata         0x00100e18       0xd1
+ *(.rodata .rodata.*)
+ .rodata.str1.1
+                0x00100e18       0xb4 build-t113/user/init.o
+                                 0xb2 (size before relaxing)
+ .rodata        0x00100ecc        0xc build-t113/user/init.o
+ .rodata.str1.1
+                0x00100ed8        0x0 build-t113/user/libc.a(libc.o)
+                                  0x9 (size before relaxing)
+ .rodata        0x00100ed8       0x11 build-t113/user/libc.a(libc.o)
+
+.rel.dyn        0x00100eec        0x0
+ .rel.iplt      0x00100eec        0x0 build-t113/user/start.o
+                0x00101000                        . = ALIGN (0x1000)
+
+.data           0x00101000        0x0
+ *(.data .data.*)
+ .data          0x00101000        0x0 build-t113/user/start.o
+ .data          0x00101000        0x0 build-t113/user/init.o
+ .data          0x00101000        0x0 build-t113/user/libc.a(libc.o)
+ .data          0x00101000        0x0 build-t113/user/libc.a(usys.o)
+
+.igot.plt       0x00101000        0x0
+ .igot.plt      0x00101000        0x0 build-t113/user/start.o
+
+.bss            0x00101000        0x8
+ *(.bss .bss.* COMMON)
+ .bss           0x00101000        0x0 build-t113/user/start.o
+ .bss           0x00101000        0x0 build-t113/user/init.o
+ .bss           0x00101000        0x8 build-t113/user/libc.a(libc.o)
+                0x00101000                errno
+ .bss           0x00101008        0x0 build-t113/user/libc.a(usys.o)
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.ARM.attributes)
+ *(.bss .bss.*)
+                0x00000001                        ASSERT ((. <= 0x800000), T113 user program collides with user stack)
+LOAD build-t113/user/start.o
+LOAD build-t113/user/init.o
+LOAD build-t113/user/libc.a
+OUTPUT(build-t113/user-init.elf elf32-littlearm)
+LOAD linker stubs
+
+.debug_line     0x00000000      0xf6e
+ .debug_line    0x00000000       0x4a build-t113/user/start.o
+ .debug_line    0x0000004a      0x156 build-t113/user/init.o
+ .debug_line    0x000001a0      0xd50 build-t113/user/libc.a(libc.o)
+ .debug_line    0x00000ef0       0x7e build-t113/user/libc.a(usys.o)
+
+.debug_line_str
+                0x00000000       0x3d
+ .debug_line_str
+                0x00000000       0x3d build-t113/user/start.o
+                                 0x36 (size before relaxing)
+ .debug_line_str
+                0x0000003d        0x0 build-t113/user/libc.a(usys.o)
+                                 0x35 (size before relaxing)
+
+.debug_info     0x00000000     0x1fe0
+ .debug_info    0x00000000       0x24 build-t113/user/start.o
+ .debug_info    0x00000024      0x413 build-t113/user/init.o
+ .debug_info    0x00000437     0x1b84 build-t113/user/libc.a(libc.o)
+ .debug_info    0x00001fbb       0x25 build-t113/user/libc.a(usys.o)
+
+.debug_abbrev   0x00000000      0x639
+ .debug_abbrev  0x00000000       0x14 build-t113/user/start.o
+ .debug_abbrev  0x00000014      0x16e build-t113/user/init.o
+ .debug_abbrev  0x00000182      0x4a3 build-t113/user/libc.a(libc.o)
+ .debug_abbrev  0x00000625       0x14 build-t113/user/libc.a(usys.o)
+
+.debug_aranges  0x00000000       0x80
+ .debug_aranges
+                0x00000000       0x20 build-t113/user/start.o
+ .debug_aranges
+                0x00000020       0x20 build-t113/user/init.o
+ .debug_aranges
+                0x00000040       0x20 build-t113/user/libc.a(libc.o)
+ .debug_aranges
+                0x00000060       0x20 build-t113/user/libc.a(usys.o)
+
+.debug_str      0x00000000      0x56a
+ .debug_str     0x00000000      0x56a build-t113/user/start.o
+                                 0x42 (size before relaxing)
+ .debug_str     0x0000056a        0x0 build-t113/user/init.o
+                                0x217 (size before relaxing)
+ .debug_str     0x0000056a        0x0 build-t113/user/libc.a(libc.o)
+                                0x5c3 (size before relaxing)
+ .debug_str     0x0000056a        0x0 build-t113/user/libc.a(usys.o)
+                                 0x41 (size before relaxing)
+
+.debug_loclists
+                0x00000000     0x12d2
+ .debug_loclists
+                0x00000000       0x69 build-t113/user/init.o
+ .debug_loclists
+                0x00000069     0x1269 build-t113/user/libc.a(libc.o)
+
+.debug_rnglists
+                0x00000000       0x7c
+ .debug_rnglists
+                0x00000000       0x14 build-t113/user/init.o
+ .debug_rnglists
+                0x00000014       0x68 build-t113/user/libc.a(libc.o)
+
+.debug_frame    0x00000000      0x5f0
+ .debug_frame   0x00000000       0x34 build-t113/user/init.o
+ .debug_frame   0x00000034      0x5bc build-t113/user/libc.a(libc.o)

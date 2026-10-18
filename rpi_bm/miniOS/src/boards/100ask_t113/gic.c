@@ -1,4 +1,6 @@
 #include "platform.h"
+#include "platform_device.h"
+#include "board.h"
 
 #define GICD_CTLR          (T113_GIC_DIST_BASE + 0x000u)
 #define GICD_TYPER         (T113_GIC_DIST_BASE + 0x004u)
@@ -69,3 +71,45 @@ void t113_gic_end_irq(uint32_t irq_ack)
     mmio_write32(GICC_EOIR, irq_ack);
     io_barrier();
 }
+
+/*
+ * Platform driver binding for the GIC. t113_gic_init() is still called
+ * explicitly from kernel_main() (after the driver core is up), so probe only
+ * validates the distributor/CPU-interface windows against the addresses the
+ * code above is compiled with.
+ */
+struct t113_gic_chip {
+    uint32_t dist_base;
+    uint32_t cpu_base;
+};
+
+static struct t113_gic_chip gic_chip;
+
+static int t113_gic_probe(struct platform_device *pdev)
+{
+    const struct resource *dist =
+        platform_get_resource_byname(pdev, IORESOURCE_MEM, "dist");
+    const struct resource *cpu =
+        platform_get_resource_byname(pdev, IORESOURCE_MEM, "cpu");
+
+    if (!dist || !cpu || dist->start != T113_GIC_DIST_BASE ||
+        cpu->start != T113_GIC_CPU_BASE)
+        return -ENODEV;
+    gic_chip.dist_base = dist->start;
+    gic_chip.cpu_base = cpu->start;
+    platform_set_drvdata(pdev, &gic_chip);
+    platform_dev_info(pdev, "bound (init deferred to t113_gic_init)");
+    return 0;
+}
+
+static const struct of_device_id t113_gic_of_match[] = {
+    { .compatible = "arm,cortex-a7-gic" },
+    { .compatible = "arm,gic-400" },
+    { 0 },
+};
+
+struct platform_driver t113_gic_driver = {
+    .probe = t113_gic_probe,
+    .driver = { .name = "gic-v2" },
+    .of_match_table = t113_gic_of_match,
+};

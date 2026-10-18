@@ -131,7 +131,11 @@ T113_USER_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_USER_SRC)/include -fno-pic
 T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
 	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
-	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o $(T113_BUILD)/fork_entry.o \
+	$(T113_BUILD)/sched.o $(T113_BUILD)/sync.o $(T113_BUILD)/kobject.o \
+	$(T113_BUILD)/device.o $(T113_BUILD)/platform_bus.o \
+	$(T113_BUILD)/board.o $(T113_BUILD)/driver_model.o \
+	$(T113_BUILD)/switch.o \
+	$(T113_BUILD)/fork_entry.o \
 	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/vfs.o \
 	$(T113_BUILD)/fs/minifs.o \
 	$(T113_BUILD)/kernel.o $(T113_BUILD)/minifs_image.o

@@ -12,7 +12,14 @@
 #define T113_GIC_DIST_BASE      (T113_GIC_BASE + 0x1000u)
 #define T113_GIC_CPU_BASE       (T113_GIC_BASE + 0x2000u)
 
-#define T113_IRQ_TIMER0         91u
+#define T113_UART3_SIZE         0x400u
+#define T113_TIMER_SIZE         0xa0u
+#define T113_GIC_DIST_SIZE      0x1000u
+#define T113_GIC_CPU_SIZE       0x2000u
+
+/* GIC interrupt IDs = 32 + SPI number (sun8i-t113s.dtsi). */
+#define T113_IRQ_UART3          37u     /* GIC_SPI 5 */
+#define T113_IRQ_TIMER0         91u     /* GIC_SPI 59 */
 
 #define T113_CCU_UART_BGR       (T113_CCU_BASE + 0x090cu)
 

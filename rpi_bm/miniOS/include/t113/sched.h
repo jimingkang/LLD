@@ -8,6 +8,7 @@
 #define T113_TASK_SLEEPING 2u
 #define T113_TASK_WAITING  3u
 #define T113_TASK_ZOMBIE   4u
+#define T113_TASK_BLOCKED  5u
 
 #define PF_USER           0x00000001u
 #define PF_KTHREAD        0x00000002u
@@ -60,6 +61,7 @@ struct t113_task {
     struct t113_task *ready_next;
     struct t113_task *parent;
     struct t113_task *vfork_parent;
+    struct t113_task *wait_next;
     uint32_t wake_tick;
     int32_t exit_status;
     struct vfs_file *files[T113_MAX_FDS];

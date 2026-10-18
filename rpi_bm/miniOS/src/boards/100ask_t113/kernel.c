@@ -2,6 +2,7 @@
 #include "sched.h"
 #include "fs/vfs.h"
 #include "fs/minifs.h"
+#include "driver_model.h"
 
 extern uint8_t __kernel_reserved_end[];
 
@@ -33,6 +34,7 @@ void kernel_main(uint32_t dram_size)
             __asm__ volatile("wfi");
     }
     t113_page_alloc_init(pool_base, dram_end - pool_base);
+    t113_driver_core_init();
 
     t113_gic_init();
     t113_sched_init();

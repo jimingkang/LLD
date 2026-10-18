@@ -1,5 +1,7 @@
 /* UART3 PB6/PB7 setup follows SyterKit v0.3.0.0 100ask-t113s3 board.c. */
 #include "platform.h"
+#include "platform_device.h"
+#include "board.h"
 
 typedef struct {
     volatile uint32_t rbr_thr_dll;
@@ -63,3 +65,35 @@ void t113_uart_puthex(uint32_t value)
     for (int shift = 28; shift >= 0; shift -= 4)
         t113_uart_putc(digits[(value >> shift) & 0xfu]);
 }
+
+/*
+ * Platform driver binding for the UART3 platform device. The port is already
+ * running as the early console (t113_uart_init() is the first thing
+ * kernel_main() does), so probe only checks that the board description
+ * matches the hard-wired console registers and records them as drvdata.
+ */
+static int t113_uart_probe(struct platform_device *pdev)
+{
+    const struct resource *mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+    if (!mem || mem->start != T113_UART3_BASE ||
+        resource_size(mem) < sizeof(uart_regs_t))
+        return -ENODEV;     /* only the early-console port is supported */
+    if (platform_get_irq(pdev, 0) < 0)
+        return -ENODEV;
+    platform_set_drvdata(pdev, uart3);
+    platform_dev_info(pdev, "early console bound (hw already up)");
+    return 0;
+}
+
+static const struct of_device_id t113_uart_of_match[] = {
+    { .compatible = "allwinner,sun20i-d1-uart" },
+    { .compatible = "snps,dw-apb-uart" },
+    { 0 },
+};
+
+struct platform_driver t113_uart_driver = {
+    .probe = t113_uart_probe,
+    .driver = { .name = "t113-uart" },
+    .of_match_table = t113_uart_of_match,
+};
