@@ -47,6 +47,19 @@ void t113_syscall_dispatch(struct arm32_trapframe *tf)
         tf->r[0] = (uint32_t)result;
         t113_sched_yield();
         return;
+    case T113_SYS_FORK:
+        result = t113_fork_user(tf);
+        break;
+    case T113_SYS_SLEEP:
+        t113_sleep_seconds(tf->r[0]);
+        result = 0;
+        break;
+    case T113_SYS_WAIT:
+        result = t113_wait_child(0);
+        break;
+    case T113_SYS_EXIT:
+        t113_exit_current((int32_t)tf->r[0]);
+        __builtin_unreachable();
     default:
         result = -38; /* -ENOSYS */
         break;

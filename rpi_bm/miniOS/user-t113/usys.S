@@ -22,3 +22,40 @@ user_yield:
     mov r7, #3
     svc #0
     pop {r7, pc}
+
+.global fork
+.global user_fork
+fork:
+user_fork:
+    push {r7, lr}
+    mov r7, #4
+    svc #0
+    pop {r7, pc}
+
+.global sleep
+.global user_sleep
+sleep:
+user_sleep:
+    push {r7, lr}
+    mov r7, #5
+    svc #0
+    pop {r7, pc}
+
+.global wait
+.global user_wait
+wait:
+user_wait:
+    push {r7, lr}
+    mov r7, #6
+    svc #0
+    pop {r7, pc}
+
+.global exit
+.global user_exit
+exit:
+user_exit:
+    push {r7, lr}
+    mov r7, #7
+    svc #0
+1:
+    b 1b

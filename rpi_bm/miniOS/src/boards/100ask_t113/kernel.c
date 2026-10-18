@@ -42,12 +42,15 @@ void kernel_main(uint32_t dram_size)
         for (;;)
             __asm__ volatile("wfi");
     }
-    void *init_image = t113_alloc_page();
+    void *init_image = t113_alloc_pages(4, 1);
     int init_size = init_image
-                  ? t113_xv6fs_read_file("/init", init_image, 4096u) : -1;
-    if (init_size < 0 ||
-        t113_create_init_user_process(init_image, (uint32_t)init_size,
-                                      0x00100000u) < 0) {
+                  ? t113_xv6fs_read_file("/init", init_image, 16384u) : -1;
+    int init_pid = init_size < 0 ? -1
+                 : t113_create_init_user_process(init_image,
+                                                 (uint32_t)init_size);
+    if (init_image)
+        t113_free_pages(init_image, 4);
+    if (init_pid < 0) {
         t113_uart_puts("PANIC: cannot load /init from xv6fs\n");
         for (;;)
             __asm__ volatile("wfi");

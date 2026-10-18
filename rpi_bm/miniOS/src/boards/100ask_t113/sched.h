@@ -5,6 +5,9 @@
 
 #define T113_TASK_RUNNING 0u
 #define T113_TASK_IDLE    1u
+#define T113_TASK_SLEEPING 2u
+#define T113_TASK_WAITING  3u
+#define T113_TASK_ZOMBIE   4u
 
 #define PF_USER           0x00000001u
 #define PF_KTHREAD        0x00000002u
@@ -46,6 +49,9 @@ struct t113_task {
     struct t113_user_vm *mm;
     struct t113_task *ready_prev;
     struct t113_task *ready_next;
+    struct t113_task *parent;
+    uint32_t wake_tick;
+    int32_t exit_status;
 };
 
 extern struct t113_task *t113_current;
@@ -54,8 +60,11 @@ void ret_from_fork(void);
 void kernel_svc_entry(void);
 
 int t113_create_kernel_thread(const char *name, void (*fn)(void *), void *arg);
-int t113_create_init_user_process(const void *image, uint32_t image_size,
-                                  uint32_t entry);
+int t113_create_init_user_process(const void *image, uint32_t image_size);
+int32_t t113_fork_user(struct arm32_trapframe *parent_tf);
+void t113_sleep_seconds(uint32_t seconds);
+int32_t t113_wait_child(int32_t *status);
+void t113_exit_current(int32_t status) __attribute__((noreturn));
 uint32_t t113_finish_fork(struct t113_task *task);
 struct arm32_trapframe *t113_task_trapframe(struct t113_task *task);
 void t113_task_exit(void) __attribute__((noreturn));

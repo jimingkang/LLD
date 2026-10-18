@@ -144,7 +144,7 @@ $(T113_BUILD)/user-init.elf: $(T113_USER_OBJS) $(T113_USER_SRC)/linker.ld
 		-o $@ $(T113_USER_OBJS)
 
 $(T113_BUILD)/_init: $(T113_BUILD)/user-init.elf
-	$(T113_CROSS)objcopy -O binary $< $@
+	$(T113_CROSS)objcopy --strip-debug $< $@
 
 $(T113_BUILD)/user-echo.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o \
 		$(T113_USER_SRC)/linker.ld
@@ -152,7 +152,7 @@ $(T113_BUILD)/user-echo.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o \
 		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o
 
 $(T113_BUILD)/_echo: $(T113_BUILD)/user-echo.elf
-	$(T113_CROSS)objcopy -O binary $< $@
+	$(T113_CROSS)objcopy --strip-debug $< $@
 
 $(T113_BUILD)/mkfs_xv6: tools/mkfs_xv6.c | $(T113_BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror $< -o $@

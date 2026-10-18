@@ -2,7 +2,7 @@
 #include "sched.h"
 #include "user_vm.h"
 
-#define TASK_COUNT      4u
+#define TASK_COUNT      8u
 #define TASK_STACK_SIZE 4096u
 #define ARM_MODE_USR    0x10u
 
@@ -117,8 +117,7 @@ int t113_create_kernel_thread(const char *name, void (*fn)(void *), void *arg)
     return (int)task->pid;
 }
 
-int t113_create_init_user_process(const void *image, uint32_t image_size,
-                                  uint32_t entry)
+int t113_create_init_user_process(const void *image, uint32_t image_size)
 {
     struct t113_task *task = alloc_process_common();
     if (!task)
@@ -126,7 +125,8 @@ int t113_create_init_user_process(const void *image, uint32_t image_size,
 
     task->flags = PF_USER;
     task->name = "init-user";
-    task->mm = t113_user_vm_create(image, image_size);
+    uint32_t entry;
+    task->mm = t113_user_vm_create_elf(image, image_size, &entry);
     if (!task->mm)
         return -1;
 
@@ -136,6 +136,74 @@ int t113_create_init_user_process(const void *image, uint32_t image_size,
     ready_append(task);
     print_task_layout(task);
     return (int)task->pid;
+}
+
+int32_t t113_fork_user(struct arm32_trapframe *parent_tf)
+{
+    if (!parent_tf || !(t113_current->flags & PF_USER))
+        return -1;
+
+    struct t113_task *child = alloc_process_common();
+    if (!child)
+        return -1;
+    child->flags = PF_USER;
+    child->name = "fork-child";
+    child->parent = t113_current;
+    child->mm = t113_user_vm_clone(t113_current->mm);
+    if (!child->mm) {
+        child->state = T113_TASK_IDLE;
+        return -1;
+    }
+    for (uint32_t i = 0; i < sizeof(*parent_tf) / sizeof(uint32_t); ++i)
+        ((uint32_t *)child->trapframe)[i] = ((const uint32_t *)parent_tf)[i];
+    child->trapframe->r[0] = 0; /* fork returns zero in the child. */
+    ready_append(child);
+    print_task_layout(child);
+    return (int32_t)child->pid;
+}
+
+void t113_sleep_seconds(uint32_t seconds)
+{
+    if (seconds == 0)
+        return;
+    t113_current->wake_tick = t113_timer_ticks() + seconds;
+    t113_current->state = T113_TASK_SLEEPING;
+    t113_sched_yield();
+}
+
+int32_t t113_wait_child(int32_t *status)
+{
+    for (;;) {
+        int have_child = 0;
+        for (uint32_t i = 1; i < next_task_slot; ++i) {
+            struct t113_task *child = &tasks[i];
+            if (child->parent != t113_current)
+                continue;
+            have_child = 1;
+            if (child->state == T113_TASK_ZOMBIE) {
+                if (status)
+                    *status = child->exit_status;
+                child->parent = 0;
+                return (int32_t)child->pid;
+            }
+        }
+        if (!have_child)
+            return -1;
+        t113_current->state = T113_TASK_WAITING;
+        t113_sched_yield();
+    }
+}
+
+void t113_exit_current(int32_t status)
+{
+    struct t113_task *task = t113_current;
+    task->exit_status = status;
+    task->state = T113_TASK_ZOMBIE;
+    if (task->parent && task->parent->state == T113_TASK_WAITING)
+        task->parent->state = T113_TASK_RUNNING;
+    t113_sched_yield();
+    for (;;)
+        __asm__ volatile("wfi");
 }
 
 uint32_t t113_finish_fork(struct t113_task *task)
@@ -200,10 +268,18 @@ static void switch_task_mm(struct t113_task *task)
 static void schedule_next(void)
 {
     struct t113_task *prev = t113_current;
-    struct t113_task *next = (prev->state == T113_TASK_IDLE)
+    struct t113_task *next = (prev->state == T113_TASK_IDLE || !prev->ready_next)
                            ? ready_head : prev->ready_next;
+    if (!next)
+        return;
 
-    if (!next || next->state != T113_TASK_RUNNING)
+    struct t113_task *start = next;
+    while (next->state != T113_TASK_RUNNING) {
+        next = next->ready_next;
+        if (next == start)
+            return;
+    }
+    if (next == prev)
         return;
 
     t113_current = next;
@@ -218,6 +294,13 @@ static void schedule_next(void)
 
 void t113_sched_tick(void)
 {
+    uint32_t now = t113_timer_ticks();
+    for (uint32_t i = 1; i < next_task_slot; ++i) {
+        struct t113_task *task = &tasks[i];
+        if (task->state == T113_TASK_SLEEPING &&
+            (int32_t)(now - task->wake_tick) >= 0)
+            task->state = T113_TASK_RUNNING;
+    }
     schedule_next();
 }
 
