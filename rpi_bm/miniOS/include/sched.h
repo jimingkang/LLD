@@ -14,7 +14,7 @@
 #define TASK_RUNNING				0
 #define TASK_ZOMBIE				1
 #define PF_KTHREAD		            	0x00000002
-#define MAX_PROCESS_PAGES			2048	
+#define MAX_PROCESS_PAGES			64
 #define TASK_RUNNING      0
 #define TASK_ZOMBIE       1
 #define MAX_PAGE_COUNT    16
@@ -126,6 +126,7 @@ extern void switch_to(struct task_struct* next);
 extern void cpu_switch_to(struct task_struct* prev, struct task_struct* next);
 extern void schedule(void);
  void schedule_tail(void);
+void exit_process(void);
 #define INIT_TASK \
 /*cpu_context*/	{ {0,0,0,0,0,0,0,0,0,0,0,0,0}, \
 /* state etc */	0,0,1, 0 \

@@ -1,11 +1,14 @@
 #include "sched.h"
 #include "irq.h"
 #include "printf.h"
+#include "fork.h"
 
 static struct task_struct init_task = INIT_TASK;
 struct task_struct *current = &(init_task);
 struct task_struct * task[NR_TASKS] = {&(init_task), };
 int nr_tasks = 1;
+
+void do_exit(int error_code);
 
 void preempt_disable(void)
 {
@@ -31,13 +34,12 @@ void _schedule(void)
 		for (int i = 0; i < NR_TASKS; i++){
 			p = task[i];
 			if (p && p->state == TASK_RUNNING && p->counter > c) {
-				printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
+				if (i != 0)
+					printf("task[%d]: state=%d, counter=%d\n\r",
+					       i, p->state, p->counter);
 			//	c = p->counter;
 			//	next = i;
-			  int eff = p->counter;
-            if (i == 1)   // task1 额外加分
-                eff += 5;
-
+			int eff = p->counter;
             if (eff > c) {
                 c = eff;
                 next = i;
@@ -52,14 +54,21 @@ void _schedule(void)
 			
 			if (p) {
 				
-			printf("task[%d]: state=%d, counter=%d\n\r", i, p->state, p->counter);
+			if (i != 0) {
+				printf("task[%d]: state=%d, counter=%d\n\r",
+				       i, p->state, p->counter);
+			}
 				p->counter = (p->counter >> 1) + p->priority;
 			}
 		}
 	}
-	printf("Switching to task %d at %x with SP=%x,pgd=%x\r\n", next, task[next], task[next]->stack,task[next]->mm->pgd);
+	unsigned long next_pgd = task[next]->mm ? task[next]->mm->pgd : 0;
+	printf("Switching to task %d at %x with SP=%x,pgd=%x\r\n",
+           next, task[next], task[next]->stack, next_pgd);
 	//printf("return from _schedule. next=%x,task=%x,\r\n",next,task[next]);
 	
+	/* Call chain ②: save prev x19-x30/SP and restore next x19-x30/SP.
+	 * A new task's restored return address is ret_from_fork. */
 	switch_to(task[next]);
 	preempt_enable();
 }
@@ -76,8 +85,10 @@ void switch_to(struct task_struct * next)
 		return;
 	struct task_struct * prev = current;
 	current = next;
+	if (next->mm && next->mm->pgd)
+		switch_user_pgd(next->mm->pgd);
 
-	 
+	/* Assembly context switch; its final ret follows next->cpu_context.pc. */
 	cpu_switch_to(prev, next);
 }
 

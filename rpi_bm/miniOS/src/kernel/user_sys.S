@@ -4,6 +4,7 @@
 .set SYS_WRITE_NUMBER, 0 		// syscal numbers 
 .set SYS_FORK_NUMBER, 1 	
 .set SYS_EXIT_NUMBER, 2 	
+.set SYS_SPAWN_NUMBER, 3
 
 .globl user_delay
 user_delay:
@@ -26,5 +27,11 @@ call_sys_exit:
 .globl call_sys_fork
 call_sys_fork:
 	mov w8, #SYS_FORK_NUMBER	
+	svc #0
+	ret
+
+.globl call_sys_spawn
+call_sys_spawn:
+	mov w8, #SYS_SPAWN_NUMBER
 	svc #0
 	ret

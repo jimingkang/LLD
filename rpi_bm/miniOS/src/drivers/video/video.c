@@ -189,7 +189,7 @@ void video_set_resolution(u32 xres, u32 yres, u32 bpp) {
                     buff[i] = bg32_buffer[i];
                 }
             } else {
-                do_dma(BUS_ADDR(vid_buffer), bg32_buffer, fb_req.buff.screen_size);
+                do_dma((void *)BUS_ADDR(vid_buffer), bg32_buffer, fb_req.buff.screen_size);
             }
         }
         else if (fb_req.depth.bpp == 8) {
@@ -200,7 +200,7 @@ void video_set_resolution(u32 xres, u32 yres, u32 bpp) {
                     buff[i] = bg8_buffer[i];
                 }
             } else {
-                do_dma(BUS_ADDR(vid_buffer), bg8_buffer, fb_req.buff.screen_size);
+                do_dma((void *)BUS_ADDR(vid_buffer), bg8_buffer, fb_req.buff.screen_size);
             }
         }
 

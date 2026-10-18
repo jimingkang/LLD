@@ -1,27 +1,47 @@
 #include "utils.h"
 #include "types.h"
 #include "fork.h"
+
+void flush_tlb_single(u64 va);
 #include "mm.h"
 #include "sched.h"
 #include "sys.h"
 #include "printf.h"
 #include "fork.h"
+#include "user.h"
 
-void * sys_call_table[] = {sys_write, sys_fork, sys_exit};
+void * sys_call_table[] = {sys_write, sys_fork, sys_exit, sys_spawn};
 
 void sys_write(char * buf)
 {
-  //  main_output(MU, buf);
+    printf("%s", buf);
 }
 
 int sys_fork(u64 stack)
 {
- //   return copy_process(UTHREAD, 0, 0);
+    return copy_process(UTHREAD, 0, 0, stack);
 }
 
 void sys_exit()
 {
     exit_process();
+}
+
+int sys_spawn(u64 image_id)
+{
+    if (image_id == 1)
+        return create_user_process((unsigned long)user_begin,
+                                   (unsigned long)user_end -
+                                       (unsigned long)user_begin,
+                                   (unsigned long)user_main);
+    if (image_id == 2)
+        return create_user_process((unsigned long)user2_begin,
+                                   (unsigned long)user2_end -
+                                       (unsigned long)user2_begin,
+                                   (unsigned long)user_process2);
+
+    printf("sys_spawn: unknown image id %d\n", image_id);
+    return -1;
 }
 
 void sys_call_table_relocate()
@@ -76,9 +96,6 @@ void do_page_fault(unsigned long addr, unsigned long esr) {
 void handle_user_page_fault(u64 addr, u64 esr) {
     printf("handle_user_page_fault: 0x%x", addr);
 	do_page_fault(addr,esr);
-    // 获取当前进程的页表
-    pgd_t *pgd = current->mm->pgd;
-    
     // 1. 检查地址合法性
  //   if (addr < user_begin || addr >= user_end) {
    //     printf("Invalid user address: 0x%x", addr);
@@ -96,7 +113,7 @@ void handle_user_page_fault(u64 addr, u64 esr) {
         u64 phys_page = get_free_page();
         if (!phys_page) printf("OOM for stack");
         
-        map_page(pgd, addr & PAGE_MASK, phys_page); //                PTE_USER | PTE_WRITE | PTE_UXN
+        map_page(current, addr & PAGE_MASK, phys_page); // PTE_USER | PTE_WRITE | PTE_UXN
         
         printf("User Mapped stack page: VA=0x%x → PA=0x%x\n", 
                addr & PAGE_MASK, phys_page);

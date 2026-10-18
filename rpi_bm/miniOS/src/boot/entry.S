@@ -256,13 +256,17 @@ el0_da:
 .globl ret_from_fork
 ret_from_fork:
 	bl preempt_enable
+	/* Call chain ② -> ③: x19 != 0 is a PF_KTHREAD first run, so call
+	 * fn(x20).  x19 == 0 means pt_regs already describes an EL0 task. */
 	cbz	x19, ret_to_user			// not a kernel thread
 	mov	x0, x20
-	blr	x19
+	blr	x19				// fn returns into adjacent ret_to_user
 
 .globl ret_to_user
 ret_to_user:
 bl irq_disable
+	/* Call chain ④: SP points at pt_regs.  Restore SP_EL0, ELR_EL1 and
+	 * SPSR_EL1 below; kernel_exit restores x0-x30 and eret enters EL0. */
 
 
   // mov   x0, sp //x29                   // x1 = childregs (pt_regs 的基地址)
@@ -297,6 +301,9 @@ bl irq_disable
     bl    uart_send_string2
 
   kernel_exit 0
+	/* Call chain ⑤: a later EL0 syscall/IRQ uses this task's SP_EL1.
+	 * kernel_entry recreates pt_regs at the same kernel-stack-top location;
+	 * kernel_exit consumes it again on the return to EL0. */
 //	eret
 	// --------- 2) 刷新所有 Stage-1 TLB (EL1+EL0) ----------
 	//msr    TTBR0_EL1, x0

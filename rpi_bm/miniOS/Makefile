@@ -1,13 +1,23 @@
 RPI_VERSION ?= 3
 
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+BOOTMNT ?= /Volumes/bootfs
+ARMGNU ?= aarch64-elf
+else
 BOOTMNT ?= /media/rlk/bootfs
-
 ARMGNU ?= aarch64-linux-gnu
+endif
 
 INIT_MMU ?= 1
+MMU_DUMP ?= 1
 
-COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
+COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -DMMU_DUMP=$(MMU_DUMP) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
 	   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector  -Iinclude -mgeneral-regs-only
+
+# The kernel is linked in the high half while the embedded EL0 image has a low
+# VMA (0x400000).  Symbol references can therefore exceed ADRP's +/-4 GiB range.
+COPS += -mcmodel=large
 
 ASMOPS = -Iinclude
 
@@ -16,8 +26,10 @@ SRC_DIR = src
 
 all : kernel8.img
 
+.PHONY: all clean install rpi-install run debug armstub t113 t113-kernel t113-clean
+
 clean :
-	rm -rf $(BUILD_DIR) *.img 
+	rm -rf $(BUILD_DIR) build-t113 *.img armstub-new.bin
 
 $(BUILD_DIR)/%_c.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
@@ -43,15 +55,25 @@ DEP_FILES = $(OBJ_FILES:%.o=%.d)
 
 kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	@echo "Building for RPI $(value RPI_VERSION)"
-	@echo "Deploy to $(value BOOTMNT)"
 	@echo ""
 	$(ARMGNU)-ld -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/kernel8.elf $(OBJ_FILES)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
+
+T113_DISK ?= /dev/disk4
+
+# T113 installation is owned by the rpi_bm parent build because miniBoot
+# creates the final Boot0 image. Keep this convenience entry point.
+install:
+	$(MAKE) -C .. install T113_DISK=$(T113_DISK)
+
+rpi-install: kernel8.img armstub-new.bin
+	@echo "Deploy to $(value BOOTMNT)"
 ifeq ($(RPI_VERSION), 4)
 	cp kernel8.img $(BOOTMNT)/kernel8-rpi4.img
 else
-	cp kernel8.img $(BOOTMNT)/
+	cp kernel8.img $(BOOTMNT)/kernel8_minios.img
 endif
+	cp armstub-new.bin $(BOOTMNT)/
 	cp config.txt $(BOOTMNT)/
 	sync
 
@@ -59,9 +81,11 @@ armstub/build/armstub_s.o: armstub/src/armstub.S
 	mkdir -p $(@D)
 	$(ARMGNU)-gcc $(COPS) -MMD -c $< -o $@
 
-armstub: armstub/build/armstub_s.o
+armstub-new.bin: armstub/build/armstub_s.o
 	$(ARMGNU)-ld --section-start=.text=0 -o armstub/build/armstub.elf armstub/build/armstub_s.o -e _start
 	$(ARMGNU)-objcopy armstub/build/armstub.elf -O binary armstub-new.bin
+
+armstub: armstub-new.bin
 	cp armstub-new.bin $(BOOTMNT)/
 	sync
 QEMU_FLAGS  += -nographic
@@ -72,3 +96,40 @@ run:
 	qemu-system-aarch64 $(QEMU_FLAGS) -kernel kernel8.img
 debug:
 	qemu-system-aarch64 -S -s $(QEMU_FLAGS) -kernel kernel8.elf 
+
+# 100ASK T113-S3 DDR-resident ARMv7 kernel. The SRAM Boot0/SPL lives in
+# ../miniBoot and embeds the binary produced here.
+T113_CROSS ?= arm-none-eabi-
+T113_BUILD := build-t113
+T113_SRC := src/boards/100ask_t113
+T113_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
+	-ffreestanding -fno-builtin -fno-common -fno-stack-protector \
+	-fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -nostartfiles \
+	-Wall -Wextra -I$(T113_SRC)
+T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
+	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
+	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
+	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o \
+	$(T113_BUILD)/kernel.o
+
+t113: t113-kernel
+t113-kernel: $(T113_BUILD)/minios-kernel.bin
+
+$(T113_BUILD):
+	mkdir -p $@
+
+$(T113_BUILD)/%.o: $(T113_SRC)/%.c | $(T113_BUILD)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/%.o: $(T113_SRC)/%.S | $(T113_BUILD)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/minios-kernel.elf: $(T113_OBJS) $(T113_SRC)/linker.ld
+	$(T113_CROSS)ld -T $(T113_SRC)/linker.ld -Map $(T113_BUILD)/minios-t113.map \
+		-o $@ $(T113_OBJS)
+
+$(T113_BUILD)/minios-kernel.bin: $(T113_BUILD)/minios-kernel.elf
+	$(T113_CROSS)objcopy -O binary $< $@
+
+t113-clean:
+	rm -rf $(T113_BUILD)

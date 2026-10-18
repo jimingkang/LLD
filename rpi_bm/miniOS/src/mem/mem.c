@@ -131,8 +131,8 @@ unsigned long allocate_kernel_page() {
 		return 0;
         
 	}
-    void *kva = __va(page);  
-     memzero(kva, PAGE_SIZE);
+    u64 kva = __va(page);
+    memzero(kva, PAGE_SIZE);
 	return page+VA_START ;
 }
 unsigned long map_table_level(unsigned long parent_va, int shift,
@@ -152,7 +152,7 @@ unsigned long map_table_level(unsigned long parent_va, int shift,
             return 0;
         }
         // 清零物理页的新表
-        memzero((void *)__va(new_table_pa), PAGE_SIZE);
+        memzero(__va(new_table_pa), PAGE_SIZE);
 
         // 构造 entry：把“物理地址”+“属性标志”一并写到这一项里
         unsigned long new_entry = (new_table_pa & ~(PAGE_SIZE - 1)) | VALID_BIT | TABLE_BIT;
@@ -195,7 +195,7 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
             return 0;
         }
        
-        memzero((void *)__va(new_pgd_pa), PAGE_SIZE);
+        memzero(__va(new_pgd_pa), PAGE_SIZE);
         task->mm->pgd = new_pgd_pa;
         mm->kernel_pages[ mm->kernel_pages_count++ ] = new_pgd_pa;
     }
@@ -244,7 +244,7 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
         return 0;
     }
 
-    memzero((void *)__va(new_data_pa), PAGE_SIZE);
+    memzero(__va(new_data_pa), PAGE_SIZE);
 
  unsigned long flags = (unsigned long)prot;
 
@@ -261,8 +261,13 @@ unsigned long allocate_user_page(struct task_struct *task, unsigned long va, int
            printf("high32 of pte_va=%x, UXN=%d PXN=%d\n",(long unsigned int)pte_va[pte_index]>>32, ((long unsigned int)pte_va[pte_index]>>54)&1, ((long unsigned int)pte_va[pte_index]>>53)&1);
     
 
-    mm->user_pages[ mm->user_pages_count++ ].pa = new_data_pa;
-    mm->user_pages[ mm->user_pages_count   ].uva = va;
+    if (mm->user_pages_count >= MAX_PROCESS_PAGES) {
+        printf("Too many user pages\n\r");
+        return 0;
+    }
+    mm->user_pages[mm->user_pages_count].pa = new_data_pa;
+    mm->user_pages[mm->user_pages_count].uva = va;
+    mm->user_pages_count++;
 
     return new_data_pa;
 }
@@ -660,7 +665,7 @@ uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel
     // 若表项无效，分配新页表
     if (!(current_table[index] & 0x1)) {
         uint64_t *new_table = alloc_page();  // 分配4KB页
-        memzero(new_table, 4096);
+        memzero((u64)new_table, 4096);
         current_table[index] = (uint64_t)new_table | 0x3;  // 有效且为页表描述符
     }
 
@@ -680,7 +685,7 @@ static pte_T* pgd_create_table_entry(pte_T* tbl, uint64_t virt_addr, int level_s
     // 如果表项不存在则分配新页表
     if (!(tbl[index] & 0x1)) {
         pte_T* new_table = alloc_page();
-        memzero(new_table, PAGE_SIZE);
+        memzero((u64)new_table, PAGE_SIZE);
         tbl[index] = (uint64_t)new_table | MM_TYPE_PAGE_TABLE;
     }
     
@@ -1045,26 +1050,17 @@ void set_pgd(unsigned long pgd_phys_addr, struct pt_regs *regs) {
 
    
     __asm__ volatile (
+        "dsb ishst\n\t"
         "msr ttbr0_el1, %0\n\t"
-     //   "tlbi vmalle1\n\t"
-      //  "dsb ish\n\t"
+        "isb\n\t"
+        "tlbi vmalle1\n\t"
+        "dsb ish\n\t"
         "isb\n\t"
         :
         : "r"(pgd_phys_addr)
         : "memory"
     );
    printf("after flush ttbr0_el1\n");
-    __asm__ volatile(
-        "dsb sy\n\t"
-        "tlbi vaae1is, %0\n\t"
-        "tlbi vaae1is, %1\n\t"
-        "dsb sy\n\t"
-        "isb\n\t"
-        :: "r"(0x400000 >> 12), "r"(0x8000000 >> 12)
-        : "memory"
-    );
-
-
     __asm__ volatile(
         "msr    ELR_EL1, %0\n\t"   // 把 regs->pc（0x400050）写到 ELR_EL1
         "msr    SPSR_EL1, %1\n\t"  // 把 regs->pstate（PSR_MODE_EL0t）写到 SPSR_EL1

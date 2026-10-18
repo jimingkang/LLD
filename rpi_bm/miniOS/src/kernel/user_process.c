@@ -4,13 +4,14 @@
 #include "sched.h"
 #include "mm.h"
 #include "mem.h"
+#include "user_sys.h"
 #include <mmu.h>
 
 
 const char msg[] __attribute__((section(".user.rodata"))) = "Hello";
 const char err[] __attribute__((section(".user.rodata"))) = "Err";
 __attribute__((section(".user.text")))
-void user_main(){
+void user_main(void){
 	while (1){
 	for (int i = 0; i < 5; i++){
 		//	buf[0] = str[i];
@@ -18,10 +19,9 @@ void user_main(){
 			user_delay(1000000);
 		}	
 	}
-	return 0;
 }
 __attribute__((section(".user.text")))
-void loop(char* str)
+void loop(const char *str)
 {
 	char buf[2] = {""};
 	while (1){
@@ -50,51 +50,19 @@ void user_process()
 	}
 }
 
-__attribute__((section(".user.text")))
-void user_process2(){
+static const char msg2[] __attribute__((section(".user2.rodata"))) =
+    "user image 2\n";
 
-	//call_sys_write(msg);
-	//loop(err);
-	//int pid = call_sys_fork();
-	//if (pid < 0) {
-	//	call_sys_write(err);
-	//	call_sys_exit();
-	//	return;
-	//}
-	//if (pid == 0){
-	//	loop(msg);
-	//} else {
-	//	loop(err);
-	//}
-    
-    /*
-	unsigned long stack = call_sys_malloc();
-	if (stack < 0) {
-		//printf("Error while allocating stack for process 1\n\r");
-		return;
-	}
-*/
-        
-    /*
-    unsigned long a=123;
-	int err = call_sys_clone((unsigned long)&process, a, stack);
-	if (err < 0){
-	//	printf("Error while clonning process 1\n\r");
-		return;
-	} 
-    */
-          /*
-	stack = call_sys_malloc();
-	if (stack < 0) {
-		printf("Error while allocating stack for process 1\n\r");
-		return;
-	}
-    unsigned long b=456;
-	err = call_sys_clone((unsigned long)&process, b, stack);
-	if (err < 0){
-		printf("Error while clonning process 2\n\r");
-		return;
-	} 
-        */
-	call_sys_exit();
+__attribute__((section(".user2.text")))
+void user_process2(void)
+{
+    for (;;) {
+        register const char *x0 asm("x0") = msg2;
+        register unsigned long x8 asm("x8") = 0;
+        asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+
+        for (volatile unsigned long delay_count = 0;
+             delay_count < 1000000; delay_count++) {
+        }
+    }
 }

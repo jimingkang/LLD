@@ -64,6 +64,18 @@ ENTRY(_start)
     . = ALIGN(0x1000);
     user_end = .;
 
+    /* A second, independent EL0 image.  It has its own linked user VA and is
+       copied into a separate process address space at boot. */
+    . = ALIGN(0x1000);
+    user2_begin = .;
+    .user2.text : AT(ADDR(.user2.text)) {
+        user2_start = .;
+        *(.user2.text)
+    }
+    .user2.rodata : { *(.user2.rodata) }
+    . = ALIGN(0x1000);
+    user2_end = .;
+
 
 
 

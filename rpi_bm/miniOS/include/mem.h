@@ -1,5 +1,8 @@
 #pragma once
 
+struct task_struct;
+struct pt_regs;
+
 #include "common.h"
 #include "mm.h"
 void *_memcpy(void *dest, const void *src, u32 n);
@@ -287,6 +290,11 @@ void *get_free_pages(int num_pages);
 void *allocate_memory(int bytes);
 void free_memory(void *base);
 unsigned long allocate_kernel_page(); 
+unsigned long allocate_pagetable_page(void);
+u64 id_pgd_addr(void);
+u64 kernel_pgd_addr(void);
+void dump_pgd(pgd_t *pgd);
+void set_pgd(unsigned long pgd_phys_addr, struct pt_regs *regs);
 uint64_t *get_next_table(uint64_t *current_table, uint64_t vaddr, PageTableLevel level);
 void *pud_page_vaddr(pud_t pud);
 void *pmd_page_vaddr(pmd_t pmd);

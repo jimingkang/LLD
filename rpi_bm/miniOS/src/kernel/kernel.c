@@ -13,6 +13,7 @@
 #include "fork.h"
 #include "sched.h"
 #include "user.h"
+#include "utils.h"
 #define PF_KTHREAD		            	0x00000002
 #define PF_UTHREAD		            	0x00000000
 #define MAX_DEVS 10
@@ -29,9 +30,6 @@ void putc(void *p, char c) {
 
     uart_send(c);
 }
-
-u32 get_el();
-
 
 #define BOOT_SIGNATURE 0xAA55
 
@@ -77,15 +75,91 @@ void init_main(void *arg) {
          delay(1000000);
     }
 }
-void kernel_process2()
-{
- // extern u64 user_start;
-  //  extern u64 user_end;
-    u64 user_size = ((u64)(&user_end)) - ((u64)(&user_start));
+void kernel_process(void);
 
-    int err = prepare_move_to_user((u64)&user_start, user_size, ((u64)user_process) - (u64)&user_start);
-    if (err < 0)
-        printf("Failed to move to user mode!\n");
+static int current_pid(void)
+{
+    for (int i = 0; i < nr_tasks; i++)
+        if (task[i] == current)
+            return i;
+    return -1;
+}
+
+static int kernel_page_table_dumped;
+
+static void dump_process_layout(const char *name, unsigned long image_start)
+{
+    struct pt_regs *tf = task_pt_regs(current);
+    int pid = current_pid();
+
+    printf("\n===== %s process layout (pid=%d) =====\n", name, pid);
+    printf("task_struct       : 0x%x\n", current);
+    printf("cpu_context       : 0x%x (pc=0x%x sp=0x%x x19=0x%x x20=0x%x)\n",
+           &current->cpu_context, current->cpu_context.pc,
+           current->cpu_context.sp, current->cpu_context.x19,
+           current->cpu_context.x20);
+    printf("kernel stack      : [0x%x, 0x%x)\n",
+           current->stack, current->stack + THREAD_SIZE);
+    printf("trapframe/pt_regs : 0x%x (pc=0x%x sp_el0=0x%x pstate=0x%x)\n",
+           tf, tf->pc, tf->sp, tf->pstate);
+    printf("user stack        : [0x%x, 0x%x), initial SP=0x%x\n",
+           tf->sp - PAGE_SIZE, tf->sp, tf->sp);
+    printf("user pgd          : PA=0x%x KVA=0x%x\n",
+           current->mm->pgd, __va(current->mm->pgd));
+
+#if MMU_DUMP
+    if (!kernel_page_table_dumped) {
+        printf("-- kernel TTBR1 mapping (printed once) --\n");
+        /* kernel_pgd_addr() is evaluated after entering the high-half kernel,
+         * so it returns the KVA of pg_dir.  The walker accepts a physical
+         * root and prints every used level down to the leaf/block entry. */
+        dump_pagetable_walk(__pa(kernel_pgd_addr()),
+                            (unsigned long)&kernel_process);
+        kernel_page_table_dumped = 1;
+    }
+#endif
+    (void)kernel_page_table_dumped;
+#if MMU_DUMP
+    printf("-- user image L0 -> L1 -> L2 -> L3 --\n");
+    dump_pagetable_walk(current->mm->pgd, image_start);
+    printf("-- user stack L0 -> L1 -> L2 -> L3 --\n");
+    dump_pagetable_walk(current->mm->pgd, tf->sp - PAGE_SIZE);
+#else
+    (void)image_start;
+#endif
+    printf("===========================================\n\n");
+}
+
+static void launch_user_image(const char *name, unsigned long image_start,
+                              unsigned long image_end,
+                              unsigned long entry)
+{
+    current->mm = (struct mm_struct *)allocate_kernel_page();
+    if (!current->mm) {
+        printf("%s: failed to allocate mm_struct\n", name);
+        return;
+    }
+    memzero((u64)current->mm, sizeof(*current->mm));
+
+    current->mm->pgd = allocate_pagetable_page();
+    if (!current->mm->pgd) {
+        printf("%s: failed to allocate PGD\n", name);
+        return;
+    }
+
+    int err = move_to_user_mode(image_start, image_end - image_start, entry);
+    if (err < 0) {
+        printf("%s: failed to move to user mode\n", name);
+        return;
+    }
+    dump_process_layout(name, image_start);
+}
+
+void kernel_process2(void)
+{
+    launch_user_image("user-image-2", (unsigned long)user2_begin,
+                      (unsigned long)user2_end,
+                      (unsigned long)user_process2);
 }
 
 int prepare_move_to_user(u64 start_addr, u64 size, u64 fn)
@@ -100,7 +174,7 @@ int prepare_move_to_user(u64 start_addr, u64 size, u64 fn)
     if (code_page == 0)
         return -1;
     _memcpy((u64*)code_page, (u64*)start_addr, size);
-    set_pgd(current->mm->pgd);
+    set_pgd(current->mm->pgd, regs);
     return 0;
 }
 
@@ -109,58 +183,14 @@ struct ke_regs * task_ke_regs(struct task_struct *tsk)
     u64 p = (u64)tsk + THREAD_SIZE - sizeof(struct ke_regs);
     return (struct ke_regs *)p;
 }
-void kernel_process(){
+void kernel_process(void){
 	printf("\r\nKernel process started. EL %d\r\n", get_el());
-
-      // 确保有有效的mm_struct
-    if (!current->mm) {
-        current->mm = (struct mm_struct *)allocate_kernel_page();
-        if (!current->mm) {
-           printf("Failed to allocate mm_struct\n\r");
-            return;
-       }
-        memzero(current->mm, sizeof(struct mm_struct));
-      
-        // 复制内核映射
-        u64 kernel_pgd = kernel_pgd_addr();
-        current->mm->pgd = allocate_pagetable_page(); //get_pgd();//
-                if (!current->mm->pgd) {
-            printf("Failed to copy kernel mappings\n\r");
-//            free_kernel_page((unsigned long)current->mm);
-           // current->mm = 0;
-            return;
-        }
-       // create_mmio_mapping(kernel_pgd);
-        //printf("before copy_kernel_mappings kernel_pgd= %xt\n\r",kernel_pgd);
-             
-        dump_pgd(kernel_pgd);
-        irq_disable(); 
-       copy_kernel_mappings(__va(current->mm->pgd),kernel_pgd);
-        irq_enable();  
-
-    }
-
-    printf(" after copy_kernel_mappings\n\r");
-    unsigned long begin = (unsigned long)user_begin;
-	unsigned long end = (unsigned long)user_end;
-	unsigned long main = (unsigned long)user_main;
-
-    unsigned long user_va = 0x400000;  // 映射目标地址
-    unsigned long entry_va = user_va + (main- begin);
-    printf("hi &user_begin = 0x%x,low &user_begin = 0x%x\n", begin>>32,begin);
-    printf("user_main=%x, &main= 0x%x\n",user_main, main);
-    printf("hi entry_va      = 0x%x,low  entry_va      = 0x%x\n", entry_va>>32,entry_va);
-  //  int err=prepare_move_to_user(begin, end - begin, entry_va);
-    int err = move_to_user_mode(begin, end - begin, entry_va);
-    printf("after move_to_user_mode err=%d\r\n",err);
-	if (err < 0){
-		printf("Error while moving process to user mode\n\r");
-	} 
-   // while(1){
-   //     printf(" in kernel_process \r\n");
-   // }
-
-
+    /* Call chain ③: ret_from_fork -> kernel_process -> launch_user_image
+     * -> move_to_user_mode.  It builds the user mappings, fills pt_regs and
+     * installs this process's page-table root in TTBR0_EL1. */
+    launch_user_image("user-image-1", (unsigned long)user_begin,
+                      (unsigned long)user_end,
+                      (unsigned long)user_main);
 }
     /*
 void kernel_process(){
@@ -237,15 +267,24 @@ void kernel_main() {
 	//	//return;
 	//}
 
+      /* Call chain ①:
+       * kernel_main -> copy_process(PF_KTHREAD, kernel_process, ...).
+       * The new task first runs ret_from_fork, then kernel_process. */
       int  res = copy_process(PF_KTHREAD,(unsigned long)&kernel_process, 0,0);
 	if (res<0) {
 		printf("error while starting from kernel_process to user process");
 		return;
 	}
 
+    res = copy_process(PF_KTHREAD, (unsigned long)&kernel_process2, 0, 0);
+    if (res < 0) {
+        printf("error while starting second user image\n");
+        return;
+    }
+
 	while (1){
         printf("before schedule\r\n");
-        printf(current); 
+        printf("current task: %p\n", current);
 		schedule();
 	}	
         

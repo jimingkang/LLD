@@ -1,7 +1,7 @@
 #ifndef _UART_H
 #define _UART_H
 
-#include "memory.h"
+#include "mem.h"
 
 #define IO_BASE_ADDR    __va(0x3f200000)
 
