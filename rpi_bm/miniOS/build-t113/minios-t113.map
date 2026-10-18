@@ -1,0 +1,360 @@
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .ARM.attributes
+                0x00000000       0x2d build-t113/kernel_entry.o
+ .comment       0x00000000       0x13 build-t113/uart.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/uart.o
+ .comment       0x00000000       0x13 build-t113/gic.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/gic.o
+ .comment       0x00000000       0x13 build-t113/timer.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/timer.o
+ .comment       0x00000000       0x13 build-t113/mmu.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/mmu.o
+ .comment       0x00000000       0x13 build-t113/page_alloc.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/page_alloc.o
+ .comment       0x00000000       0x13 build-t113/user_vm.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/user_vm.o
+ .comment       0x00000000       0x13 build-t113/sched.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/sched.o
+ .ARM.attributes
+                0x00000000       0x2d build-t113/switch.o
+ .ARM.attributes
+                0x00000000       0x2d build-t113/fork_entry.o
+ .comment       0x00000000       0x13 build-t113/kernel.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/kernel.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+dram             0x40200000         0x07e00000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+
+.kernel         0x40200000     0x1388
+                0x40200000                        __kernel_start = .
+ *kernel_entry.o(.text.kernel_entry)
+ .text.kernel_entry
+                0x40200000       0xd0 build-t113/kernel_entry.o
+                0x40200000                kernel_entry
+                0x40200020                kernel_vectors
+ *(.text .text.* .rodata .rodata.*)
+ .text          0x402000d0        0x0 build-t113/kernel_entry.o
+ .text          0x402000d0      0x138 build-t113/uart.o
+                0x402000d0                t113_uart_init
+                0x4020016c                t113_uart_putc
+                0x402001a0                t113_uart_puts
+                0x402001c8                t113_uart_puthex
+ .rodata.str1.1
+                0x40200208      0x256 build-t113/uart.o
+                                  0x3 (size before relaxing)
+ .rodata        0x4020045e       0x11 build-t113/uart.o
+ *fill*         0x4020046f        0x1 
+ .text          0x40200470      0x15c build-t113/gic.o
+                0x40200470                t113_gic_init
+                0x40200578                t113_gic_enable_irq
+                0x402005a4                t113_gic_acknowledge
+                0x402005b4                t113_gic_end_irq
+ .text          0x402005cc      0x10c build-t113/timer.o
+                0x402005cc                t113_timer0_init
+                0x40200628                t113_timer0_acknowledge
+                0x4020063c                t113_timer_ticks
+                0x4020064c                t113_irq_handler
+ .rodata.str1.1
+                0x402006d8        0x0 build-t113/timer.o
+                                 0x1d (size before relaxing)
+ .text          0x402006d8       0xf4 build-t113/mmu.o
+                0x402006d8                t113_mmu_init
+                0x402007a8                t113_mmu_is_enabled
+                0x402007b0                t113_mmu_ttbr0
+                0x402007b8                t113_mmu_l1_entry
+ .text          0x402007cc      0x28c build-t113/page_alloc.o
+                0x402007cc                t113_page_alloc_init
+                0x402008b0                t113_alloc_pages
+                0x40200998                t113_alloc_page
+                0x402009a4                t113_free_pages
+                0x40200a14                t113_page_free_count
+ .rodata.str1.1
+                0x40200a58        0x0 build-t113/page_alloc.o
+                                 0x32 (size before relaxing)
+ .text          0x40200a58      0x330 build-t113/user_vm.o
+                0x40200a7c                t113_user_vm_create
+                0x40200d3c                t113_switch_user_vm
+                0x40200d64                t113_switch_kernel_vm
+ .rodata.str1.1
+                0x40200d88        0x0 build-t113/user_vm.o
+                                 0x35 (size before relaxing)
+ .text          0x40200d88      0x49c build-t113/sched.o
+                0x40200f74                t113_create_kernel_thread
+                0x40200fc4                t113_create_init_user_process
+                0x40201040                t113_finish_fork
+                0x402010d0                t113_task_trapframe
+                0x402010d8                t113_task_exit
+                0x402010f8                t113_sched_init
+                0x40201188                t113_sched_tick
+ .rodata.str1.1
+                0x40201224        0x0 build-t113/sched.o
+                                0x105 (size before relaxing)
+ .text          0x40201224        0xc build-t113/switch.o
+                0x40201224                t113_cpu_switch_to
+ .text          0x40201230       0x50 build-t113/fork_entry.o
+                0x40201230                ret_from_fork
+                0x40201260                arm32_return_to_user
+ .text          0x40201280       0xf0 build-t113/kernel.o
+                0x40201280                kernel_main
+ .rodata.str1.1
+                0x40201370        0x0 build-t113/kernel.o
+                                 0xd8 (size before relaxing)
+ .rodata        0x40201370        0x4 build-t113/kernel.o
+                0x40201380                        . = ALIGN (0x10)
+ *fill*         0x40201374        0xc 
+ *(.data .data.*)
+ .data          0x40201380        0x0 build-t113/kernel_entry.o
+ .data          0x40201380        0x0 build-t113/uart.o
+ .data          0x40201380        0x0 build-t113/gic.o
+ .data          0x40201380        0x0 build-t113/timer.o
+ .data          0x40201380        0x0 build-t113/mmu.o
+ .data          0x40201380        0x0 build-t113/page_alloc.o
+ .data          0x40201380        0x0 build-t113/user_vm.o
+ .data          0x40201380        0x8 build-t113/sched.o
+                0x40201384                t113_current
+ .data          0x40201388        0x0 build-t113/switch.o
+ .data          0x40201388        0x0 build-t113/fork_entry.o
+ .data          0x40201388        0x0 build-t113/kernel.o
+                0x40201388                        __kernel_load_end = .
+
+.glue_7         0x40201388        0x0
+ .glue_7        0x40201388        0x0 linker stubs
+
+.glue_7t        0x40201388        0x0
+ .glue_7t       0x40201388        0x0 linker stubs
+
+.vfp11_veneer   0x40201388        0x0
+ .vfp11_veneer  0x40201388        0x0 linker stubs
+
+.v4_bx          0x40201388        0x0
+ .v4_bx         0x40201388        0x0 linker stubs
+
+.iplt           0x40201388        0x0
+ .iplt          0x40201388        0x0 build-t113/kernel_entry.o
+
+.igot.plt       0x40201388        0x0
+ .igot.plt      0x40201388        0x0 build-t113/kernel_entry.o
+
+.rel.dyn        0x40201388        0x0
+ .rel.iplt      0x40201388        0x0 build-t113/kernel_entry.o
+
+.kernel_bss     0x40201388      0x1b8
+                0x40201388                        . = ALIGN (0x8)
+                0x40201388                        __kernel_bss_start = .
+ *(.bss .bss.* COMMON)
+ .bss           0x40201388        0x0 build-t113/kernel_entry.o
+ .bss           0x40201388        0x0 build-t113/uart.o
+ .bss           0x40201388        0x0 build-t113/gic.o
+ .bss           0x40201388        0x4 build-t113/timer.o
+ .bss           0x4020138c        0x0 build-t113/mmu.o
+ .bss           0x4020138c        0xc build-t113/page_alloc.o
+ .bss           0x40201398       0x54 build-t113/user_vm.o
+ .bss           0x402013ec      0x154 build-t113/sched.o
+ .bss           0x40201540        0x0 build-t113/switch.o
+ .bss           0x40201540        0x0 build-t113/fork_entry.o
+ .bss           0x40201540        0x0 build-t113/kernel.o
+                0x40201540                        __kernel_bss_end = .
+
+.kernel_page_table
+                0x40201540     0x6ac0
+                0x40204000                        . = ALIGN (0x4000)
+ *fill*         0x40201540     0x2ac0 
+                0x40204000                        __kernel_l1_table = .
+                0x40208000                        . = (. + 0x4000)
+ *fill*         0x40204000     0x4000 
+                0x40208000                        __kernel_l1_table_end = .
+
+.kernel_stack   0x40208000     0x3000
+                0x40208000                        . = ALIGN (0x8)
+                0x4020a000                        . = (. + 0x2000)
+ *fill*         0x40208000     0x2000 
+                0x4020a000                        __kernel_stack_svc_end = .
+                0x4020a400                        . = (. + 0x400)
+ *fill*         0x4020a000      0x400 
+                0x4020a400                        __kernel_stack_irq_end = .
+                0x4020b000                        . = ALIGN (0x1000)
+ *fill*         0x4020a400      0xc00 
+                0x4020b000                        __kernel_reserved_end = .
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.ARM.attributes)
+                0x00000001                        ASSERT ((__kernel_reserved_end <= (ORIGIN (dram) + LENGTH (dram))), miniOS kernel reserved area exceeds DDR link window)
+LOAD build-t113/kernel_entry.o
+LOAD build-t113/uart.o
+LOAD build-t113/gic.o
+LOAD build-t113/timer.o
+LOAD build-t113/mmu.o
+LOAD build-t113/page_alloc.o
+LOAD build-t113/user_vm.o
+LOAD build-t113/sched.o
+LOAD build-t113/switch.o
+LOAD build-t113/fork_entry.o
+LOAD build-t113/kernel.o
+OUTPUT(build-t113/minios-kernel.elf elf32-littlearm)
+LOAD linker stubs
+
+.debug_line     0x00000000     0x1834
+ .debug_line    0x00000000       0x70 build-t113/kernel_entry.o
+ .debug_line    0x00000070      0x27c build-t113/uart.o
+ .debug_line    0x000002ec      0x362 build-t113/gic.o
+ .debug_line    0x0000064e      0x239 build-t113/timer.o
+ .debug_line    0x00000887      0x1a1 build-t113/mmu.o
+ .debug_line    0x00000a28      0x3e1 build-t113/page_alloc.o
+ .debug_line    0x00000e09      0x405 build-t113/user_vm.o
+ .debug_line    0x0000120e      0x443 build-t113/sched.o
+ .debug_line    0x00001651       0x4b build-t113/switch.o
+ .debug_line    0x0000169c       0x5c build-t113/fork_entry.o
+ .debug_line    0x000016f8      0x13c build-t113/kernel.o
+
+.debug_line_str
+                0x00000000       0x60
+ .debug_line_str
+                0x00000000       0x60 build-t113/kernel_entry.o
+                                 0x4a (size before relaxing)
+ .debug_line_str
+                0x00000060        0x0 build-t113/switch.o
+                                 0x44 (size before relaxing)
+ .debug_line_str
+                0x00000060        0x0 build-t113/fork_entry.o
+                                 0x48 (size before relaxing)
+
+.debug_info     0x00000000     0x2b4c
+ .debug_info    0x00000000       0x33 build-t113/kernel_entry.o
+ .debug_info    0x00000033      0x3c4 build-t113/uart.o
+ .debug_info    0x000003f7      0x4c6 build-t113/gic.o
+ .debug_info    0x000008bd      0x440 build-t113/timer.o
+ .debug_info    0x00000cfd      0x251 build-t113/mmu.o
+ .debug_info    0x00000f4e      0x572 build-t113/page_alloc.o
+ .debug_info    0x000014c0      0x8d1 build-t113/user_vm.o
+ .debug_info    0x00001d91      0xa23 build-t113/sched.o
+ .debug_info    0x000027b4       0x31 build-t113/switch.o
+ .debug_info    0x000027e5       0x3c build-t113/fork_entry.o
+ .debug_info    0x00002821      0x32b build-t113/kernel.o
+
+.debug_abbrev   0x00000000     0x1120
+ .debug_abbrev  0x00000000       0x28 build-t113/kernel_entry.o
+ .debug_abbrev  0x00000028      0x1f6 build-t113/uart.o
+ .debug_abbrev  0x0000021e      0x1ad build-t113/gic.o
+ .debug_abbrev  0x000003cb      0x20a build-t113/timer.o
+ .debug_abbrev  0x000005d5      0x177 build-t113/mmu.o
+ .debug_abbrev  0x0000074c      0x22f build-t113/page_alloc.o
+ .debug_abbrev  0x0000097b      0x2d4 build-t113/user_vm.o
+ .debug_abbrev  0x00000c4f      0x312 build-t113/sched.o
+ .debug_abbrev  0x00000f61       0x28 build-t113/switch.o
+ .debug_abbrev  0x00000f89       0x28 build-t113/fork_entry.o
+ .debug_abbrev  0x00000fb1      0x16f build-t113/kernel.o
+
+.debug_aranges  0x00000000      0x160
+ .debug_aranges
+                0x00000000       0x20 build-t113/kernel_entry.o
+ .debug_aranges
+                0x00000020       0x20 build-t113/uart.o
+ .debug_aranges
+                0x00000040       0x20 build-t113/gic.o
+ .debug_aranges
+                0x00000060       0x20 build-t113/timer.o
+ .debug_aranges
+                0x00000080       0x20 build-t113/mmu.o
+ .debug_aranges
+                0x000000a0       0x20 build-t113/page_alloc.o
+ .debug_aranges
+                0x000000c0       0x20 build-t113/user_vm.o
+ .debug_aranges
+                0x000000e0       0x20 build-t113/sched.o
+ .debug_aranges
+                0x00000100       0x20 build-t113/switch.o
+ .debug_aranges
+                0x00000120       0x20 build-t113/fork_entry.o
+ .debug_aranges
+                0x00000140       0x20 build-t113/kernel.o
+
+.debug_str      0x00000000      0x8ab
+ .debug_str     0x00000000      0x8ab build-t113/kernel_entry.o
+                                 0x63 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/uart.o
+                                0x269 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/gic.o
+                                0x22f (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/timer.o
+                                0x29f (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/mmu.o
+                                0x233 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/page_alloc.o
+                                0x2ef (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/user_vm.o
+                                0x37d (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/sched.o
+                                0x457 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/switch.o
+                                 0x63 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/fork_entry.o
+                                 0x77 (size before relaxing)
+ .debug_str     0x000008ab        0x0 build-t113/kernel.o
+                                0x2da (size before relaxing)
+
+.debug_loclists
+                0x00000000      0xe31
+ .debug_loclists
+                0x00000000      0x121 build-t113/uart.o
+ .debug_loclists
+                0x00000121      0x1ed build-t113/gic.o
+ .debug_loclists
+                0x0000030e      0x11f build-t113/timer.o
+ .debug_loclists
+                0x0000042d       0x7f build-t113/mmu.o
+ .debug_loclists
+                0x000004ac      0x395 build-t113/page_alloc.o
+ .debug_loclists
+                0x00000841      0x36d build-t113/user_vm.o
+ .debug_loclists
+                0x00000bae      0x223 build-t113/sched.o
+ .debug_loclists
+                0x00000dd1       0x60 build-t113/kernel.o
+
+.debug_rnglists
+                0x00000000      0x240
+ .debug_rnglists
+                0x00000000       0x31 build-t113/uart.o
+ .debug_rnglists
+                0x00000031       0x85 build-t113/gic.o
+ .debug_rnglists
+                0x000000b6       0x2a build-t113/timer.o
+ .debug_rnglists
+                0x000000e0       0x13 build-t113/mmu.o
+ .debug_rnglists
+                0x000000f3       0x9a build-t113/page_alloc.o
+ .debug_rnglists
+                0x0000018d       0x72 build-t113/user_vm.o
+ .debug_rnglists
+                0x000001ff       0x41 build-t113/sched.o
+
+.debug_frame    0x00000000      0x3f4
+ .debug_frame   0x00000000       0x78 build-t113/uart.o
+ .debug_frame   0x00000078       0x58 build-t113/gic.o
+ .debug_frame   0x000000d0       0x70 build-t113/timer.o
+ .debug_frame   0x00000140       0x50 build-t113/mmu.o
+ .debug_frame   0x00000190       0x9c build-t113/page_alloc.o
+ .debug_frame   0x0000022c       0x70 build-t113/user_vm.o
+ .debug_frame   0x0000029c      0x130 build-t113/sched.o
+ .debug_frame   0x000003cc       0x28 build-t113/kernel.o

@@ -12,5 +12,6 @@
         "*.c_new": "c",
         "sched.h": "c",
         "sstream": "c"
-    }
+    },
+    "cmake.sourceDirectory": "/Users/jimingkang/LLD/pico/6502_part1"
 }

@@ -109,7 +109,7 @@ T113_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
 	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
-	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o \
+	$(T113_BUILD)/sched.o $(T113_BUILD)/switch.o $(T113_BUILD)/fork_entry.o \
 	$(T113_BUILD)/kernel.o
 
 t113: t113-kernel

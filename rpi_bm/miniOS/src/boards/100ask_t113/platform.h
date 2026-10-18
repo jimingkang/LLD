@@ -57,8 +57,6 @@ void *t113_alloc_pages(uint32_t count, uint32_t align_pages);
 void t113_free_pages(void *address, uint32_t count);
 uint32_t t113_page_free_count(void);
 
-void t113_user_vm_demo_init(void);
-
 void t113_sched_init(void);
 void t113_sched_tick(void);
 

@@ -1,7 +1,5 @@
 #include "platform.h"
-
-#define USER_CODE_VA  0x00100000u
-#define USER_STACK_VA 0x008ff000u
+#include "user_vm.h"
 
 #define L1_COARSE       0x1u
 #define L2_SMALL        0x2u
@@ -14,16 +12,26 @@
 #define L2_SHARED       (1u << 10)
 #define L2_NG           (1u << 11)
 
-struct user_address_space {
-    uint32_t *l1;
-    uint32_t *code_l2;
-    uint32_t *stack_l2;
-    void *code_page;
-    void *stack_page;
-};
+#define MAX_USER_VMS 4u
 
-static struct user_address_space demo_vm;
+static struct t113_user_vm user_vms[MAX_USER_VMS];
+static uint32_t user_vm_count;
 extern uint32_t __kernel_l1_table[];
+
+static void zero_words(void *address, uint32_t bytes)
+{
+    uint32_t *p = (uint32_t *)address;
+    for (uint32_t i = 0; i < bytes / sizeof(uint32_t); ++i)
+        p[i] = 0;
+}
+
+static void copy_bytes(void *destination, const void *source, uint32_t bytes)
+{
+    uint8_t *dst = (uint8_t *)destination;
+    const uint8_t *src = (const uint8_t *)source;
+    for (uint32_t i = 0; i < bytes; ++i)
+        dst[i] = src[i];
+}
 
 static uint32_t l2_flags(uint32_t writable, uint32_t executable)
 {
@@ -48,7 +56,7 @@ static void map_user_page(uint32_t *l2, uint32_t va, void *page,
         l2_flags(writable, executable);
 }
 
-static uint32_t walk_user_pa(const struct user_address_space *vm, uint32_t va)
+static uint32_t walk_user_pa(const struct t113_user_vm *vm, uint32_t va)
 {
     uint32_t l1e = vm->l1[va >> 20];
     if ((l1e & 3u) != L1_COARSE)
@@ -60,43 +68,91 @@ static uint32_t walk_user_pa(const struct user_address_space *vm, uint32_t va)
     return (l2e & 0xfffff000u) | (va & 0xfffu);
 }
 
-void t113_user_vm_demo_init(void)
+static void sync_user_code(void *address, uint32_t size)
 {
-    /* A short-descriptor L1 table is 16 KiB and must be 16 KiB aligned. */
-    demo_vm.l1 = (uint32_t *)t113_alloc_pages(4, 4);
-    demo_vm.code_l2 = (uint32_t *)t113_alloc_page();
-    demo_vm.stack_l2 = (uint32_t *)t113_alloc_page();
-    demo_vm.code_page = t113_alloc_page();
-    demo_vm.stack_page = t113_alloc_page();
+    uint32_t start = (uint32_t)(uintptr_t)address & ~31u;
+    uint32_t end = ((uint32_t)(uintptr_t)address + size + 31u) & ~31u;
+    for (uint32_t p = start; p < end; p += 32u)
+        __asm__ volatile("mcr p15, 0, %0, c7, c14, 1" : : "r"(p) : "memory");
+    __asm__ volatile(
+        "dsb sy\n\t"
+        "mov r0, #0\n\t"
+        "mcr p15, 0, r0, c7, c5, 0\n\t"
+        "dsb sy\n\t"
+        "isb"
+        : : : "r0", "memory");
+}
 
-    if (!demo_vm.l1 || !demo_vm.code_l2 || !demo_vm.stack_l2 ||
-        !demo_vm.code_page || !demo_vm.stack_page) {
-        t113_uart_puts("PANIC: user address-space allocation failed\n");
-        for (;;)
-            __asm__ volatile("wfi");
-    }
+struct t113_user_vm *t113_user_vm_create(const void *image,
+                                         uint32_t image_size)
+{
+    if (!image || image_size == 0 || image_size > 4096u ||
+        user_vm_count >= MAX_USER_VMS)
+        return 0;
 
-    /* Each process receives the privileged 1:1 kernel map.  Domain 0 is
-     * Client, so AP bits prevent User mode from touching those sections. */
+    struct t113_user_vm *vm = &user_vms[user_vm_count++];
+    vm->l1 = (uint32_t *)t113_alloc_pages(4, 4);
+    vm->code_l2 = (uint32_t *)t113_alloc_page();
+    vm->stack_l2 = (uint32_t *)t113_alloc_page();
+    vm->code_page = t113_alloc_page();
+    vm->stack_page = t113_alloc_page();
+
+    if (!vm->l1 || !vm->code_l2 || !vm->stack_l2 ||
+        !vm->code_page || !vm->stack_page)
+        return 0;
+
+    zero_words(vm->l1, 0x4000u);
+    zero_words(vm->code_l2, 0x1000u);
+    zero_words(vm->stack_l2, 0x1000u);
+    zero_words(vm->code_page, 0x1000u);
+    zero_words(vm->stack_page, 0x1000u);
+
+    /* Retain privileged kernel/MMIO sections; their AP bits deny User mode. */
     for (uint32_t i = 0; i < 4096; ++i)
-        demo_vm.l1[i] = __kernel_l1_table[i];
+        vm->l1[i] = __kernel_l1_table[i];
 
-    install_l2(demo_vm.l1, USER_CODE_VA, demo_vm.code_l2);
-    install_l2(demo_vm.l1, USER_STACK_VA, demo_vm.stack_l2);
-    map_user_page(demo_vm.code_l2, USER_CODE_VA, demo_vm.code_page, 0, 1);
-    map_user_page(demo_vm.stack_l2, USER_STACK_VA, demo_vm.stack_page, 1, 0);
+    install_l2(vm->l1, USER_CODE_VA, vm->code_l2);
+    install_l2(vm->l1, USER_STACK_VA, vm->stack_l2);
+    map_user_page(vm->code_l2, USER_CODE_VA, vm->code_page, 0, 1);
+    map_user_page(vm->stack_l2, USER_STACK_VA, vm->stack_page, 1, 0);
+    copy_bytes(vm->code_page, image, image_size);
+    sync_user_code(vm->code_page, image_size);
 
     t113_uart_puts("user vm: L1=");
-    t113_uart_puthex((uint32_t)(uintptr_t)demo_vm.l1);
+    t113_uart_puthex((uint32_t)(uintptr_t)vm->l1);
     t113_uart_puts(" code VA=");
     t113_uart_puthex(USER_CODE_VA);
     t113_uart_puts("->PA=");
-    t113_uart_puthex(walk_user_pa(&demo_vm, USER_CODE_VA));
+    t113_uart_puthex(walk_user_pa(vm, USER_CODE_VA));
     t113_uart_puts(" stack VA=");
     t113_uart_puthex(USER_STACK_VA);
     t113_uart_puts("->PA=");
-    t113_uart_puthex(walk_user_pa(&demo_vm, USER_STACK_VA));
+    t113_uart_puthex(walk_user_pa(vm, USER_STACK_VA));
     t113_uart_puts(" free-pages=");
     t113_uart_puthex(t113_page_free_count());
     t113_uart_putc('\n');
+    return vm;
+}
+
+static void switch_ttbr0(uint32_t table)
+{
+    __asm__ volatile(
+        "dsb sy\n\t"
+        "mcr p15, 0, %0, c2, c0, 0\n\t"
+        "mov r1, #0\n\t"
+        "mcr p15, 0, r1, c8, c7, 0\n\t"
+        "dsb sy\n\t"
+        "isb"
+        : : "r"(table) : "r1", "memory");
+}
+
+void t113_switch_user_vm(struct t113_user_vm *vm)
+{
+    if (vm)
+        switch_ttbr0((uint32_t)(uintptr_t)vm->l1);
+}
+
+void t113_switch_kernel_vm(void)
+{
+    switch_ttbr0((uint32_t)(uintptr_t)__kernel_l1_table);
 }

@@ -1,6 +1,13 @@
 #include "platform.h"
+#include "sched.h"
 
 extern uint8_t __kernel_reserved_end[];
+
+/* Minimal ARM user image: an intentional busy loop. Timer IRQs must still
+ * preempt it, proving User mode, its page table and the kernel return path. */
+static const uint32_t init_user_image[] = {
+    0xeafffffeu, /* b . */
+};
 
 void kernel_main(uint32_t dram_size)
 {
@@ -30,7 +37,13 @@ void kernel_main(uint32_t dram_size)
 
     t113_gic_init();
     t113_sched_init();
-    t113_user_vm_demo_init();
+    if (t113_create_init_user_process(init_user_image,
+                                      sizeof(init_user_image),
+                                      0x00100000u) < 0) {
+        t113_uart_puts("PANIC: cannot create init user process\n");
+        for (;;)
+            __asm__ volatile("wfi");
+    }
     t113_timer0_init();
     t113_uart_puts("GIC + Timer0 IRQ ready: expect one tick per second\n");
     __asm__ volatile("cpsie i" ::: "memory");
