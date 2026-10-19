@@ -34,6 +34,22 @@ static int names_match(const char *a, const char *b)
     return *a == *b;
 }
 
+int dev_str_eq(const char *a, const char *b)
+{
+    return names_match(a, b);
+}
+
+const struct of_device_id *of_match_compatible(const struct of_device_id *table,
+                                               const char *compatible)
+{
+    if (!table || !compatible)
+        return 0;
+    for (; table->compatible; ++table)
+        if (names_match(table->compatible, compatible))
+            return table;
+    return 0;
+}
+
 /* ---------------------------------------------------------------- binding */
 
 static int driver_match_device(struct device_driver *drv, struct device *dev)

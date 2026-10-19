@@ -1,0 +1,19 @@
+/* Automatically generated; do not edit. */
+#ifndef MINIOS_GENERATED_AUTOCONF_H
+#define MINIOS_GENERATED_AUTOCONF_H
+#define CONFIG_ARCH_ARM 1
+#define CONFIG_BOARD_100ASK_T113 1
+#define CONFIG_MMC 1
+#define CONFIG_MMC_SUNXI 1
+#define CONFIG_SDIO 1
+#define CONFIG_NET 1
+#define CONFIG_WLAN 1
+#define CONFIG_WLAN_XRADIO 1
+#define CONFIG_WLAN_XRADIO_XR829 1
+#define CONFIG_XR829_WSM 1
+#define CONFIG_WPA2_PSK 1
+#define CONFIG_I2C 1
+#define CONFIG_VFS 1
+#define CONFIG_MINIFS 1
+#define CONFIG_USERSPACE 1
+#endif

@@ -1,0 +1,12 @@
+choice
+    prompt "Architecture"
+    default ARCH_ARM
+
+config ARCH_ARM
+    bool "ARM 32-bit"
+config ARCH_ARM64
+    bool "ARM 64-bit"
+endchoice
+
+source "src/arch/arm/Kconfig"
+source "src/arch/arm64/Kconfig"

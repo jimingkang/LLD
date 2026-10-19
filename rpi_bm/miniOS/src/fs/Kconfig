@@ -1,0 +1,9 @@
+menu "File systems"
+config VFS
+    bool "Virtual file system"
+    default y
+config MINIFS
+    bool "Embedded miniFS"
+    depends on VFS
+    default y
+endmenu

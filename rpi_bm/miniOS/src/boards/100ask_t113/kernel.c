@@ -12,7 +12,7 @@ extern uint8_t __minifs_image_end[];
 void kernel_main(uint32_t dram_size)
 {
     t113_uart_init();
-    t113_uart_puts("\nminiOS kernel: executing from DDR\n");
+    t113_uart_puts("\nminiOS kernel: executing from DDR (built " __DATE__ " " __TIME__ ")\n");
     t113_uart_puts("kernel entry=0x40200000 current-PC=");
     uint32_t pc;
     __asm__ volatile("mov %0, pc" : "=r"(pc));
@@ -34,6 +34,7 @@ void kernel_main(uint32_t dram_size)
             __asm__ volatile("wfi");
     }
     t113_page_alloc_init(pool_base, dram_end - pool_base);
+    t113_bootpack_dump();
     t113_driver_core_init();
 
     t113_gic_init();

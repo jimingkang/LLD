@@ -1,0 +1,16 @@
+mainmenu "miniOS Configuration"
+
+source "src/arch/Kconfig"
+source "src/boards/Kconfig"
+source "src/drivers/Kconfig"
+source "src/fs/Kconfig"
+
+menu "Kernel options"
+config USERSPACE
+    bool "Userspace and system calls"
+    default y
+
+config DEBUG_MMU_DUMP
+    bool "Dump MMU page tables"
+    default n
+endmenu

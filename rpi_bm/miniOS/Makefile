@@ -1,5 +1,10 @@
 RPI_VERSION ?= 3
 
+-include .config
+CONFIG_WLAN_XRADIO_XR829 ?= y
+CONFIG_WPA2_PSK ?= y
+PYTHON ?= python3
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 BOOTMNT ?= /Volumes/bootfs
@@ -13,21 +18,42 @@ INIT_MMU ?= 1
 MMU_DUMP ?= 1
 
 COPS =  -g -O0 -DRPI_VERSION=$(RPI_VERSION) -DINIT_MMU=$(INIT_MMU) -DMMU_DUMP=$(MMU_DUMP) -Wall -Wno-psabi -nostdlib -nostartfiles -ffreestanding \
-	   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector  -Iinclude -mgeneral-regs-only
+	   -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector \
+	   -Isrc/boards/raspberrypi/include -Isrc/include -mgeneral-regs-only
 
 # The kernel is linked in the high half while the embedded EL0 image has a low
 # VMA (0x400000).  Symbol references can therefore exceed ADRP's +/-4 GiB range.
 COPS += -mcmodel=large
 
-ASMOPS = -Iinclude
+ASMOPS = -Isrc/boards/raspberrypi/include -Isrc/include
 
 BUILD_DIR = build
 SRC_DIR = src
 
-all : kernel8.img
+ifeq ($(CONFIG_BOARD_100ASK_T113),y)
+DEFAULT_IMAGE := t113
+else
+DEFAULT_IMAGE := kernel8.img
+endif
+
+all : $(DEFAULT_IMAGE)
 
 .PHONY: all clean install rpi-install run debug qemu qemu-gdb \
-	qemu-gdb-client armstub t113 t113-kernel t113-clean
+	qemu-gdb-client armstub t113 t113-kernel t113-clean menuconfig \
+	100ask_t113_defconfig rpi3_defconfig savedefconfig
+
+menuconfig:
+	$(PYTHON) scripts/kconfig/menuconfig.py
+
+100ask_t113_defconfig:
+	$(PYTHON) scripts/kconfig/menuconfig.py --defconfig src/arch/arm/configs/100ask_t113_defconfig
+
+rpi3_defconfig:
+	$(PYTHON) scripts/kconfig/menuconfig.py --defconfig src/arch/arm64/configs/rpi3_defconfig
+
+savedefconfig:
+	@test -f .config || (echo "Run make menuconfig first"; exit 1)
+	cp .config defconfig
 
 clean :
 	rm -rf $(BUILD_DIR) build-t113 *.img armstub-new.bin
@@ -43,11 +69,17 @@ $(BUILD_DIR)/%_s.o: $(SRC_DIR)/%.S
 C_FILES = $(wildcard $(SRC_DIR)/*.c)
 C_FILES += $(wildcard $(SRC_DIR)/*/*.c)
 C_FILES += $(wildcard $(SRC_DIR)/*/*/*.c)
-C_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/%,$(C_FILES))
+C_FILES += $(wildcard $(SRC_DIR)/*/*/*/*.c)
+C_FILES += $(wildcard $(SRC_DIR)/*/*/*/*/*.c)
+C_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/% \
+	$(SRC_DIR)/drivers/net/% \
+	$(SRC_DIR)/lib/wpa_crypto.c,$(C_FILES))
 
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
 ASM_FILES += $(wildcard $(SRC_DIR)/*/*.S)
 ASM_FILES += $(wildcard $(SRC_DIR)/*/*/*.S)
+ASM_FILES += $(wildcard $(SRC_DIR)/*/*/*/*.S)
+ASM_FILES += $(wildcard $(SRC_DIR)/*/*/*/*/*.S)
 ASM_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/%,$(ASM_FILES))
 
 OBJ_FILES = $(C_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%_c.o)
@@ -120,13 +152,16 @@ T113_CROSS ?= arm-none-eabi-
 T113_BUILD := build-t113
 T113_SRC := src/boards/100ask_t113
 T113_USER_SRC := user-t113
-T113_KERNEL_INCLUDE := include/t113
+T113_KERNEL_INCLUDE := src/include/t113
 T113_COMMON_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 	-ffreestanding -fno-builtin -fno-common -fno-stack-protector \
 	-fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -nostartfiles \
 	-Wall -Wextra
 
-T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE)
+T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE) -Isrc/include/net
+ifneq ($(wildcard src/include/generated/autoconf.h),)
+T113_CFLAGS += -include src/include/generated/autoconf.h
+endif
 T113_USER_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_USER_SRC)/include -fno-pic
 T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
@@ -134,11 +169,38 @@ T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/sched.o $(T113_BUILD)/sync.o $(T113_BUILD)/kobject.o \
 	$(T113_BUILD)/device.o $(T113_BUILD)/platform_bus.o \
 	$(T113_BUILD)/board.o $(T113_BUILD)/driver_model.o \
+	$(T113_BUILD)/gpio.o $(T113_BUILD)/delay.o \
+	$(T113_BUILD)/bootpack.o \
 	$(T113_BUILD)/switch.o \
 	$(T113_BUILD)/fork_entry.o \
 	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/vfs.o \
 	$(T113_BUILD)/fs/minifs.o \
 	$(T113_BUILD)/kernel.o $(T113_BUILD)/minifs_image.o
+
+ifeq ($(CONFIG_I2C),y)
+T113_OBJS += $(T113_BUILD)/i2c_core.o $(T113_BUILD)/twi.o
+endif
+ifeq ($(CONFIG_VIDEO),y)
+T113_OBJS += $(T113_BUILD)/csi.o
+endif
+ifeq ($(CONFIG_VIDEO_OV5640),y)
+T113_OBJS += $(T113_BUILD)/ov5640.o
+endif
+ifeq ($(CONFIG_MMC),y)
+T113_OBJS += $(T113_BUILD)/sdio_core.o $(T113_BUILD)/smhc.o
+endif
+
+ifeq ($(CONFIG_WLAN_XRADIO_XR829),y)
+T113_OBJS += $(T113_BUILD)/drivers/net/wireless/xradio/core.o \
+	$(T113_BUILD)/drivers/net/wireless/xradio/wsm.o \
+	$(T113_BUILD)/drivers/net/wireless/xradio/sta.o
+endif
+ifeq ($(CONFIG_WPA2_PSK),y)
+T113_OBJS += $(T113_BUILD)/lib/wpa_crypto.o
+endif
+ifeq ($(CONFIG_NET),y)
+T113_OBJS += $(T113_BUILD)/net/tftp.o
+endif
 T113_USER_LIB_OBJS := $(T113_BUILD)/user/usys.o \
 	$(T113_BUILD)/user/libc/libc.o
 T113_USER_LIB := $(T113_BUILD)/user/libc.a
@@ -155,6 +217,26 @@ $(T113_BUILD)/%.o: $(T113_SRC)/%.c | $(T113_BUILD)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
 $(T113_BUILD)/%.o: $(T113_SRC)/%.S | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/drivers/net/wireless/xradio/core.o: src/drivers/net/wireless/xradio/xr829_core.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/drivers/net/wireless/xradio/wsm.o: src/drivers/net/wireless/xradio/wsm.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/drivers/net/wireless/xradio/sta.o: src/drivers/net/wireless/xradio/sta.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/lib/wpa_crypto.o: src/lib/wpa_crypto.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/net/tftp.o: src/net/tftp.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 

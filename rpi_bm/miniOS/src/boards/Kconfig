@@ -1,0 +1,13 @@
+choice
+    prompt "Target board"
+
+config BOARD_100ASK_T113
+    bool "100ASK T113-S3"
+    depends on ARCH_ARM
+config BOARD_RPI3
+    bool "Raspberry Pi 3"
+    depends on ARCH_ARM64
+endchoice
+
+source "src/boards/100ask_t113/Kconfig"
+source "src/boards/raspberrypi/Kconfig"

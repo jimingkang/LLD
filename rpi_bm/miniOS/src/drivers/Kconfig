@@ -1,0 +1,16 @@
+menu "Device Drivers"
+source "src/drivers/mmc/Kconfig"
+source "src/drivers/net/Kconfig"
+
+config I2C
+    bool "I2C support"
+    default y if BOARD_100ASK_T113
+config VIDEO
+    bool "Video capture support"
+    depends on I2C
+    default n
+config VIDEO_OV5640
+    bool "OV5640 camera"
+    depends on VIDEO
+    default n
+endmenu

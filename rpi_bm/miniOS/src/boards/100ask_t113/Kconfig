@@ -1,0 +1,12 @@
+menu "100ASK T113-S3 board"
+    depends on BOARD_100ASK_T113
+config SOC_T113
+    bool
+    default y
+config T113_UART3
+    bool "UART3 console"
+    default y
+config T113_TIMER0
+    bool "Timer0 system tick"
+    default y
+endmenu

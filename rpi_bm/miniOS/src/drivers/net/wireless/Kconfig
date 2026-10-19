@@ -1,0 +1,7 @@
+menu "Wireless LAN"
+    depends on NET
+config WLAN
+    bool "Wireless LAN"
+    default y
+source "src/drivers/net/wireless/xradio/Kconfig"
+endmenu

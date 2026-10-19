@@ -1,0 +1,6 @@
+menu "ARMv7 architecture"
+    depends on ARCH_ARM
+config CPU_CORTEX_A7
+    bool "Cortex-A7"
+    default y
+endmenu

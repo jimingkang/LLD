@@ -3,6 +3,8 @@
 #include "device.h"
 #include "platform_device.h"
 #include "board.h"
+#include "i2c.h"
+#include "mmc.h"
 
 static struct kset devices;
 static struct kset drivers;
@@ -37,10 +39,17 @@ void t113_driver_core_init(void)
 
     if (platform_bus_init() < 0)
         panic("cannot register platform bus");
+    if (i2c_bus_init() < 0)
+        panic("cannot register i2c bus");
+    if (sdio_bus_init() < 0)
+        panic("cannot register sdio bus");
 
     /* Devices first, then drivers: binding happens in driver_register(). */
     t113_board_register_devices();
     t113_board_register_drivers();
+
+    /* Card enumeration registers devices: must run outside any probe. */
+    mmc_rescan_all();
 
     t113_driver_core_dump();
 }

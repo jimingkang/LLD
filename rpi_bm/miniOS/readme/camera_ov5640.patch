@@ -1,0 +1,1339 @@
+diff -ruN -x build-t113 miniOS.base/Makefile miniOS/Makefile
+--- a/rpi_bm/miniOS/Makefile	2026-10-18 14:14:58.250063741 -0500
++++ b/rpi_bm/miniOS/Makefile	2026-10-18 14:18:09.367518736 -0500
+@@ -134,6 +134,8 @@
+ 	$(T113_BUILD)/sched.o $(T113_BUILD)/sync.o $(T113_BUILD)/kobject.o \
+ 	$(T113_BUILD)/device.o $(T113_BUILD)/platform_bus.o \
+ 	$(T113_BUILD)/board.o $(T113_BUILD)/driver_model.o \
++	$(T113_BUILD)/gpio.o $(T113_BUILD)/delay.o $(T113_BUILD)/i2c_core.o \
++	$(T113_BUILD)/twi.o $(T113_BUILD)/csi.o $(T113_BUILD)/ov5640.o \
+ 	$(T113_BUILD)/switch.o \
+ 	$(T113_BUILD)/fork_entry.o \
+ 	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/vfs.o \
+diff -ruN -x build-t113 miniOS.base/include/t113/board.h miniOS/include/t113/board.h
+--- a/rpi_bm/miniOS/include/t113/board.h	2026-10-18 14:14:58.224774909 -0500
++++ b/rpi_bm/miniOS/include/t113/board.h	2026-10-18 14:17:40.281477630 -0500
+@@ -2,12 +2,18 @@
+ #define MINIOS_T113_BOARD_H
+ 
+ struct platform_driver;
++struct i2c_driver;
+ 
+ /* Drivers for the SoC blocks the kernel already uses (see uart/gic/timer.c). */
+ extern struct platform_driver t113_uart_driver;
+ extern struct platform_driver t113_gic_driver;
+ extern struct platform_driver t113_timer_driver;
+ 
++/* Camera path: CSIC DVP interface, TWI controller, OV5640 sensor. */
++extern struct platform_driver t113_csi_driver;
++extern struct platform_driver t113_twi_driver;
++extern struct i2c_driver ov5640_driver;
++
+ /* Static board description: 100ASK T113-S3 platform devices. */
+ int t113_board_register_devices(void);
+ int t113_board_register_drivers(void);
+diff -ruN -x build-t113 miniOS.base/include/t113/camera.h miniOS/include/t113/camera.h
+--- a/rpi_bm/miniOS/include/t113/camera.h	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/include/t113/camera.h	2026-10-18 14:17:40.281085007 -0500
+@@ -0,0 +1,29 @@
++#ifndef MINIOS_T113_CAMERA_H
++#define MINIOS_T113_CAMERA_H
++
++#include "gpio.h"
++
++/* Board data for the CSIC parallel (DVP) interface ("csi0"). */
++struct t113_csi_platform_data {
++    uint32_t mclk_hz;               /* sensor master clock, from 24 MHz HOSC */
++    const struct t113_pin *pins;    /* NCSI0 HSYNC/VSYNC/PCLK/MCLK/D0..D7 */
++    uint32_t num_pins;
++};
++
++/* Non-zero once csi<id> has probed and its MCLK output is running. */
++int t113_csi_mclk_running(uint32_t id);
++
++/* Board data for an OmniVision OV5640 on DVP (i2c client "ov5640"). */
++struct ov5640_platform_data {
++    int pwdn_gpio;                  /* active high, T113_GPIO_NONE if hard-wired */
++    int reset_gpio;                 /* active low,  T113_GPIO_NONE if hard-wired */
++    uint32_t csi_id;                /* which CSI provides MCLK */
++};
++
++#define OV5640_CHIP_ID 0x5640u
++
++struct i2c_client;
++int ov5640_read_reg(struct i2c_client *client, uint16_t reg, uint8_t *val);
++int ov5640_write_reg(struct i2c_client *client, uint16_t reg, uint8_t val);
++
++#endif
+diff -ruN -x build-t113 miniOS.base/include/t113/device.h miniOS/include/t113/device.h
+--- a/rpi_bm/miniOS/include/t113/device.h	2026-10-18 14:14:58.225745393 -0500
++++ b/rpi_bm/miniOS/include/t113/device.h	2026-10-18 14:15:06.634125401 -0500
+@@ -18,10 +18,24 @@
+  * register/unregister API.
+  */
+ 
+-#define ENODEV  19
+-#define EINVAL  22
++#define EIO      5
++#define ENXIO    6
+ #define EBUSY   16
+ #define EEXIST  17
++#define ENODEV  19
++#define EINVAL  22
++#define ETIMEDOUT 110
++
++/* Device-tree style match entry (no real DT yet: string compare only). */
++struct of_device_id {
++    const char *compatible;
++    const void *data;
++};
++
++/* Shared helpers for bus match functions. */
++int dev_str_eq(const char *a, const char *b);
++const struct of_device_id *of_match_compatible(const struct of_device_id *table,
++                                               const char *compatible);
+ 
+ struct device;
+ struct device_driver;
+diff -ruN -x build-t113 miniOS.base/include/t113/gpio.h miniOS/include/t113/gpio.h
+--- a/rpi_bm/miniOS/include/t113/gpio.h	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/include/t113/gpio.h	2026-10-18 14:15:24.450905761 -0500
+@@ -0,0 +1,48 @@
++#ifndef MINIOS_T113_GPIO_H
++#define MINIOS_T113_GPIO_H
++
++#include <stdint.h>
++
++/*
++ * Minimal sun20i-d1 / sun8iw20 PIO helpers (bank stride 0x30):
++ *   +0x00..0x0c CFG0..3  4 bits/pin   function select (0 in, 1 out, 2.. alt)
++ *   +0x10       DAT      1 bit/pin
++ *   +0x14..0x20 DRV0..3  4 bits/pin
++ *   +0x24..0x28 PULL0..1 2 bits/pin   0 none, 1 up, 2 down
++ */
++
++enum t113_gpio_port {
++    T113_PB = 1, T113_PC, T113_PD, T113_PE, T113_PF, T113_PG,
++};
++
++#define T113_GPIO_IN        0u
++#define T113_GPIO_OUT       1u
++#define T113_GPIO_DISABLED  0xfu
++
++#define T113_PULL_NONE      0u
++#define T113_PULL_UP        1u
++#define T113_PULL_DOWN      2u
++
++/* Encode a pin as one number (port * 32 + pin), -1 = not connected. */
++#define T113_GPIO(port, pin) ((int)((port) * 32 + (pin)))
++#define T113_GPIO_NONE       (-1)
++
++struct t113_pin {
++    uint8_t port;
++    uint8_t pin;
++    uint8_t function;
++    uint8_t pull;
++};
++
++void t113_gpio_set_function(uint32_t port, uint32_t pin, uint32_t function);
++uint32_t t113_gpio_get_function(uint32_t port, uint32_t pin);
++void t113_gpio_set_pull(uint32_t port, uint32_t pin, uint32_t pull);
++void t113_gpio_set_value(uint32_t port, uint32_t pin, uint32_t value);
++uint32_t t113_gpio_get_value(uint32_t port, uint32_t pin);
++
++/* gpio = T113_GPIO(port, pin); ignored when gpio < 0. */
++void t113_gpio_direction_output(int gpio, uint32_t value);
++
++void t113_pinmux_apply(const struct t113_pin *pins, uint32_t count);
++
++#endif
+diff -ruN -x build-t113 miniOS.base/include/t113/i2c.h miniOS/include/t113/i2c.h
+--- a/rpi_bm/miniOS/include/t113/i2c.h	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/include/t113/i2c.h	2026-10-18 14:15:51.042907342 -0500
+@@ -0,0 +1,100 @@
++#ifndef MINIOS_T113_I2C_H
++#define MINIOS_T113_I2C_H
++
++#include "device.h"
++
++/*
++ * Lightweight I2C core, Linux-shaped:
++ *   i2c_adapter : a bus master (registered by a controller driver's probe)
++ *   i2c_client  : a chip at an address on adapter N (a struct device on the
++ *                 "i2c" bus, normally declared by the board file)
++ *   i2c_driver  : chip driver, matched by compatible / id_table / name
++ *
++ * Adapters are kept in a small numbered table rather than being devices
++ * themselves, so a controller probe can register one without re-entering
++ * the driver core (see the locking note in device.h).
++ */
++
++#define I2C_M_RD        0x0001u
++
++struct i2c_msg {
++    uint16_t addr;              /* 7-bit address */
++    uint16_t flags;             /* I2C_M_RD for a read */
++    uint16_t len;
++    uint8_t *buf;
++};
++
++struct i2c_adapter;
++
++struct i2c_algorithm {
++    /* Returns number of messages transferred, or a negative error. */
++    int (*master_xfer)(struct i2c_adapter *adap, struct i2c_msg *msgs,
++                       int num);
++};
++
++#define I2C_MAX_ADAPTERS 4
++
++struct i2c_adapter {
++    int nr;
++    const char *name;
++    const struct i2c_algorithm *algo;
++    void *algo_data;
++    struct device *dev;         /* controller device (e.g. platform twi2) */
++};
++
++int i2c_add_numbered_adapter(struct i2c_adapter *adap);
++void i2c_del_adapter(struct i2c_adapter *adap);
++struct i2c_adapter *i2c_get_adapter(int nr);
++int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
++
++struct i2c_device_id {
++    const char *name;
++    uint32_t driver_data;
++};
++
++struct i2c_client {
++    const char *name;           /* chip name, e.g. "ov5640" */
++    const char *compatible;     /* e.g. "ovti,ov5640" */
++    uint16_t addr;              /* 7-bit */
++    uint8_t adapter_nr;
++    void *platform_data;
++    struct device dev;
++
++    /* set by the core */
++    char dev_name[12];          /* "<bus>-<addr>", e.g. "2-003c" */
++    struct i2c_adapter *adapter;            /* valid while bound */
++    const struct of_device_id *of_match;
++    const struct i2c_device_id *id_entry;
++};
++
++struct i2c_driver {
++    int (*probe)(struct i2c_client *client);
++    void (*remove)(struct i2c_client *client);
++    struct device_driver driver;
++    const struct of_device_id *of_match_table;
++    const struct i2c_device_id *id_table;
++};
++
++#define to_i2c_client(d) container_of(d, struct i2c_client, dev)
++#define to_i2c_driver(d) container_of(d, struct i2c_driver, driver)
++
++extern struct bus_type i2c_bus_type;
++
++int i2c_bus_init(void);
++/* parent: the controller's struct device (gives /devices/.../twi2/2-003c). */
++int i2c_new_client_device(struct i2c_client *client, struct device *parent);
++void i2c_unregister_device(struct i2c_client *client);
++int i2c_driver_register(struct i2c_driver *drv);
++void i2c_driver_unregister(struct i2c_driver *drv);
++
++static inline void i2c_set_clientdata(struct i2c_client *c, void *data)
++{
++    dev_set_drvdata(&c->dev, data);
++}
++
++static inline void *i2c_get_clientdata(const struct i2c_client *c)
++{
++    return dev_get_drvdata(&c->dev);
++}
++
++#endif
+diff -ruN -x build-t113 miniOS.base/include/t113/platform.h miniOS/include/t113/platform.h
+--- a/rpi_bm/miniOS/include/t113/platform.h	2026-10-18 14:14:58.225550716 -0500
++++ b/rpi_bm/miniOS/include/t113/platform.h	2026-10-18 14:15:16.157560486 -0500
+@@ -20,8 +20,28 @@
+ /* GIC interrupt IDs = 32 + SPI number (sun8i-t113s.dtsi). */
+ #define T113_IRQ_UART3          37u     /* GIC_SPI 5 */
+ #define T113_IRQ_TIMER0         91u     /* GIC_SPI 59 */
++#define T113_IRQ_VINC0          127u    /* GIC_SPI 95 */
++#define T113_IRQ_CSI0           132u    /* GIC_SPI 100 */
+ 
+ #define T113_CCU_UART_BGR       (T113_CCU_BASE + 0x090cu)
++#define T113_CCU_TWI_BGR        (T113_CCU_BASE + 0x091cu) /* gate b0-3, rst b16-19 */
++#define T113_CCU_CSI_CLK        (T113_CCU_BASE + 0x0c04u) /* CSI_TOP module clock */
++#define T113_CCU_CSI_MCLK0      (T113_CCU_BASE + 0x0c08u) /* CSI master clock 0 */
++#define T113_CCU_CSI_BGR        (T113_CCU_BASE + 0x0c1cu) /* gate b0, rst b16 */
++
++/* TWI0..3, 0x400 apart (sun20i-d1 / sun8iw20). */
++#define T113_TWI0_BASE          0x02502000u
++#define T113_TWI_STRIDE         0x400u
++#define T113_TWI_SIZE           0x400u
++#define T113_TWI_BASE(n)        (T113_TWI0_BASE + (n) * T113_TWI_STRIDE)
++
++/* CSIC (VIN) blocks, from sun8iw20p1.dtsi vind0/csi0/vinc0 nodes. */
++#define T113_CSI_TOP_BASE       0x05800000u
++#define T113_CSI_TOP_SIZE       0x800u
++#define T113_CSI0_BASE          0x05801000u     /* parallel parser 0 */
++#define T113_CSI0_SIZE          0x1000u
++#define T113_VINC0_BASE         0x05809000u     /* capture DMA 0 */
++#define T113_VINC0_SIZE         0x200u
+ 
+ #define T113_GPIO_BANK_STRIDE   0x30u
+ #define T113_GPIO_PB_BASE       (T113_PIO_BASE + T113_GPIO_BANK_STRIDE)
+@@ -53,6 +73,10 @@
+ uint32_t t113_timer_ticks(void);
+ void t113_irq_handler(void);
+ 
++/* Busy-wait using the ARMv7 generic counter (falls back to a spin loop). */
++void t113_udelay(uint32_t us);
++void t113_mdelay(uint32_t ms);
++
+ void t113_mmu_init(void);
+ uint32_t t113_mmu_is_enabled(void);
+ uint32_t t113_mmu_ttbr0(void);
+diff -ruN -x build-t113 miniOS.base/include/t113/platform_device.h miniOS/include/t113/platform_device.h
+--- a/rpi_bm/miniOS/include/t113/platform_device.h	2026-10-18 14:14:58.224955164 -0500
++++ b/rpi_bm/miniOS/include/t113/platform_device.h	2026-10-18 14:15:06.633822403 -0500
+@@ -25,12 +25,6 @@
+     return res->end - res->start + 1u;
+ }
+ 
+-/* Device-tree style match entry (no real DT yet: string compare only). */
+-struct of_device_id {
+-    const char *compatible;
+-    const void *data;
+-};
+-
+ struct platform_device_id {
+     const char *name;
+     uint32_t driver_data;
+diff -ruN -x build-t113 miniOS.base/include/t113/twi.h miniOS/include/t113/twi.h
+--- a/rpi_bm/miniOS/include/t113/twi.h	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/include/t113/twi.h	2026-10-18 14:16:12.706908630 -0500
+@@ -0,0 +1,13 @@
++#ifndef MINIOS_T113_TWI_H
++#define MINIOS_T113_TWI_H
++
++#include "gpio.h"
++
++/* Board data for an Allwinner TWI controller (platform_data of "twiN"). */
++struct t113_twi_platform_data {
++    uint32_t bus_hz;                /* 100000 or 400000 */
++    const struct t113_pin *pins;    /* SCK/SDA pinmux */
++    uint32_t num_pins;
++};
++
++#endif
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/board.c miniOS/src/boards/100ask_t113/board.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/board.c	2026-10-18 14:14:58.239287710 -0500
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/board.c	2026-10-18 14:18:30.774916837 -0500
+@@ -3,12 +3,18 @@
+  * drives, expressed as platform devices (a hand-written stand-in for a
+  * device tree). Addresses/IRQs follow sun8i-t113s.dtsi.
+  *
+- * Registering these does NOT touch hardware: UART3 is brought up by
+- * t113_uart_init() as the early console, and GIC/Timer0 are still
++ * The UART3/GIC/Timer0 drivers do NOT touch hardware: UART3 is brought up
++ * by t113_uart_init() as the early console, and GIC/Timer0 are still
+  * initialised explicitly from kernel_main() in their existing order.
++ * The camera path (csi0, twi2, ov5640) is new and is initialised by its
++ * drivers' probe functions.
+  */
+ #include "platform.h"
+ #include "platform_device.h"
++#include "i2c.h"
++#include "gpio.h"
++#include "twi.h"
++#include "camera.h"
+ #include "board.h"
+ 
+ static const struct resource uart3_resources[] = {
+@@ -28,6 +34,48 @@
+ 
+ #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+ 
++/*
++ * DVP camera connector (100ASK T113-Pro). PE0..PE13 are shared with the
++ * EMAC; the PE<->CSI jumpers must be fitted for the camera to answer.
++ * Pin functions from sun20i-d1 pinctrl: ncsi0 = 2 on PE0..PE11, i2c2 = 2
++ * on PE12/PE13. Sensor I2C is TWI2 (sensor0_twi_cci_id = 2 in Tina DTS).
++ */
++static const struct resource csi0_resources[] = {
++    DEFINE_RES_MEM_NAMED(T113_CSI_TOP_BASE, T113_CSI_TOP_SIZE, "top"),
++    DEFINE_RES_MEM_NAMED(T113_CSI0_BASE, T113_CSI0_SIZE, "csi0"),
++    DEFINE_RES_MEM_NAMED(T113_VINC0_BASE, T113_VINC0_SIZE, "vinc0"),
++    DEFINE_RES_IRQ(T113_IRQ_CSI0),
++    DEFINE_RES_IRQ(T113_IRQ_VINC0),
++};
++
++#define NCSI0_PIN(n) { T113_PE, (n), 2u, T113_PULL_NONE }
++static const struct t113_pin csi0_pins[] = {
++    NCSI0_PIN(0),  NCSI0_PIN(1),  NCSI0_PIN(2),  NCSI0_PIN(3),  /* HS VS PCLK MCLK */
++    NCSI0_PIN(4),  NCSI0_PIN(5),  NCSI0_PIN(6),  NCSI0_PIN(7),  /* D0..D3 */
++    NCSI0_PIN(8),  NCSI0_PIN(9),  NCSI0_PIN(10), NCSI0_PIN(11), /* D4..D7 */
++};
++
++static const struct t113_csi_platform_data csi0_pdata = {
++    .mclk_hz = 24000000u,
++    .pins = csi0_pins,
++    .num_pins = ARRAY_SIZE(csi0_pins),
++};
++
++static const struct resource twi2_resources[] = {
++    DEFINE_RES_MEM(T113_TWI_BASE(2), T113_TWI_SIZE),
++};
++
++static const struct t113_pin twi2_pins[] = {
++    { T113_PE, 12, 2u, T113_PULL_UP },      /* TWI2_SCK */
++    { T113_PE, 13, 2u, T113_PULL_UP },      /* TWI2_SDA */
++};
++
++static const struct t113_twi_platform_data twi2_pdata = {
++    .bus_hz = 100000u,
++    .pins = twi2_pins,
++    .num_pins = ARRAY_SIZE(twi2_pins),
++};
++
+ static struct platform_device uart3_device = {
+     .name = "uart3",
+     .compatible = "allwinner,sun20i-d1-uart",
+@@ -49,17 +97,61 @@
+     .resource = timer0_resources,
+ };
+ 
++static struct platform_device csi0_device = {
++    .name = "csi0",
++    .compatible = "allwinner,sun8iw20p1-csi",
++    .num_resources = ARRAY_SIZE(csi0_resources),
++    .resource = csi0_resources,
++    .dev = { .platform_data = (void *)&csi0_pdata },
++};
++
++static struct platform_device twi2_device = {
++    .name = "twi2",
++    .compatible = "allwinner,sun20i-d1-i2c",
++    .num_resources = ARRAY_SIZE(twi2_resources),
++    .resource = twi2_resources,
++    .dev = { .platform_data = (void *)&twi2_pdata },
++};
++
++/* PWDN/RESET are left empty in 100ask's board DTS: hard-wired on the module. */
++static const struct ov5640_platform_data ov5640_pdata = {
++    .pwdn_gpio = T113_GPIO_NONE,
++    .reset_gpio = T113_GPIO_NONE,
++    .csi_id = 0,
++};
++
++static struct i2c_client ov5640_client = {
++    .name = "ov5640",
++    .compatible = "ovti,ov5640",
++    .addr = 0x3c,                           /* 0x78 in 8-bit notation */
++    .adapter_nr = 2,
++    .platform_data = (void *)&ov5640_pdata,
++};
++
+ /* Interrupt controller first, like DT probing order on real Linux. */
+ static struct platform_device *const board_devices[] = {
+     &gic_device,
+     &uart3_device,
+     &timer0_device,
++    &csi0_device,
++    &twi2_device,
+ };
+ 
++/*
++ * Order matters for the camera: csi (MCLK) and twi (adapter) must be bound
++ * before the ov5640 driver registers, because probe runs under the core
++ * lock and there is no deferred-probe retry yet.
++ */
+ static struct platform_driver *const board_drivers[] = {
+     &t113_gic_driver,
+     &t113_uart_driver,
+     &t113_timer_driver,
++    &t113_csi_driver,
++    &t113_twi_driver,
++};
++
++static struct i2c_driver *const board_i2c_drivers[] = {
++    &ov5640_driver,
+ };
+ 
+ int t113_board_register_devices(void)
+@@ -73,6 +165,10 @@
+             ++failed;
+         }
+     }
++    if (i2c_new_client_device(&ov5640_client, &twi2_device.dev) < 0) {
++        t113_uart_puts("board: cannot register i2c client ov5640\n");
++        ++failed;
++    }
+     return failed ? -EINVAL : 0;
+ }
+ 
+@@ -86,6 +182,14 @@
+             t113_uart_putc('\n');
+             ++failed;
+         }
++    }
++    for (uint32_t i = 0; i < ARRAY_SIZE(board_i2c_drivers); ++i) {
++        if (i2c_driver_register(board_i2c_drivers[i]) < 0) {
++            t113_uart_puts("board: cannot register i2c driver ");
++            t113_uart_puts(board_i2c_drivers[i]->driver.name);
++            t113_uart_putc('\n');
++            ++failed;
++        }
+     }
+     return failed ? -EINVAL : 0;
+ }
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/csi.c miniOS/src/boards/100ask_t113/csi.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/csi.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/csi.c	2026-10-18 14:17:09.562912009 -0500
+@@ -0,0 +1,118 @@
++/*
++ * T113 CSIC parallel (DVP) camera interface — framework stage.
++ *
++ * Probe does the SoC-side bring-up a sensor needs before it can talk:
++ *   - CSI bus clock gate on + reset deasserted   (CCU 0x0c1c)
++ *   - NCSI0 pins PE0..PE11 muxed to function 2   (board platform data)
++ *   - CSI master clock 0 = HOSC 24 MHz / M -> sensor XCLK on PE3 (CCU 0x0c08)
++ *
++ * Not done yet (needed for frame capture): CSI_TOP module clock (0x0c04,
++ * from a PLL), MBUS gate for the capture DMA, parser/VINC programming and
++ * the CSI/VINC interrupts.
++ */
++#include "platform.h"
++#include "platform_device.h"
++#include "camera.h"
++#include "board.h"
++
++#define CSI_BGR_GATE        (1u << 0)
++#define CSI_BGR_RST         (1u << 16)
++#define MCLK_GATE           (1u << 31)
++#define MCLK_SRC_SHIFT      24u
++#define MCLK_SRC_MASK       (7u << MCLK_SRC_SHIFT)
++#define MCLK_SRC_HOSC       0u
++#define MCLK_M_MASK         0x1fu
++
++#define HOSC_HZ             24000000u
++#define T113_NUM_CSI        1u
++
++struct t113_csi {
++    uint32_t top_base;
++    uint32_t parser_base;
++    uint32_t dma_base;
++    int irq_parser;
++    int irq_dma;
++    uint32_t mclk_hz;
++    int mclk_on;
++};
++
++static struct t113_csi csi_state[T113_NUM_CSI];
++
++int t113_csi_mclk_running(uint32_t id)
++{
++    return id < T113_NUM_CSI && csi_state[id].mclk_on;
++}
++
++static uint32_t csi_mclk_enable(uint32_t hz)
++{
++    if (!hz || hz > HOSC_HZ)
++        hz = HOSC_HZ;
++    uint32_t div = (HOSC_HZ + hz - 1u) / hz;            /* never overclock */
++    if (div > MCLK_M_MASK + 1u)
++        div = MCLK_M_MASK + 1u;
++    uint32_t v = mmio_read32(T113_CCU_CSI_MCLK0);
++    v &= ~(MCLK_GATE | MCLK_SRC_MASK | MCLK_M_MASK);
++    v |= (MCLK_SRC_HOSC << MCLK_SRC_SHIFT) | (div - 1u);
++    mmio_write32(T113_CCU_CSI_MCLK0, v);
++    mmio_write32(T113_CCU_CSI_MCLK0, v | MCLK_GATE);
++    return HOSC_HZ / div;
++}
++
++static int t113_csi_probe(struct platform_device *pdev)
++{
++    const struct t113_csi_platform_data *pdata = pdev->dev.platform_data;
++    const struct resource *top =
++        platform_get_resource_byname(pdev, IORESOURCE_MEM, "top");
++    const struct resource *parser =
++        platform_get_resource_byname(pdev, IORESOURCE_MEM, "csi0");
++    const struct resource *dma =
++        platform_get_resource_byname(pdev, IORESOURCE_MEM, "vinc0");
++
++    if (!pdata || !top || !parser || !dma ||
++        top->start != T113_CSI_TOP_BASE || parser->start != T113_CSI0_BASE)
++        return -ENODEV;
++
++    struct t113_csi *csi = &csi_state[0];
++    csi->top_base = top->start;
++    csi->parser_base = parser->start;
++    csi->dma_base = dma->start;
++    csi->irq_parser = platform_get_irq(pdev, 0);
++    csi->irq_dma = platform_get_irq(pdev, 1);
++
++    uint32_t bgr = mmio_read32(T113_CCU_CSI_BGR);
++    mmio_write32(T113_CCU_CSI_BGR, bgr & ~CSI_BGR_RST);
++    mmio_write32(T113_CCU_CSI_BGR, bgr | CSI_BGR_GATE | CSI_BGR_RST);
++
++    t113_pinmux_apply(pdata->pins, pdata->num_pins);
++
++    csi->mclk_hz = csi_mclk_enable(pdata->mclk_hz);
++    csi->mclk_on = 1;
++
++    platform_set_drvdata(pdev, csi);
++    platform_dev_info(pdev, "DVP pins + bus clock on, MCLK running");
++    t113_uart_puts("csi0: mclk ");
++    t113_uart_puthex(csi->mclk_hz);
++    t113_uart_puts(" Hz (capture path not enabled yet)\n");
++    return 0;
++}
++
++static void t113_csi_remove(struct platform_device *pdev)
++{
++    struct t113_csi *csi = platform_get_drvdata(pdev);
++
++    mmio_write32(T113_CCU_CSI_MCLK0,
++                 mmio_read32(T113_CCU_CSI_MCLK0) & ~MCLK_GATE);
++    csi->mclk_on = 0;
++}
++
++static const struct of_device_id t113_csi_of_match[] = {
++    { .compatible = "allwinner,sun8iw20p1-csi" },
++    { 0 },
++};
++
++struct platform_driver t113_csi_driver = {
++    .probe = t113_csi_probe,
++    .remove = t113_csi_remove,
++    .driver = { .name = "sunxi-csi" },
++    .of_match_table = t113_csi_of_match,
++};
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/delay.c miniOS/src/boards/100ask_t113/delay.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/delay.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/delay.c	2026-10-18 14:15:36.594906483 -0500
+@@ -0,0 +1,49 @@
++/*
++ * Microsecond busy-wait on the ARMv7 generic timer (CNTPCT), which runs from
++ * the 24 MHz oscillator on T113. Safe with IRQs off (driver probe context).
++ * If the counter is not ticking (not enabled by the boot loader) we fall
++ * back to a rough spin loop so callers never hang.
++ */
++#include "platform.h"
++
++#define FALLBACK_LOOPS_PER_US 200u      /* ~1 GHz Cortex-A7, generous */
++
++static inline uint64_t read_cntpct(void)
++{
++    uint32_t lo, hi;
++    __asm__ volatile("isb\n\tmrrc p15, 0, %0, %1, c14"
++                     : "=r"(lo), "=r"(hi) :: "memory");
++    return ((uint64_t)hi << 32) | lo;
++}
++
++static inline uint32_t read_cntfrq(void)
++{
++    uint32_t frq;
++    __asm__ volatile("mrc p15, 0, %0, c14, c0, 0" : "=r"(frq));
++    return frq;
++}
++
++void t113_udelay(uint32_t us)
++{
++    uint32_t frq = read_cntfrq();
++    if (!frq)
++        frq = 24000000u;
++
++    uint64_t start = read_cntpct();
++    uint32_t probe = 0;
++    while (read_cntpct() == start) {
++        if (++probe > 10000u) {         /* counter stopped: spin instead */
++            for (volatile uint32_t i = 0; i < us * FALLBACK_LOOPS_PER_US; ++i) { }
++            return;
++        }
++    }
++
++    uint64_t ticks = (uint64_t)us * (frq / 1000000u);
++    while (read_cntpct() - start < ticks) { }
++}
++
++void t113_mdelay(uint32_t ms)
++{
++    while (ms--)
++        t113_udelay(1000u);
++}
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/device.c miniOS/src/boards/100ask_t113/device.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/device.c	2026-10-18 14:14:58.239158228 -0500
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/device.c	2026-10-18 14:15:06.634401525 -0500
+@@ -34,6 +34,22 @@
+     return *a == *b;
+ }
+ 
++int dev_str_eq(const char *a, const char *b)
++{
++    return names_match(a, b);
++}
++
++const struct of_device_id *of_match_compatible(const struct of_device_id *table,
++                                               const char *compatible)
++{
++    if (!table || !compatible)
++        return 0;
++    for (; table->compatible; ++table)
++        if (names_match(table->compatible, compatible))
++            return table;
++    return 0;
++}
++
+ /* ---------------------------------------------------------------- binding */
+ 
+ static int driver_match_device(struct device_driver *drv, struct device *dev)
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/driver_model.c miniOS/src/boards/100ask_t113/driver_model.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/driver_model.c	2026-10-18 14:14:58.240792225 -0500
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/driver_model.c	2026-10-18 14:17:40.282013631 -0500
+@@ -3,6 +3,7 @@
+ #include "device.h"
+ #include "platform_device.h"
+ #include "board.h"
++#include "i2c.h"
+ 
+ static struct kset devices;
+ static struct kset drivers;
+@@ -37,6 +38,8 @@
+ 
+     if (platform_bus_init() < 0)
+         panic("cannot register platform bus");
++    if (i2c_bus_init() < 0)
++        panic("cannot register i2c bus");
+ 
+     /* Devices first, then drivers: binding happens in driver_register(). */
+     t113_board_register_devices();
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/gpio.c miniOS/src/boards/100ask_t113/gpio.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/gpio.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/gpio.c	2026-10-18 14:15:31.294906168 -0500
+@@ -0,0 +1,57 @@
++#include "platform.h"
++#include "gpio.h"
++
++#define GPIO_CFG(port, pin)  (T113_PIO_BASE + (port) * T113_GPIO_BANK_STRIDE + \
++                              ((pin) / 8u) * 4u)
++#define GPIO_DAT(port)       (T113_PIO_BASE + (port) * T113_GPIO_BANK_STRIDE + 0x10u)
++#define GPIO_PULL(port, pin) (T113_PIO_BASE + (port) * T113_GPIO_BANK_STRIDE + \
++                              0x24u + ((pin) / 16u) * 4u)
++
++static void rmw(uint32_t addr, uint32_t mask, uint32_t value)
++{
++    mmio_write32(addr, (mmio_read32(addr) & ~mask) | (value & mask));
++}
++
++void t113_gpio_set_function(uint32_t port, uint32_t pin, uint32_t function)
++{
++    uint32_t shift = (pin % 8u) * 4u;
++    rmw(GPIO_CFG(port, pin), 0xfu << shift, function << shift);
++}
++
++uint32_t t113_gpio_get_function(uint32_t port, uint32_t pin)
++{
++    return (mmio_read32(GPIO_CFG(port, pin)) >> ((pin % 8u) * 4u)) & 0xfu;
++}
++
++void t113_gpio_set_pull(uint32_t port, uint32_t pin, uint32_t pull)
++{
++    uint32_t shift = (pin % 16u) * 2u;
++    rmw(GPIO_PULL(port, pin), 0x3u << shift, pull << shift);
++}
++
++void t113_gpio_set_value(uint32_t port, uint32_t pin, uint32_t value)
++{
++    rmw(GPIO_DAT(port), 1u << pin, (value ? 1u : 0u) << pin);
++}
++
++uint32_t t113_gpio_get_value(uint32_t port, uint32_t pin)
++{
++    return (mmio_read32(GPIO_DAT(port)) >> pin) & 1u;
++}
++
++void t113_gpio_direction_output(int gpio, uint32_t value)
++{
++    if (gpio < 0)
++        return;
++    uint32_t port = (uint32_t)gpio / 32u, pin = (uint32_t)gpio % 32u;
++    t113_gpio_set_value(port, pin, value);
++    t113_gpio_set_function(port, pin, T113_GPIO_OUT);
++}
++
++void t113_pinmux_apply(const struct t113_pin *pins, uint32_t count)
++{
++    for (uint32_t i = 0; i < count; ++i) {
++        t113_gpio_set_pull(pins[i].port, pins[i].pin, pins[i].pull);
++        t113_gpio_set_function(pins[i].port, pins[i].pin, pins[i].function);
++    }
++}
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/i2c_core.c miniOS/src/boards/100ask_t113/i2c_core.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/i2c_core.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/i2c_core.c	2026-10-18 14:16:06.590908266 -0500
+@@ -0,0 +1,174 @@
++#include "platform.h"
++#include "i2c.h"
++
++static spinlock_t adapters_lock = SPINLOCK_INIT;
++static struct i2c_adapter *adapters[I2C_MAX_ADAPTERS];
++
++/* --------------------------------------------------------------- adapters */
++
++int i2c_add_numbered_adapter(struct i2c_adapter *adap)
++{
++    if (!adap || !adap->algo || !adap->algo->master_xfer ||
++        adap->nr < 0 || adap->nr >= I2C_MAX_ADAPTERS)
++        return -EINVAL;
++    uint32_t flags = spin_lock_irqsave(&adapters_lock);
++    int ret = adapters[adap->nr] ? -EBUSY : 0;
++    if (!ret)
++        adapters[adap->nr] = adap;
++    spin_unlock_irqrestore(&adapters_lock, flags);
++    return ret;
++}
++
++void i2c_del_adapter(struct i2c_adapter *adap)
++{
++    if (!adap || adap->nr < 0 || adap->nr >= I2C_MAX_ADAPTERS)
++        return;
++    uint32_t flags = spin_lock_irqsave(&adapters_lock);
++    if (adapters[adap->nr] == adap)
++        adapters[adap->nr] = 0;
++    spin_unlock_irqrestore(&adapters_lock, flags);
++}
++
++struct i2c_adapter *i2c_get_adapter(int nr)
++{
++    if (nr < 0 || nr >= I2C_MAX_ADAPTERS)
++        return 0;
++    uint32_t flags = spin_lock_irqsave(&adapters_lock);
++    struct i2c_adapter *adap = adapters[nr];
++    spin_unlock_irqrestore(&adapters_lock, flags);
++    return adap;
++}
++
++int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
++{
++    if (!adap || !msgs || num <= 0)
++        return -EINVAL;
++    return adap->algo->master_xfer(adap, msgs, num);
++}
++
++/* -------------------------------------------------------------------- bus */
++
++static const struct i2c_device_id *
++i2c_match_id(const struct i2c_device_id *id, const struct i2c_client *client)
++{
++    if (!id)
++        return 0;
++    for (; id->name; ++id)
++        if (dev_str_eq(id->name, client->name))
++            return id;
++    return 0;
++}
++
++/* compatible, then id_table, then driver name — same order as platform. */
++static int i2c_device_match(struct device *dev, struct device_driver *drv)
++{
++    struct i2c_client *client = to_i2c_client(dev);
++    struct i2c_driver *idrv = to_i2c_driver(drv);
++
++    if (of_match_compatible(idrv->of_match_table, client->compatible))
++        return 1;
++    if (idrv->id_table)
++        return i2c_match_id(idrv->id_table, client) != 0;
++    return dev_str_eq(client->name, drv->name);
++}
++
++/*
++ * Bus-level probe: besides the type conversion, this is where the I2C core
++ * resolves the client's adapter. A chip driver's probe can therefore always
++ * use client->adapter; if the controller has not probed yet the bind fails
++ * with -ENODEV and can be retried later with device_attach().
++ */
++static int i2c_device_probe(struct device *dev)
++{
++    struct i2c_client *client = to_i2c_client(dev);
++    struct i2c_driver *idrv = to_i2c_driver(dev->driver);
++
++    client->adapter = i2c_get_adapter(client->adapter_nr);
++    if (!client->adapter) {
++        t113_uart_puts(dev_name(dev));
++        t113_uart_puts(": i2c adapter not registered yet\n");
++        return -ENODEV;
++    }
++    client->of_match = of_match_compatible(idrv->of_match_table,
++                                           client->compatible);
++    client->id_entry = i2c_match_id(idrv->id_table, client);
++
++    int ret = idrv->probe ? idrv->probe(client) : 0;
++    if (ret < 0) {
++        client->adapter = 0;
++        client->of_match = 0;
++        client->id_entry = 0;
++    }
++    return ret;
++}
++
++static void i2c_device_remove(struct device *dev)
++{
++    struct i2c_client *client = to_i2c_client(dev);
++    struct i2c_driver *idrv = to_i2c_driver(dev->driver);
++
++    if (idrv->remove)
++        idrv->remove(client);
++    client->adapter = 0;
++    client->of_match = 0;
++    client->id_entry = 0;
++}
++
++struct bus_type i2c_bus_type = {
++    .name = "i2c",
++    .match = i2c_device_match,
++    .probe = i2c_device_probe,
++    .remove = i2c_device_remove,
++};
++
++int i2c_bus_init(void)
++{
++    return bus_register(&i2c_bus_type);
++}
++
++static void format_client_name(struct i2c_client *client)
++{
++    static const char hex[] = "0123456789abcdef";
++    char *p = client->dev_name;
++    *p++ = (char)('0' + client->adapter_nr % 10u);
++    *p++ = '-';
++    for (int shift = 12; shift >= 0; shift -= 4)
++        *p++ = hex[(client->addr >> shift) & 0xfu];
++    *p = '\0';
++}
++
++int i2c_new_client_device(struct i2c_client *client, struct device *parent)
++{
++    if (!client || !client->name || client->addr > 0x7fu ||
++        client->adapter_nr >= I2C_MAX_ADAPTERS)
++        return -EINVAL;
++    format_client_name(client);
++    client->dev.name = client->dev_name;
++    client->dev.parent = parent;
++    client->dev.bus = &i2c_bus_type;
++    client->dev.platform_data = client->platform_data;
++    client->adapter = 0;
++    client->of_match = 0;
++    client->id_entry = 0;
++    return device_register(&client->dev);
++}
++
++void i2c_unregister_device(struct i2c_client *client)
++{
++    if (client)
++        device_unregister(&client->dev);
++}
++
++int i2c_driver_register(struct i2c_driver *drv)
++{
++    if (!drv || !drv->driver.name)
++        return -EINVAL;
++    drv->driver.bus = &i2c_bus_type;
++    return driver_register(&drv->driver);
++}
++
++void i2c_driver_unregister(struct i2c_driver *drv)
++{
++    if (drv)
++        driver_unregister(&drv->driver);
++}
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/ov5640.c miniOS/src/boards/100ask_t113/ov5640.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/ov5640.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/ov5640.c	2026-10-18 14:17:30.122913231 -0500
+@@ -0,0 +1,148 @@
++/*
++ * OmniVision OV5640 (DVP) sensor — framework stage.
++ *
++ * SCCB = I2C with 16-bit register addresses and 8-bit data, 7-bit address
++ * 0x3c (0x78 in Allwinner's 8-bit notation). Probe runs the power-up
++ * sequence (if PWDN/RESET are wired to GPIOs), checks that the CSI master
++ * clock is running and reads the chip ID (0x300a/0x300b = 0x56 0x40).
++ * No streaming register tables are written yet.
++ */
++#include "platform.h"
++#include "i2c.h"
++#include "gpio.h"
++#include "camera.h"
++#include "board.h"
++
++#define OV5640_REG_CHIP_ID_HIGH 0x300au
++#define OV5640_REG_CHIP_ID_LOW  0x300bu
++#define OV5640_REG_REVISION     0x302au
++
++struct ov5640 {
++    struct i2c_client *client;
++    uint32_t chip_id;
++    uint8_t revision;
++};
++
++static struct ov5640 ov5640_sensor;
++
++int ov5640_read_reg(struct i2c_client *client, uint16_t reg, uint8_t *val)
++{
++    uint8_t addr[2] = { (uint8_t)(reg >> 8), (uint8_t)reg };
++    struct i2c_msg msgs[2] = {
++        { .addr = client->addr, .flags = 0, .len = 2, .buf = addr },
++        { .addr = client->addr, .flags = I2C_M_RD, .len = 1, .buf = val },
++    };
++    int ret = i2c_transfer(client->adapter, msgs, 2);
++    return ret == 2 ? 0 : (ret < 0 ? ret : -EIO);
++}
++
++int ov5640_write_reg(struct i2c_client *client, uint16_t reg, uint8_t val)
++{
++    uint8_t buf[3] = { (uint8_t)(reg >> 8), (uint8_t)reg, val };
++    struct i2c_msg msg = {
++        .addr = client->addr, .flags = 0, .len = 3, .buf = buf,
++    };
++    int ret = i2c_transfer(client->adapter, &msg, 1);
++    return ret == 1 ? 0 : (ret < 0 ? ret : -EIO);
++}
++
++/* Datasheet power-up: PWDN high/RESET low -> MCLK -> PWDN low -> RESET high. */
++static void ov5640_power_on(const struct ov5640_platform_data *pdata)
++{
++    if (pdata->pwdn_gpio < 0 && pdata->reset_gpio < 0) {
++        t113_mdelay(20);            /* hard-wired: just let it settle */
++        return;
++    }
++    t113_gpio_direction_output(pdata->pwdn_gpio, 1);
++    t113_gpio_direction_output(pdata->reset_gpio, 0);
++    t113_mdelay(5);
++    t113_gpio_direction_output(pdata->pwdn_gpio, 0);
++    t113_mdelay(1);
++    t113_gpio_direction_output(pdata->reset_gpio, 1);
++    t113_mdelay(20);
++}
++
++static void ov5640_power_off(const struct ov5640_platform_data *pdata)
++{
++    t113_gpio_direction_output(pdata->reset_gpio, 0);
++    t113_gpio_direction_output(pdata->pwdn_gpio, 1);
++}
++
++static int ov5640_probe(struct i2c_client *client)
++{
++    const struct ov5640_platform_data *pdata = client->platform_data;
++    uint8_t hi = 0, lo = 0, rev = 0;
++    int ret;
++
++    if (!pdata)
++        return -EINVAL;
++    if (!t113_csi_mclk_running(pdata->csi_id)) {
++        t113_uart_puts(dev_name(&client->dev));
++        t113_uart_puts(": csi MCLK not running (csi driver not bound?)\n");
++        return -ENODEV;
++    }
++
++    ov5640_power_on(pdata);
++
++    ret = ov5640_read_reg(client, OV5640_REG_CHIP_ID_HIGH, &hi);
++    if (!ret)
++        ret = ov5640_read_reg(client, OV5640_REG_CHIP_ID_LOW, &lo);
++    if (ret < 0) {
++        t113_uart_puts(dev_name(&client->dev));
++        t113_uart_puts(ret == -ENXIO ? ": no ACK at 0x3c (check PE jumpers"
++                                       " CSI vs EMAC, sensor power)\n"
++                                     : ": SCCB transfer failed\n");
++        ov5640_power_off(pdata);
++        return ret;
++    }
++
++    uint32_t id = ((uint32_t)hi << 8) | lo;
++    if (id != OV5640_CHIP_ID) {
++        t113_uart_puts(dev_name(&client->dev));
++        t113_uart_puts(": unexpected chip id ");
++        t113_uart_puthex(id);
++        t113_uart_putc('\n');
++        ov5640_power_off(pdata);
++        return -ENODEV;
++    }
++    ov5640_read_reg(client, OV5640_REG_REVISION, &rev);
++
++    ov5640_sensor.client = client;
++    ov5640_sensor.chip_id = id;
++    ov5640_sensor.revision = rev;
++    i2c_set_clientdata(client, &ov5640_sensor);
++
++    t113_uart_puts(dev_name(&client->dev));
++    t113_uart_puts(": OV5640 detected on ");
++    t113_uart_puts(client->adapter->name);
++    t113_uart_puts(", chip id ");
++    t113_uart_puthex(id);
++    t113_uart_puts(" rev ");
++    t113_uart_puthex(rev);
++    t113_uart_putc('\n');
++    return 0;
++}
++
++static void ov5640_remove(struct i2c_client *client)
++{
++    ov5640_power_off(client->platform_data);
++    ov5640_sensor.client = 0;
++}
++
++static const struct of_device_id ov5640_of_match[] = {
++    { .compatible = "ovti,ov5640" },
++    { 0 },
++};
++
++static const struct i2c_device_id ov5640_id[] = {
++    { "ov5640", 0 },
++    { 0, 0 },
++};
++
++struct i2c_driver ov5640_driver = {
++    .probe = ov5640_probe,
++    .remove = ov5640_remove,
++    .driver = { .name = "ov5640" },
++    .of_match_table = ov5640_of_match,
++    .id_table = ov5640_id,
++};
+diff -ruN -x build-t113 miniOS.base/src/boards/100ask_t113/twi.c miniOS/src/boards/100ask_t113/twi.c
+--- a/rpi_bm/miniOS/src/boards/100ask_t113/twi.c	1969-12-31 18:00:00.000000000 -0600
++++ b/rpi_bm/miniOS/src/boards/100ask_t113/twi.c	2026-10-18 14:16:49.194910798 -0500
+@@ -0,0 +1,233 @@
++/*
++ * Allwinner TWI (I2C) controller, sun6i-a31 / sun20i-d1 flavour of the
++ * Marvell mv64xxx core, driven by polling (no IRQ). Each probed controller
++ * registers a numbered i2c_adapter; the TWI index is derived from the MMIO
++ * base so "twi2" becomes i2c adapter 2.
++ *
++ * Differences from the classic mv64xxx that matter here:
++ *   - INT_FLAG is write-1-to-clear (writing it also lets the state machine
++ *     continue), and
++ *   - SCL = Fin / (10 * (M + 1) * 2^N)   (N base 0), Fin = APB1 = 24 MHz.
++ */
++#include "platform.h"
++#include "platform_device.h"
++#include "i2c.h"
++#include "twi.h"
++#include "board.h"
++
++#define TWI_ADDR    0x00u
++#define TWI_XADDR   0x04u
++#define TWI_DATA    0x08u
++#define TWI_CNTR    0x0cu
++#define TWI_STAT    0x10u
++#define TWI_CCR     0x14u
++#define TWI_SRST    0x18u
++#define TWI_EFR     0x1cu
++#define TWI_LCR     0x20u
++
++#define CNTR_A_ACK      (1u << 2)
++#define CNTR_INT_FLAG   (1u << 3)
++#define CNTR_M_STP      (1u << 4)
++#define CNTR_M_STA      (1u << 5)
++#define CNTR_BUS_EN     (1u << 6)
++
++#define STAT_START          0x08u
++#define STAT_RESTART        0x10u
++#define STAT_ADDR_W_ACK     0x18u
++#define STAT_ADDR_W_NACK    0x20u
++#define STAT_DATA_W_ACK     0x28u
++#define STAT_ADDR_R_ACK     0x40u
++#define STAT_ADDR_R_NACK    0x48u
++#define STAT_DATA_R_ACK     0x50u
++#define STAT_DATA_R_NACK    0x58u
++#define STAT_IDLE           0xf8u
++
++#define TWI_APB_HZ      24000000u
++#define TWI_TIMEOUT_US  10000u
++
++struct t113_twi {
++    uint32_t base;
++    struct i2c_adapter adap;
++};
++
++static struct t113_twi twi_ctrl[I2C_MAX_ADAPTERS];
++
++static const char *const twi_names[I2C_MAX_ADAPTERS] = {
++    "twi0", "twi1", "twi2", "twi3",
++};
++
++static inline uint32_t twi_rd(struct t113_twi *t, uint32_t reg)
++{
++    return mmio_read32(t->base + reg);
++}
++
++static inline void twi_wr(struct t113_twi *t, uint32_t reg, uint32_t v)
++{
++    mmio_write32(t->base + reg, v);
++}
++
++static int twi_wait_flag(struct t113_twi *t)
++{
++    for (uint32_t us = 0; us < TWI_TIMEOUT_US; ++us) {
++        if (twi_rd(t, TWI_CNTR) & CNTR_INT_FLAG)
++            return 0;
++        t113_udelay(1);
++    }
++    return -ETIMEDOUT;
++}
++
++/* Kick the state machine with `bits` (clearing a pending INT_FLAG). */
++static int twi_step(struct t113_twi *t, uint32_t bits, uint32_t expect)
++{
++    twi_wr(t, TWI_CNTR, CNTR_BUS_EN | CNTR_INT_FLAG | bits);
++    if (twi_wait_flag(t) < 0)
++        return -ETIMEDOUT;
++    return twi_rd(t, TWI_STAT) == expect ? 0 : -EIO;
++}
++
++static void twi_stop(struct t113_twi *t)
++{
++    twi_wr(t, TWI_CNTR, CNTR_BUS_EN | CNTR_INT_FLAG | CNTR_M_STP);
++    for (uint32_t us = 0; us < TWI_TIMEOUT_US; ++us) {
++        if (!(twi_rd(t, TWI_CNTR) & CNTR_M_STP) &&
++            twi_rd(t, TWI_STAT) == STAT_IDLE)
++            return;
++        t113_udelay(1);
++    }
++}
++
++static int twi_start(struct t113_twi *t, int repeated)
++{
++    if (!repeated) {
++        /* First START: no INT_FLAG pending, so don't write it. */
++        twi_wr(t, TWI_CNTR, CNTR_BUS_EN | CNTR_M_STA);
++        if (twi_wait_flag(t) < 0)
++            return -ETIMEDOUT;
++        return twi_rd(t, TWI_STAT) == STAT_START ? 0 : -EIO;
++    }
++    return twi_step(t, CNTR_M_STA, STAT_RESTART);
++}
++
++static int twi_xfer_msg(struct t113_twi *t, struct i2c_msg *msg, int first)
++{
++    int read = (msg->flags & I2C_M_RD) != 0;
++    int ret = twi_start(t, !first);
++    if (ret < 0)
++        return ret;
++
++    twi_wr(t, TWI_DATA, (uint32_t)(msg->addr << 1) | (read ? 1u : 0u));
++    ret = twi_step(t, 0, read ? STAT_ADDR_R_ACK : STAT_ADDR_W_ACK);
++    if (ret < 0)
++        return ret == -EIO ? -ENXIO : ret;      /* address NACK: no chip */
++
++    for (uint16_t i = 0; i < msg->len; ++i) {
++        if (read) {
++            int last = i + 1u == msg->len;
++            ret = twi_step(t, last ? 0 : CNTR_A_ACK,
++                           last ? STAT_DATA_R_NACK : STAT_DATA_R_ACK);
++            if (ret < 0)
++                return ret;
++            msg->buf[i] = (uint8_t)twi_rd(t, TWI_DATA);
++        } else {
++            twi_wr(t, TWI_DATA, msg->buf[i]);
++            ret = twi_step(t, 0, STAT_DATA_W_ACK);
++            if (ret < 0)
++                return ret;
++        }
++    }
++    return 0;
++}
++
++static int twi_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
++                           int num)
++{
++    struct t113_twi *t = adap->algo_data;
++    int ret = 0;
++
++    for (int i = 0; i < num && ret == 0; ++i)
++        ret = twi_xfer_msg(t, &msgs[i], i == 0);
++    twi_stop(t);
++    return ret < 0 ? ret : num;
++}
++
++static const struct i2c_algorithm twi_algo = {
++    .master_xfer = twi_master_xfer,
++};
++
++/* Pick M (4 bits) and N (3 bits) for the requested SCL rate. */
++static uint32_t twi_ccr(uint32_t hz)
++{
++    for (uint32_t n = 0; n < 8u; ++n) {
++        uint32_t div = 10u * (1u << n) * hz;
++        uint32_t m = (TWI_APB_HZ + div - 1u) / div;     /* round SCL down */
++        if (m >= 1u && m - 1u <= 15u)
++            return ((m - 1u) << 3) | n;
++    }
++    return (15u << 3) | 7u;
++}
++
++static int t113_twi_probe(struct platform_device *pdev)
++{
++    const struct t113_twi_platform_data *pdata = pdev->dev.platform_data;
++    const struct resource *mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++
++    if (!mem || mem->start < T113_TWI0_BASE ||
++        (mem->start - T113_TWI0_BASE) % T113_TWI_STRIDE)
++        return -ENODEV;
++    uint32_t idx = (mem->start - T113_TWI0_BASE) / T113_TWI_STRIDE;
++    if (idx >= I2C_MAX_ADAPTERS)
++        return -ENODEV;
++
++    struct t113_twi *t = &twi_ctrl[idx];
++    t->base = mem->start;
++
++    /* Bus clock gate on, reset deasserted. */
++    uint32_t bgr = mmio_read32(T113_CCU_TWI_BGR);
++    mmio_write32(T113_CCU_TWI_BGR, bgr & ~(1u << (16u + idx)));
++    mmio_write32(T113_CCU_TWI_BGR, bgr | (1u << idx) | (1u << (16u + idx)));
++
++    if (pdata)
++        t113_pinmux_apply(pdata->pins, pdata->num_pins);
++
++    twi_wr(t, TWI_SRST, 1u);
++    for (uint32_t us = 0; us < TWI_TIMEOUT_US && (twi_rd(t, TWI_SRST) & 1u); ++us)
++        t113_udelay(1);
++    twi_wr(t, TWI_CCR, twi_ccr(pdata && pdata->bus_hz ? pdata->bus_hz : 100000u));
++    twi_wr(t, TWI_EFR, 0);
++    twi_wr(t, TWI_CNTR, CNTR_BUS_EN);
++
++    t->adap.nr = (int)idx;
++    t->adap.name = twi_names[idx];
++    t->adap.algo = &twi_algo;
++    t->adap.algo_data = t;
++    t->adap.dev = &pdev->dev;
++    int ret = i2c_add_numbered_adapter(&t->adap);
++    if (ret < 0)
++        return ret;
++
++    platform_set_drvdata(pdev, &t->adap);
++    platform_dev_info(pdev, "i2c adapter registered, polling mode");
++    return 0;
++}
++
++static void t113_twi_remove(struct platform_device *pdev)
++{
++    struct i2c_adapter *adap = platform_get_drvdata(pdev);
++    struct t113_twi *t = adap->algo_data;
++
++    i2c_del_adapter(adap);
++    twi_wr(t, TWI_CNTR, 0);
++}
++
++static const struct of_device_id t113_twi_of_match[] = {
++    { .compatible = "allwinner,sun20i-d1-i2c" },
++    { .compatible = "allwinner,sun6i-a31-i2c" },
++    { 0 },
++};
++
++struct platform_driver t113_twi_driver = {
++    .probe = t113_twi_probe,
++    .remove = t113_twi_remove,
++    .driver = { .name = "mv64xxx_i2c" },
++    .of_match_table = t113_twi_of_match,
++};

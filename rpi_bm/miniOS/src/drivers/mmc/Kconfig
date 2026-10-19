@@ -1,0 +1,13 @@
+menu "MMC/SD/SDIO"
+config MMC
+    bool "MMC core"
+    default y if BOARD_100ASK_T113
+config MMC_SUNXI
+    bool "Allwinner SMHC host controller"
+    depends on MMC && BOARD_100ASK_T113
+    default y
+config SDIO
+    bool "SDIO bus"
+    depends on MMC
+    default y
+endmenu

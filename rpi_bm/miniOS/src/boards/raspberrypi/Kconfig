@@ -1,0 +1,6 @@
+menu "Raspberry Pi board"
+    depends on BOARD_RPI3
+config SOC_BCM2837
+    bool
+    default y
+endmenu
