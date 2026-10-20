@@ -73,6 +73,14 @@ C_FILES += $(wildcard $(SRC_DIR)/*/*/*/*.c)
 C_FILES += $(wildcard $(SRC_DIR)/*/*/*/*/*.c)
 C_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/% \
 	$(SRC_DIR)/drivers/net/% \
+	$(SRC_DIR)/drivers/mmc/% \
+	$(SRC_DIR)/kernel/fs/% \
+	$(SRC_DIR)/kernel/mm/page_alloc.c \
+	$(SRC_DIR)/kernel/sched/core.c \
+	$(SRC_DIR)/kernel/sync.c \
+	$(SRC_DIR)/kernel/syscall.c \
+	$(SRC_DIR)/kernel/init/main.c \
+	$(SRC_DIR)/net/tftp.c \
 	$(SRC_DIR)/lib/wpa_crypto.c,$(C_FILES))
 
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
@@ -95,11 +103,13 @@ kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	$(ARMGNU)-objcopy $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
 
 T113_DISK ?= /dev/disk4
+T113_ROOTFS_DISK ?= $(T113_DISK)s2
 
 # T113 installation is owned by the rpi_bm parent build because miniBoot
 # creates the final Boot0 image. Keep this convenience entry point.
 install:
-	$(MAKE) -C .. install T113_DISK=$(T113_DISK)
+	$(MAKE) -C .. install T113_DISK=$(T113_DISK) \
+		T113_ROOTFS_DISK=$(T113_ROOTFS_DISK)
 
 rpi-install: kernel8.img armstub-new.bin
 	@echo "Deploy to $(value BOOTMNT)"
@@ -151,6 +161,7 @@ debug: qemu-gdb
 T113_CROSS ?= arm-none-eabi-
 T113_BUILD := build-t113
 T113_SRC := src/boards/100ask_t113
+T113_KERNEL_SRC := src/kernel
 T113_USER_SRC := user-t113
 T113_KERNEL_INCLUDE := src/include/t113
 T113_COMMON_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
@@ -158,24 +169,30 @@ T113_COMMON_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 	-fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -nostartfiles \
 	-Wall -Wextra
 
-T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE) -Isrc/include/net
+T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE) \
+	-Isrc/include -Isrc/include/net
 ifneq ($(wildcard src/include/generated/autoconf.h),)
 T113_CFLAGS += -include src/include/generated/autoconf.h
 endif
 T113_USER_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_USER_SRC)/include -fno-pic
 T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
-	$(T113_BUILD)/gic.o $(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
-	$(T113_BUILD)/page_alloc.o $(T113_BUILD)/user_vm.o \
-	$(T113_BUILD)/sched.o $(T113_BUILD)/sync.o $(T113_BUILD)/kobject.o \
+	$(T113_BUILD)/exception.o $(T113_BUILD)/gic.o \
+	$(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
+	$(T113_BUILD)/kernel/mm/page_alloc.o $(T113_BUILD)/user_vm.o \
+	$(T113_BUILD)/kernel/sched/core.o $(T113_BUILD)/kernel/sync.o \
+	$(T113_BUILD)/kobject.o \
 	$(T113_BUILD)/device.o $(T113_BUILD)/platform_bus.o \
 	$(T113_BUILD)/board.o $(T113_BUILD)/driver_model.o \
 	$(T113_BUILD)/gpio.o $(T113_BUILD)/delay.o \
 	$(T113_BUILD)/bootpack.o \
 	$(T113_BUILD)/switch.o \
 	$(T113_BUILD)/fork_entry.o \
-	$(T113_BUILD)/syscall.o $(T113_BUILD)/fs/vfs.o \
-	$(T113_BUILD)/fs/minifs.o \
-	$(T113_BUILD)/kernel.o $(T113_BUILD)/minifs_image.o
+	$(T113_BUILD)/kernel/syscall.o $(T113_BUILD)/kernel/init/main.o \
+	$(T113_BUILD)/fs/vfs.o \
+	$(T113_BUILD)/fs/minifs.o $(T113_BUILD)/fs/devfs.o \
+	$(T113_BUILD)/fs/bootfs.o \
+	$(T113_BUILD)/fs/rootdev.o $(T113_BUILD)/drivers/mmc/sunxi-sd.o \
+	$(T113_BUILD)/platform_kernel.o
 
 ifeq ($(CONFIG_I2C),y)
 T113_OBJS += $(T113_BUILD)/i2c_core.o $(T113_BUILD)/twi.o
@@ -187,7 +204,8 @@ ifeq ($(CONFIG_VIDEO_OV5640),y)
 T113_OBJS += $(T113_BUILD)/ov5640.o
 endif
 ifeq ($(CONFIG_MMC),y)
-T113_OBJS += $(T113_BUILD)/sdio_core.o $(T113_BUILD)/smhc.o
+T113_OBJS += $(T113_BUILD)/drivers/mmc/core.o \
+	$(T113_BUILD)/drivers/mmc/host/sunxi-smhc.o
 endif
 
 ifeq ($(CONFIG_WLAN_XRADIO_XR829),y)
@@ -198,21 +216,40 @@ endif
 ifeq ($(CONFIG_WPA2_PSK),y)
 T113_OBJS += $(T113_BUILD)/lib/wpa_crypto.o
 endif
-ifeq ($(CONFIG_NET),y)
-T113_OBJS += $(T113_BUILD)/net/tftp.o
+ifeq ($(CONFIG_TFTP_CLIENT),y)
+T113_OBJS += $(T113_BUILD)/net/tftp.o \
+	$(T113_BUILD)/miniboot_update.o
 endif
 T113_USER_LIB_OBJS := $(T113_BUILD)/user/usys.o \
 	$(T113_BUILD)/user/libc/libc.o
 T113_USER_LIB := $(T113_BUILD)/user/libc.a
 T113_USER_COMMON := $(T113_BUILD)/user/start.o
+T113_USER_PROGRAMS := sh ls echo pwd cat sleep uptime grep wc forktest zombie
+T113_USER_BINARIES := $(addprefix $(T113_BUILD)/_,$(T113_USER_PROGRAMS))
 
 t113: t113-kernel
-t113-kernel: $(T113_BUILD)/minios-kernel.bin
+t113-kernel: $(T113_BUILD)/minios-kernel.bin $(T113_BUILD)/minifs.img
 
 $(T113_BUILD):
 	mkdir -p $@
 
 $(T113_BUILD)/%.o: $(T113_SRC)/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/fs/%.o: $(T113_KERNEL_SRC)/fs/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/kernel/%.o: $(T113_KERNEL_SRC)/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
+$(T113_BUILD)/drivers/mmc/%.o: src/drivers/mmc/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -DMINIOS_KERNEL -c $< -o $@
+
+$(T113_BUILD)/drivers/mmc/host/%.o: src/drivers/mmc/host/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
@@ -268,12 +305,21 @@ $(T113_BUILD)/user-echo.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/echo.o \
 $(T113_BUILD)/_echo: $(T113_BUILD)/user-echo.elf
 	$(T113_CROSS)objcopy --strip-debug $< $@
 
+$(T113_BUILD)/user-%.elf: $(T113_USER_COMMON) $(T113_BUILD)/user/%.o \
+		$(T113_USER_LIB) $(T113_USER_SRC)/linker.ld
+	$(T113_CROSS)ld -T $(T113_USER_SRC)/linker.ld -Map $(T113_BUILD)/user-$*.map \
+		-o $@ $(T113_USER_COMMON) $(T113_BUILD)/user/$*.o $(T113_USER_LIB)
+
+$(T113_BUILD)/_%: $(T113_BUILD)/user-%.elf
+	$(T113_CROSS)objcopy --strip-debug $< $@
+
 $(T113_BUILD)/mkfs_minifs: tools/mkfs_minifs.c | $(T113_BUILD)
 	$(CC) -O2 -Wall -Wextra -Werror $< -o $@
 
 $(T113_BUILD)/minifs.img: $(T113_BUILD)/mkfs_minifs $(T113_BUILD)/_init \
-		$(T113_BUILD)/_echo
-	$(T113_BUILD)/mkfs_minifs $@ $(T113_BUILD)/_init $(T113_BUILD)/_echo
+		$(T113_USER_BINARIES)
+	$(T113_BUILD)/mkfs_minifs $@ $(T113_BUILD)/_init \
+		$(T113_USER_BINARIES)
 
 $(T113_BUILD)/minifs_image.o: $(T113_BUILD)/minifs.img
 	$(T113_CROSS)objcopy -I binary -O elf32-littlearm -B arm $< $@

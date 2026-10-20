@@ -1,10 +1,16 @@
 #include "platform.h"
 #include "fs/vfs.h"
 #include "fs/minifs.h"
+#include "fs/rootdev.h"
 
 static const uint8_t *minifs_image;
 static uint32_t fs_bytes;
 static struct minifs_superblock fs_sb;
+static int block_backed;
+static uint8_t block_cache[MINIFS_BSIZE] __attribute__((aligned(4)));
+static uint32_t cached_block;
+static int cache_valid;
+static const struct vfs_backend_ops minifs_vfs_ops;
 
 static void copy_bytes(void *destination, const void *source, uint32_t bytes)
 {
@@ -28,7 +34,18 @@ static int names_equal(const char disk_name[MINIFS_DIRSIZ],
 static const uint8_t *block_address(uint32_t block)
 {
     uint32_t offset = block * MINIFS_BSIZE;
-    if (block >= fs_sb.size || offset > fs_bytes - MINIFS_BSIZE)
+    if (block >= fs_sb.size)
+        return 0;
+    if (block_backed) {
+        if (cache_valid && cached_block == block)
+            return block_cache;
+        if (t113_rootdev_read(block * 2u, 2u, block_cache) < 0)
+            return 0;
+        cached_block = block;
+        cache_valid = 1;
+        return block_cache;
+    }
+    if (offset > fs_bytes - MINIFS_BSIZE)
         return 0;
     return minifs_image + offset;
 }
@@ -126,6 +143,8 @@ int t113_minifs_mount(const void *image, uint32_t bytes)
         return -1;
     minifs_image = (const uint8_t *)image;
     fs_bytes = bytes;
+    block_backed = 0;
+    cache_valid = 0;
     copy_bytes(&fs_sb, minifs_image + MINIFS_BSIZE, sizeof(fs_sb));
     if (fs_sb.magic != MINIFS_MAGIC ||
         fs_sb.size > fs_bytes / MINIFS_BSIZE)
@@ -136,6 +155,27 @@ int t113_minifs_mount(const void *image, uint32_t bytes)
     t113_uart_puthex(fs_sb.ninodes);
     t113_uart_putc('\n');
     return 0;
+}
+
+int t113_minifs_mount_rootdev(void)
+{
+    if (t113_rootdev_init() < 0 ||
+        t113_rootdev_read(2u, 2u, block_cache) < 0)
+        return -1;
+    copy_bytes(&fs_sb, block_cache, sizeof(fs_sb));
+    if (fs_sb.magic != MINIFS_MAGIC ||
+        fs_sb.size * 2u > t113_rootdev_sectors())
+        return -1;
+    minifs_image = 0;
+    fs_bytes = fs_sb.size * MINIFS_BSIZE;
+    block_backed = 1;
+    cached_block = 1u;
+    cache_valid = 1;
+    t113_uart_puts("minifs: mounted block rootfs blocks=");
+    t113_uart_puthex(fs_sb.size);
+    t113_uart_puts(" inodes="); t113_uart_puthex(fs_sb.ninodes);
+    t113_uart_putc('\n');
+    return t113_vfs_mount("/", &minifs_vfs_ops);
 }
 
 int t113_minifs_read_file(const char *path, void *destination,
@@ -182,6 +222,72 @@ int t113_minifs_read(uint32_t inum, uint32_t offset, void *destination,
     return (int)count;
 }
 
+int t113_minifs_list(const char *path, t113_minifs_emit_fn emit,
+                     void *argument)
+{
+    uint32_t inum;
+    struct minifs_dinode directory;
+    struct minifs_dirent entry;
+    if (!path || !emit || namei(path, &inum) < 0 ||
+        read_inode(inum, &directory) < 0 ||
+        directory.type != MINIFS_T_DIR)
+        return -1;
+
+    for (uint32_t offset = 0;
+         offset + sizeof(entry) <= directory.size;
+         offset += sizeof(entry)) {
+        struct minifs_dinode child;
+        uint32_t length = 0;
+        if (inode_read(&directory, offset, &entry, sizeof(entry)) < 0)
+            return -1;
+        if (!entry.inum)
+            continue;
+        while (length < MINIFS_DIRSIZ && entry.name[length])
+            ++length;
+        if (read_inode(entry.inum, &child) < 0)
+            return -1;
+        emit(entry.name, length, entry.inum, (uint32_t)child.type,
+             child.size, argument);
+    }
+    return 0;
+}
+
+int t113_minifs_readdir(const char *path, uint32_t index,
+                        struct t113_minifs_user_dirent *result)
+{
+    uint32_t inum, seen = 0;
+    struct minifs_dinode directory;
+    struct minifs_dirent entry;
+    if (!path || !result || namei(path, &inum) < 0 ||
+        read_inode(inum, &directory) < 0 ||
+        directory.type != MINIFS_T_DIR)
+        return -1;
+    for (uint32_t offset = 0;
+         offset + sizeof(entry) <= directory.size;
+         offset += sizeof(entry)) {
+        struct minifs_dinode child;
+        if (inode_read(&directory, offset, &entry, sizeof(entry)) < 0)
+            return -1;
+        if (!entry.inum)
+            continue;
+        if (seen++ != index)
+            continue;
+        if (read_inode(entry.inum, &child) < 0)
+            return -1;
+        result->inum = entry.inum;
+        result->type = (uint32_t)child.type;
+        result->size = child.size;
+        uint32_t i = 0;
+        while (i < MINIFS_DIRSIZ && entry.name[i]) {
+            result->name[i] = entry.name[i];
+            ++i;
+        }
+        result->name[i] = 0;
+        return 1;
+    }
+    return 0;
+}
+
 static int minifs_vfs_lookup(const char *path, struct vfs_node *node)
 {
     uint32_t inum, size;
@@ -199,9 +305,25 @@ static int minifs_vfs_read(const struct vfs_node *node, uint32_t offset,
     return t113_minifs_read(node->id, offset, destination, count);
 }
 
+static int minifs_vfs_readdir(const char *path, uint32_t index,
+                              struct vfs_dirent *entry)
+{
+    struct t113_minifs_user_dirent minifs_entry;
+    int result = t113_minifs_readdir(path, index, &minifs_entry);
+    if (result > 0) {
+        entry->id = minifs_entry.inum;
+        entry->type = minifs_entry.type;
+        entry->size = minifs_entry.size;
+        for (uint32_t i = 0; i < sizeof(entry->name); ++i)
+            entry->name[i] = minifs_entry.name[i];
+    }
+    return result;
+}
+
 static const struct vfs_backend_ops minifs_vfs_ops = {
     .lookup = minifs_vfs_lookup,
     .read = minifs_vfs_read,
+    .readdir = minifs_vfs_readdir,
 };
 
 int t113_minifs_mount_vfs(const void *image, uint32_t bytes)

@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
-int __sys_write(const void *buffer, size_t count);
+int __sys_write(int fd, const void *buffer, size_t count);
 int __sys_getpid(void);
 int __sys_yield(void);
 int __sys_fork(void);
@@ -23,6 +23,8 @@ int __sys_close(int fd);
 int __sys_uptime(void);
 int __sys_exec(const char *path, char *const argv[]);
 void *__sys_sbrk(ptrdiff_t increment);
+int __sys_readdir(const char *path, unsigned int index, struct dirent *entry);
+char *__sys_getcwd(char *buffer, size_t size);
 
 int errno;
 
@@ -36,9 +38,9 @@ static int syscall_result(int result)
 
 ssize_t write(int fd, const void *buffer, size_t count)
 {
-    if ((fd != STDOUT_FILENO && fd != STDERR_FILENO) || !buffer)
+    if (fd < 0 || !buffer)
         return -1;
-    return syscall_result(__sys_write(buffer, count));
+    return syscall_result(__sys_write(fd, buffer, count));
 }
 
 int open(const char *path, int flags)
@@ -57,6 +59,29 @@ ssize_t read(int fd, void *buffer, size_t count)
         return -1;
     }
     return syscall_result(__sys_read(fd, buffer, count));
+}
+
+int readdir(const char *path, unsigned int index, struct dirent *entry)
+{
+    if (!path || !entry) {
+        errno = EFAULT;
+        return -1;
+    }
+    return syscall_result(__sys_readdir(path, index, entry));
+}
+
+char *getcwd(char *buffer, size_t size)
+{
+    if (!buffer || size < 2u) {
+        errno = EINVAL;
+        return NULL;
+    }
+    char *result = __sys_getcwd(buffer, size);
+    if ((intptr_t)result < 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+    return result;
 }
 
 int close(int fd) { return syscall_result(__sys_close(fd)); }

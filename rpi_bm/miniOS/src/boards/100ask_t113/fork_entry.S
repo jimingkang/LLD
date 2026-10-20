@@ -61,11 +61,15 @@ kernel_svc_entry:
     mrs     r0, spsr
     str     r0, [sp, #TF_CPSR]
 
+    /* The trapframe is now complete. System calls may block or be
+     * preempted, so keep IRQs enabled during the C dispatcher. */
+    cpsie   i
     mov     r0, sp
     bl      t113_syscall_dispatch
 
     /* Release the temporary frame from SP_svc, while passing its address to
      * the common User-mode restore routine. */
+    cpsid   i
     mov     r0, sp
     add     sp, sp, #TF_SIZE
     b       arm32_return_to_user

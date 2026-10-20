@@ -71,5 +71,5 @@ int tftp_client_input(struct tftp_client *c, uint16_t source_port,
     put_be16(ack, TFTP_ACK); put_be16(ack + 2, block);
     ++c->next_block;
     c->state = data_len < TFTP_BLOCK_SIZE ? TFTP_COMPLETE : TFTP_RECEIVING;
-    return c->state == TFTP_COMPLETE ? 1 : 4;
+    return 4;
 }

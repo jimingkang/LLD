@@ -26,7 +26,7 @@
 #include "platform.h"
 #include "mmc.h"
 #include "board.h"
-#include "bootpack.h"
+#include "fs/vfs.h"
 #include "xradio/wsm.h"
 #include "xradio/sta.h"
 
@@ -288,17 +288,33 @@ static int xr829_cmd53_selftest(struct sdio_func *func, int verbose)
 
 /* ------------------------------------------------------ firmware load */
 
-static const struct bootpack_entry *need_image(struct sdio_func *f,
-                                               const char *name)
+struct firmware_image {
+    void *data;
+    uint32_t size;
+};
+
+static struct firmware_image *need_image(struct sdio_func *f,
+                                         const char *path,
+                                         struct firmware_image *image)
 {
-    const struct bootpack_entry *e = t113_bootpack_find(name);
-    if (!e || !e->size) {
-        say(f, "missing bootpack image ");
-        t113_uart_puts(name);
-        t113_uart_puts(" (build with firmware/xr829/*.bin present)\n");
+    struct vfs_file *file = t113_vfs_open(path, VFS_O_RDONLY);
+    uint32_t size = file ? t113_vfs_file_size(file) : 0;
+    uint32_t pages = (size + 4095u) / 4096u;
+    void *data = pages ? t113_alloc_pages(pages, 1) : 0;
+    int got = data ? t113_vfs_read(file, data, size) : -1;
+    t113_vfs_close(file);
+    if (got != (int)size) {
+        if (data) t113_free_pages(data, pages);
+        say(f, "cannot load ");
+        t113_uart_puts(path);
+        t113_uart_putc('\n');
         return 0;
     }
-    return e;
+    image->data = data;
+    image->size = size;
+    say(f, "loaded "); t113_uart_puts(path);
+    t113_uart_puts(" bytes "); putdec(size); t113_uart_putc('\n');
+    return image;
 }
 
 /* SDD = list of {u8 id, u8 len, data[len]}; take the reference clock. */
@@ -382,9 +398,9 @@ static int update_dpllctrl(struct sdio_func *f, uint32_t want)
 }
 
 static int download_bootloader(struct sdio_func *f,
-                               const struct bootpack_entry *e)
+                               const struct firmware_image *e)
 {
-    const uint32_t *w = (const uint32_t *)(uintptr_t)e->load_addr;
+    const uint32_t *w = (const uint32_t *)e->data;
     for (uint32_t i = 0; i < e->size / 4u; ++i) {
         int ret = ahb_write32(f, AHB_MEMORY_ADDRESS + 4u * i, w[i]);
         if (ret < 0) {
@@ -401,9 +417,9 @@ static int download_bootloader(struct sdio_func *f,
 #define CHK(expr) do { if ((ret = (expr)) < 0) goto io_error; } while (0)
 
 static int download_firmware(struct sdio_func *f,
-                             const struct bootpack_entry *e)
+                             const struct firmware_image *e)
 {
-    const uint8_t *img = (const uint8_t *)(uintptr_t)e->load_addr;
+    const uint8_t *img = (const uint8_t *)e->data;
     uint32_t v = 0, put = 0, get = 0, i;
     int ret;
 
@@ -502,15 +518,16 @@ io_error:
 
 static int xr829_load_firmware(struct sdio_func *f)
 {
-    const struct bootpack_entry *boot = need_image(f, "boot_xr829");
-    const struct bootpack_entry *fw = need_image(f, "fw_xr829");
-    const struct bootpack_entry *sdd = need_image(f, "sdd_xr829");
+    static struct firmware_image boot_image, fw_image, sdd_image;
+    struct firmware_image *boot = need_image(f, "/boot/boot_xr829.bin", &boot_image);
+    struct firmware_image *fw = need_image(f, "/boot/fw_xr829.bin", &fw_image);
+    struct firmware_image *sdd = need_image(f, "/boot/sdd_xr829.bin", &sdd_image);
     uint32_t v = 0;
     int ret;
 
     if (!boot || !fw || !sdd)
         return -ENODEV;
-    xr829_dev.sdd = (const void *)(uintptr_t)sdd->load_addr;
+    xr829_dev.sdd = sdd->data;
     xr829_dev.sdd_len = sdd->size;
 
     CHK(xr829_reg_read32(f, HIF_CONFIG_REG_ID, &v));
@@ -519,7 +536,7 @@ static int xr829_load_firmware(struct sdio_func *f)
         return -ENODEV;
     }
 
-    uint32_t dpll = parse_sdd(f, (const uint8_t *)(uintptr_t)sdd->load_addr,
+    uint32_t dpll = parse_sdd(f, (const uint8_t *)sdd->data,
                               sdd->size);
     CHK(xr829_reg_write32(f, HIF_TSET_GEN_R_W_REG_ID, dpll));
     t113_mdelay(5);

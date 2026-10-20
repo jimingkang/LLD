@@ -13,4 +13,8 @@ config USERSPACE
 config DEBUG_MMU_DUMP
     bool "Dump MMU page tables"
     default n
+
+config DEBUG_TIMER_TICK
+    bool "Print every Timer0 tick"
+    default n
 endmenu

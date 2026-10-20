@@ -17,6 +17,8 @@
 #define T113_SYS_EXEC   12u
 #define T113_SYS_SBRK   13u
 #define T113_SYS_VFORK  14u
+#define T113_SYS_READDIR 15u
+#define T113_SYS_GETCWD  16u
 
 void t113_syscall_dispatch(struct arm32_trapframe *tf);
 

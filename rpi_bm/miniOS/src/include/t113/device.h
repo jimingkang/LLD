@@ -24,6 +24,7 @@
 #define EEXIST  17
 #define ENODEV  19
 #define EINVAL  22
+#define ENOSPC  28
 #define ETIMEDOUT 110
 
 /* Device-tree style match entry (no real DT yet: string compare only). */

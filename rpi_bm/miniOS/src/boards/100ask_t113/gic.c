@@ -7,7 +7,9 @@
 #define GICD_IGROUPR(n)    (T113_GIC_DIST_BASE + 0x080u + 4u * (n))
 #define GICD_ISENABLER(n)  (T113_GIC_DIST_BASE + 0x100u + 4u * (n))
 #define GICD_ICENABLER(n)  (T113_GIC_DIST_BASE + 0x180u + 4u * (n))
+#define GICD_ISPENDR(n)    (T113_GIC_DIST_BASE + 0x200u + 4u * (n))
 #define GICD_ICPENDR(n)    (T113_GIC_DIST_BASE + 0x280u + 4u * (n))
+#define GICD_ISACTIVER(n)  (T113_GIC_DIST_BASE + 0x300u + 4u * (n))
 #define GICD_IPRIORITYR(n) (T113_GIC_DIST_BASE + 0x400u + 4u * (n))
 #define GICD_ITARGETSR(n)  (T113_GIC_DIST_BASE + 0x800u + 4u * (n))
 #define GICD_ICFGR(n)      (T113_GIC_DIST_BASE + 0xc00u + 4u * (n))
@@ -17,6 +19,8 @@
 #define GICC_BPR           (T113_GIC_CPU_BASE + 0x008u)
 #define GICC_IAR           (T113_GIC_CPU_BASE + 0x00cu)
 #define GICC_EOIR          (T113_GIC_CPU_BASE + 0x010u)
+#define GICC_RPR           (T113_GIC_CPU_BASE + 0x014u)
+#define GICC_HPPIR         (T113_GIC_CPU_BASE + 0x018u)
 
 static inline void io_barrier(void)
 {
@@ -70,6 +74,29 @@ void t113_gic_end_irq(uint32_t irq_ack)
 {
     mmio_write32(GICC_EOIR, irq_ack);
     io_barrier();
+}
+
+uint32_t t113_gic_irq_state(uint32_t irq)
+{
+    uint32_t bit = 1u << (irq % 32u);
+    uint32_t state = 0;
+    if (mmio_read32(GICD_ISPENDR(irq / 32u)) & bit)
+        state |= 1u;
+    if (mmio_read32(GICD_ISACTIVER(irq / 32u)) & bit)
+        state |= 2u;
+    if (mmio_read32(GICD_ISENABLER(irq / 32u)) & bit)
+        state |= 4u;
+    return state;
+}
+
+uint32_t t113_gic_running_priority(void)
+{
+    return mmio_read32(GICC_RPR);
+}
+
+uint32_t t113_gic_highest_pending(void)
+{
+    return mmio_read32(GICC_HPPIR);
 }
 
 /*

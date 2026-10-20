@@ -1,10 +1,12 @@
 #include "platform.h"
+#include "spinlock.h"
 
 #define PAGE_SIZE 4096u
 
 static uint8_t *page_bitmap;
 static uintptr_t pool_start;
 static uint32_t pool_pages;
+static spinlock_t page_lock = SPINLOCK_INIT;
 
 static uint32_t page_is_used(uint32_t page)
 {
@@ -29,6 +31,7 @@ static void zero_pages(void *address, uint32_t count)
 
 void t113_page_alloc_init(uint32_t base, uint32_t size)
 {
+    spin_lock_init(&page_lock);
     pool_start = (base + PAGE_SIZE - 1u) & ~(PAGE_SIZE - 1u);
     pool_pages = (size - (uint32_t)(pool_start - base)) / PAGE_SIZE;
     page_bitmap = (uint8_t *)pool_start;
@@ -58,6 +61,7 @@ void *t113_alloc_pages(uint32_t count, uint32_t align_pages)
     if (!align_pages)
         align_pages = 1;
 
+    uint32_t flags = spin_lock_irqsave(&page_lock);
     for (uint32_t i = 0; i + count <= pool_pages; ++i) {
         uintptr_t address = pool_start + i * PAGE_SIZE;
         if (((address / PAGE_SIZE) % align_pages) != 0)
@@ -73,8 +77,10 @@ void *t113_alloc_pages(uint32_t count, uint32_t align_pages)
         for (j = 0; j < count; ++j)
             page_mark(i + j, 1);
         zero_pages((void *)address, count);
+        spin_unlock_irqrestore(&page_lock, flags);
         return (void *)address;
     }
+    spin_unlock_irqrestore(&page_lock, flags);
     return 0;
 }
 
@@ -89,17 +95,23 @@ void t113_free_pages(void *address, uint32_t count)
 
     if (value < pool_start || (value & (PAGE_SIZE - 1u)) || !count)
         return;
+    uint32_t flags = spin_lock_irqsave(&page_lock);
     uint32_t index = (uint32_t)((value - pool_start) / PAGE_SIZE);
-    if (index + count > pool_pages)
+    if (index + count > pool_pages) {
+        spin_unlock_irqrestore(&page_lock, flags);
         return;
+    }
     for (uint32_t i = 0; i < count; ++i)
         page_mark(index + i, 0);
+    spin_unlock_irqrestore(&page_lock, flags);
 }
 
 uint32_t t113_page_free_count(void)
 {
     uint32_t free = 0;
+    uint32_t flags = spin_lock_irqsave(&page_lock);
     for (uint32_t i = 0; i < pool_pages; ++i)
         free += page_is_used(i) == 0;
+    spin_unlock_irqrestore(&page_lock, flags);
     return free;
 }

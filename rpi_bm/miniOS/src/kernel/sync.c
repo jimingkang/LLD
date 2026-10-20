@@ -37,8 +37,14 @@ void init_waitqueue_head(struct wait_queue_head *queue)
 void wait_queue_sleep(struct wait_queue_head *queue)
 {
     uint32_t flags = spin_lock_irqsave(&queue->lock);
+    wait_queue_sleep_locked(queue, flags);
+}
+
+void wait_queue_sleep_locked(struct wait_queue_head *queue,
+                             uint32_t irq_flags)
+{
     wait_enqueue_locked(queue, t113_current);
-    spin_unlock_irqrestore(&queue->lock, flags);
+    spin_unlock_irqrestore(&queue->lock, irq_flags);
     t113_sched_yield();
 }
 

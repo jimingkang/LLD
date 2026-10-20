@@ -18,6 +18,7 @@ struct t113_user_page {
 };
 
 struct t113_user_vm {
+    uint32_t references;
     uint32_t *l1;
     uint32_t *l2[T113_MAX_USER_L2];
     uint32_t l2_index[T113_MAX_USER_L2];
@@ -32,12 +33,18 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
                                              uint32_t image_size,
                                              uint32_t *entry);
 struct t113_user_vm *t113_user_vm_clone(const struct t113_user_vm *source);
+void t113_user_vm_get(struct t113_user_vm *vm);
+void t113_user_vm_put(struct t113_user_vm *vm);
 int t113_user_vm_range_mapped(const struct t113_user_vm *vm,
                               uint32_t address, uint32_t length);
 int t113_user_vm_range_writable(const struct t113_user_vm *vm,
                                 uint32_t address, uint32_t length);
 int t113_user_vm_copyout(struct t113_user_vm *vm, uint32_t address,
                          const void *source, uint32_t length);
+/* Descriptors the MMU will actually use for va: L1 entry and, when that is
+ * a coarse table, its L2 entry (0 when absent). For diagnostics. */
+void t113_user_vm_descriptors(const struct t113_user_vm *vm, uint32_t va,
+                              uint32_t *l1, uint32_t *l2);
 int32_t t113_user_vm_sbrk(struct t113_user_vm *vm, int32_t increment);
 void t113_switch_user_vm(struct t113_user_vm *vm);
 void t113_switch_kernel_vm(void);

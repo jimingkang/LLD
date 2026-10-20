@@ -25,6 +25,7 @@ OPTIONS = [
     ("MMC / SDIO", "MMC_SUNXI", "Allwinner SMHC controller"),
     ("MMC / SDIO", "SDIO", "SDIO bus"),
     ("Networking", "NET", "Networking support"),
+    ("Networking", "TFTP_CLIENT", "TFTP client and miniBoot updater"),
     ("Networking", "WLAN", "Wireless LAN"),
     ("Networking", "WLAN_XRADIO", "XRadio family"),
     ("Networking", "WLAN_XRADIO_XR829", "XR829 SDIO device"),
@@ -37,11 +38,13 @@ OPTIONS = [
     ("File systems", "MINIFS", "Embedded miniFS"),
     ("Kernel", "USERSPACE", "Userspace and system calls"),
     ("Kernel", "DEBUG_MMU_DUMP", "MMU page-table diagnostics"),
+    ("Kernel", "DEBUG_TIMER_TICK", "Print every Timer0 tick"),
 ]
 
 DEPS = {
     "MMC_SUNXI": ("MMC", "BOARD_100ASK_T113"), "SDIO": ("MMC",),
-    "NET": ("BOARD_100ASK_T113",), "WLAN": ("NET",),
+    "NET": ("BOARD_100ASK_T113",), "TFTP_CLIENT": ("NET",),
+    "WLAN": ("NET",),
     "WLAN_XRADIO": ("WLAN", "SDIO"),
     "WLAN_XRADIO_XR829": ("WLAN_XRADIO",), "XR829_WSM": ("WLAN_XRADIO_XR829",),
     "WPA2_PSK": ("XR829_WSM",), "VIDEO": ("I2C",),
@@ -50,7 +53,8 @@ DEPS = {
 
 def defaults():
     return {key: key not in {"ARCH_ARM64", "BOARD_RPI3", "VIDEO",
-                             "VIDEO_OV5640", "DEBUG_MMU_DUMP"}
+                             "VIDEO_OV5640", "DEBUG_MMU_DUMP",
+                             "DEBUG_TIMER_TICK"}
             for _, key, _ in OPTIONS}
 
 def load(path=CONFIG):

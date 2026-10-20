@@ -1,5 +1,5 @@
-#ifndef MINIOS_T113_MINIFS_H
-#define MINIOS_T113_MINIFS_H
+#ifndef MINIOS_FS_MINIFS_H
+#define MINIOS_FS_MINIFS_H
 
 #include <stdint.h>
 
@@ -30,10 +30,25 @@ struct minifs_dirent {
 
 int t113_minifs_mount(const void *image, uint32_t bytes);
 int t113_minifs_mount_vfs(const void *image, uint32_t bytes);
+/* Mount minifs directly from MBR partition 2; blocks are read on demand. */
+int t113_minifs_mount_rootdev(void);
 int t113_minifs_read_file(const char *path, void *destination,
                          uint32_t capacity);
 int t113_minifs_open(const char *path, uint32_t *inum, uint32_t *size);
 int t113_minifs_read(uint32_t inum, uint32_t offset, void *destination,
                     uint32_t count);
+typedef void (*t113_minifs_emit_fn)(const char *name, uint32_t length,
+                                   uint32_t inum, uint32_t type,
+                                   uint32_t size, void *argument);
+int t113_minifs_list(const char *path, t113_minifs_emit_fn emit,
+                     void *argument);
+struct t113_minifs_user_dirent {
+    uint32_t inum;
+    uint32_t type;
+    uint32_t size;
+    char name[MINIFS_DIRSIZ + 1u];
+};
+int t113_minifs_readdir(const char *path, uint32_t index,
+                        struct t113_minifs_user_dirent *result);
 
 #endif

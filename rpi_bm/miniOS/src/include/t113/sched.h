@@ -59,6 +59,8 @@ struct t113_task {
     struct t113_user_vm *mm;
     struct t113_task *ready_prev;
     struct t113_task *ready_next;
+    struct t113_task *task_prev;
+    struct t113_task *task_next;
     struct t113_task *parent;
     struct t113_task *vfork_parent;
     struct t113_task *wait_next;

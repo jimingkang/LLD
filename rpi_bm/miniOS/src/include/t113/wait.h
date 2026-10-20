@@ -15,6 +15,9 @@ struct wait_queue_head {
 
 void init_waitqueue_head(struct wait_queue_head *queue);
 void wait_queue_sleep(struct wait_queue_head *queue);
+/* Caller holds queue->lock with IRQ state returned by spin_lock_irqsave(). */
+void wait_queue_sleep_locked(struct wait_queue_head *queue,
+                             uint32_t irq_flags);
 int wake_up_one(struct wait_queue_head *queue);
 uint32_t wake_up_all(struct wait_queue_head *queue);
 

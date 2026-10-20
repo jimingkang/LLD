@@ -24,7 +24,9 @@ void tftp_client_init(struct tftp_client *c, const char *filename,
 /* Build RRQ or ACK UDP payload. Returns payload bytes, or a negative error. */
 int tftp_client_rrq(struct tftp_client *c, void *packet, uint32_t capacity);
 /* Consume one UDP payload and build ACK in reply. Returns reply bytes;
- * zero means no reply, one means transfer completed, negative means error. */
+ * zero means no reply and a negative value means error.  A final DATA packet
+ * still returns 4 because RFC 1350 requires its ACK to be transmitted; test
+ * c->state == TFTP_COMPLETE after sending that ACK. */
 int tftp_client_input(struct tftp_client *c, uint16_t source_port,
                       const void *packet, uint32_t length,
                       void *reply, uint32_t reply_capacity);

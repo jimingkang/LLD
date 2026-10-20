@@ -100,3 +100,17 @@ __sys_sbrk:
     mov r7, #13
     svc #0
     pop {r7, pc}
+
+.global __sys_readdir
+__sys_readdir:
+    push {r7, lr}
+    mov r7, #15
+    svc #0
+    pop {r7, pc}
+
+.global __sys_getcwd
+__sys_getcwd:
+    push {r7, lr}
+    mov r7, #16
+    svc #0
+    pop {r7, pc}

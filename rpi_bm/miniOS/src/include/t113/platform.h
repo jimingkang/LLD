@@ -69,12 +69,30 @@ void t113_uart_init(void);
 void t113_uart_putc(char c);
 void t113_uart_puts(const char *s);
 void t113_uart_puthex(uint32_t value);
+int t113_uart_getc_nonblock(void);
+int t113_uart_read(void *buffer, uint32_t count);
+void t113_uart_irq_init(void);
+void t113_uart_irq_handler(void);
+void t113_uart_rx_watchdog(void);
+uint32_t t113_uart_lsr(void);
+uint32_t t113_uart_usr(void);
+uint32_t t113_uart_ier(void);
+/* Debug helpers: hex without 0x/padding, and RX-path counters
+ * " q<irqs> r<head>/<tail> w<first waiter pid or ->". */
+void t113_uart_putx(uint32_t value);
+void t113_uart_debug_print(void);
+uint32_t t113_uart_rx_irq_count(void);
+char t113_uart_getc(void);
 uint64_t t113_time_us(void);
 
 void t113_gic_init(void);
 void t113_gic_enable_irq(uint32_t irq);
 uint32_t t113_gic_acknowledge(void);
 void t113_gic_end_irq(uint32_t irq_ack);
+/* Debug: bit0 pending, bit1 active, bit2 enabled for one interrupt ID. */
+uint32_t t113_gic_irq_state(uint32_t irq);
+uint32_t t113_gic_running_priority(void);
+uint32_t t113_gic_highest_pending(void);
 
 void t113_timer0_init(void);
 void t113_timer0_acknowledge(void);
@@ -102,5 +120,7 @@ uint32_t t113_page_free_count(void);
 
 void t113_sched_init(void);
 void t113_sched_tick(void);
+/* Debug: print " c<pid>:<state> <pid>:<state> ..." without a newline. */
+void t113_sched_debug_print(void);
 
 #endif

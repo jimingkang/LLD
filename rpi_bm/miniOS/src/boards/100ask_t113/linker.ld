@@ -14,9 +14,6 @@ SECTIONS
         KEEP(*kernel_entry.o(.text.kernel_entry))
         *(.text .text.* .rodata .rodata.*)
         . = ALIGN(16);
-        __minifs_image_start = .;
-        *minifs_image.o(.data)
-        __minifs_image_end = .;
         *(.data .data.*)
         __kernel_load_end = .;
     } > dram
@@ -41,6 +38,12 @@ SECTIONS
         __kernel_stack_svc_end = .;
         . += 0x0400;
         __kernel_stack_irq_end = .;
+        . += 0x0400;
+        __kernel_stack_abt_end = .;
+        . += 0x0400;
+        __kernel_stack_und_end = .;
+        . += 0x0400;
+        __kernel_stack_fiq_end = .;
         . = ALIGN(0x1000);
         __kernel_reserved_end = .;
     } > dram

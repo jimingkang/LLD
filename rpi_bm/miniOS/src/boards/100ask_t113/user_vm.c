@@ -1,6 +1,10 @@
 #include "platform.h"
 #include "user_vm.h"
 
+#ifndef ELF_LOAD_TRACE
+#define ELF_LOAD_TRACE 0
+#endif
+
 #define PAGE_SIZE       4096u
 #define PAGE_MASK       0xfffff000u
 #define ELF_MAGIC       0x464c457fu
@@ -22,7 +26,6 @@
 #define L2_TEX_NORMAL   (1u << 6)
 #define L2_SHARED       (1u << 10)
 #define L2_NG           (1u << 11)
-#define MAX_USER_VMS    4u
 
 struct elf32_ehdr {
     uint8_t ident[16];
@@ -36,8 +39,6 @@ struct elf32_phdr {
     uint32_t filesz, memsz, flags, align;
 };
 
-static struct t113_user_vm user_vms[MAX_USER_VMS];
-static uint32_t user_vm_count;
 extern uint32_t __kernel_l1_table[];
 
 static void zero_bytes(void *address, uint32_t bytes)
@@ -182,14 +183,16 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
 {
     const uint8_t *bytes = (const uint8_t *)image;
     const struct elf32_ehdr *elf = (const struct elf32_ehdr *)image;
-    if (!image || !entry || user_vm_count >= MAX_USER_VMS ||
+    if (!image || !entry ||
         !elf_header_valid(elf, image_size)) {
         t113_uart_puts("ELF: invalid ARM32 executable\n");
         return 0;
     }
 
-    struct t113_user_vm *vm = &user_vms[user_vm_count++];
-    zero_bytes(vm, sizeof(*vm));
+    struct t113_user_vm *vm = (struct t113_user_vm *)t113_alloc_page();
+    if (!vm)
+        return 0;
+    vm->references = 1u;
     vm->l1 = (uint32_t *)t113_alloc_pages(4, 4);
     if (!vm->l1)
         return 0;
@@ -226,6 +229,7 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
         if (program->vaddr + program->memsz > image_end)
             image_end = program->vaddr + program->memsz;
 
+#if ELF_LOAD_TRACE
         t113_uart_puts("ELF: PT_LOAD va=");
         t113_uart_puthex(program->vaddr);
         t113_uart_puts(" filesz=");
@@ -235,6 +239,7 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
         t113_uart_puts(" flags=");
         t113_uart_puthex(program->flags);
         t113_uart_putc('\n');
+#endif
         ++loaded;
     }
     if (!loaded || !find_page(vm, elf->entry))
@@ -246,6 +251,7 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
     sync_executable_pages(vm);
     *entry = elf->entry;
 
+#if ELF_LOAD_TRACE
     t113_uart_puts("ELF: entry=");
     t113_uart_puthex(*entry);
     t113_uart_puts(" pages=");
@@ -255,16 +261,19 @@ struct t113_user_vm *t113_user_vm_create_elf(const void *image,
     t113_uart_puts(" free-pages=");
     t113_uart_puthex(t113_page_free_count());
     t113_uart_putc('\n');
+#endif
     return vm;
 }
 
 struct t113_user_vm *t113_user_vm_clone(const struct t113_user_vm *source)
 {
-    if (!source || user_vm_count >= MAX_USER_VMS)
+    if (!source)
         return 0;
 
-    struct t113_user_vm *vm = &user_vms[user_vm_count++];
-    zero_bytes(vm, sizeof(*vm));
+    struct t113_user_vm *vm = (struct t113_user_vm *)t113_alloc_page();
+    if (!vm)
+        return 0;
+    vm->references = 1u;
     vm->l1 = (uint32_t *)t113_alloc_pages(4, 4);
     if (!vm->l1)
         return 0;
@@ -285,6 +294,27 @@ struct t113_user_vm *t113_user_vm_clone(const struct t113_user_vm *source)
     vm->brk = source->brk;
     sync_executable_pages(vm);
     return vm;
+}
+
+void t113_user_vm_get(struct t113_user_vm *vm)
+{
+    if (vm)
+        ++vm->references;
+}
+
+void t113_user_vm_put(struct t113_user_vm *vm)
+{
+    if (!vm || !vm->references || --vm->references)
+        return;
+    for (uint32_t i = 0; i < vm->page_count; ++i)
+        if (vm->pages[i].pa)
+            t113_free_pages(vm->pages[i].pa, 1);
+    for (uint32_t i = 0; i < vm->l2_count; ++i)
+        if (vm->l2[i])
+            t113_free_pages(vm->l2[i], 1);
+    if (vm->l1)
+        t113_free_pages(vm->l1, 4);
+    t113_free_pages(vm, 1);
 }
 
 int t113_user_vm_range_mapped(const struct t113_user_vm *vm,
@@ -323,6 +353,20 @@ int t113_user_vm_range_writable(const struct t113_user_vm *vm,
             return 1;
         page += PAGE_SIZE;
     }
+}
+
+void t113_user_vm_descriptors(const struct t113_user_vm *vm, uint32_t va,
+                              uint32_t *l1, uint32_t *l2)
+{
+    *l1 = 0;
+    *l2 = 0;
+    if (!vm || !vm->l1)
+        return;
+    *l1 = vm->l1[va >> 20];
+    if ((*l1 & 3u) != L1_COARSE)
+        return;
+    const uint32_t *table = (const uint32_t *)(uintptr_t)(*l1 & 0xfffffc00u);
+    *l2 = table[(va >> 12) & 0xffu];
 }
 
 int t113_user_vm_copyout(struct t113_user_vm *vm, uint32_t address,
