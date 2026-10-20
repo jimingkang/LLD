@@ -1,5 +1,5 @@
-#ifndef MINIOS_NET_XRADIO_WSM_H
-#define MINIOS_NET_XRADIO_WSM_H
+#ifndef MINIOS_XRADIO_WSM_H
+#define MINIOS_XRADIO_WSM_H
 
 #include <stdint.h>
 
@@ -13,12 +13,10 @@
  * indications 0x08xx. Each request (commands and the 0x0004 TX) takes
  * one of the firmware's input buffers; every confirm frees one.
  *
- * Transport (hwio.c): write to IN_OUT_QUEUE with buf_id = tx id (0..31),
- * read with buf_id = rx id + 1 (rx id 0..3). CONTROL.NEXT_LEN gives the
- * next message length in 16-bit words; each read returns 2 extra bytes:
- * the next CONTROL value (piggyback).
- *
- * Everything is polled; there is no SDIO interrupt yet.
+ * The transport (queue reads/writes, sequence numbers, buffer
+ * accounting) is in bh.c; this file builds requests and decodes
+ * confirms and indications.  Everything is polled; there is no SDIO
+ * interrupt yet.
  */
 
 struct sdio_func;
@@ -35,7 +33,8 @@ struct sdio_func;
 #define WSM_STOP_SCAN_REQ       0x0008u
 #define WSM_CONFIGURATION_REQ   0x0009u
 #define WSM_RESET_REQ           0x000au
-#define WSM_JOIN_REQ            0x0013u       /* XR829 extended JOIN */
+#define WSM_JOIN_REQ            0x000bu
+#define WSM_SET_EDCA_REQ        0x0013u
 #define WSM_ADD_KEY_REQ         0x000cu
 #define WSM_REMOVE_KEY_REQ      0x000du
 #define WSM_SET_PM_REQ          0x0010u
@@ -48,25 +47,60 @@ struct sdio_func;
 #define WSM_SCAN_COMPLETE_IND   0x0806u
 #define WSM_SET_PM_IND          0x0809u
 
+/* EVENT indication ids */
+#define WSM_EVENT_BSS_LOST      1u
+#define WSM_EVENT_BSS_REGAINED  2u
+
 /* MIB ids used here */
 #define WSM_MIB_DOT11_CURRENT_TX_POWER  0x0006u
-#define WSM_MIB_OPERATIONAL_POWER_MODE  0x1006u
+#define WSM_MIB_DOT11_SLOT_TIME         0x0003u
 #define WSM_MIB_TEMPLATE_FRAME          0x1002u
+#define WSM_MIB_RX_FILTER               0x1003u
+#define WSM_MIB_BEACON_FILTER_TABLE     0x1004u
+#define WSM_MIB_BEACON_FILTER_ENABLE    0x1005u
+#define WSM_MIB_OPERATIONAL_POWER_MODE  0x1006u
+#define WSM_MIB_BEACON_WAKEUP_PERIOD    0x1007u
 #define WSM_MIB_BLOCK_ACK_POLICY        0x100eu
 #define WSM_MIB_SET_ASSOCIATION_MODE    0x1010u
 #define WSM_MIB_SET_TX_RATE_RETRY_POLICY 0x1016u
 #define WSM_MIB_PROTECTED_MGMT_POLICY   0x1020u
+#define WSM_MIB_SET_HT_PROTECTION       0x1021u
 #define WSM_MIB_KEEP_ALIVE_PERIOD       0x1025u
+#define WSM_MIB_DISABLE_BSSID_FILTER    0x1026u
 
+/* WSM_MIB_BEACON_FILTER_ENABLE flags for SUPPORT_HT40 firmware. */
+#define WSM_BEACON_FILTER_ENABLE        (1u << 0)
+#define WSM_BEACON_FILTER_AUTO_ERP      (1u << 1)
+#define WSM_BEACON_FILTER_AUTO_HT       (1u << 2)
+
+/* WSM queue ids (wsm_queue_id_to_linux in the xradio driver). */
 #define WSM_QUEUE_BEST_EFFORT   0u
+#define WSM_QUEUE_BACKGROUND    1u
+#define WSM_QUEUE_VIDEO         2u
 #define WSM_QUEUE_VOICE         3u
 
-/* RX indication payload (after the 4-byte WSM header).
- * XR_C09...2GHZ HT40 adds a u32 HT-RX parameter after the standard fields:
- * status:u32, channel:u16, rate:u8, rcpi:u8, flags:u32, ht_rx:u32. */
+/* RX indication payload (after the 4-byte WSM header), SUPPORT_HT40:
+ * status:u32 @0, channel:u16 @4, rxedRateEntry:u16 @6, reserved[3] @8,
+ * rcpiRssi:u8 @11, flags:u32 @12, then the 802.11 frame @16.  AES frames
+ * arrive decrypted but keep the 8-byte CCMP header and 8-byte MIC. */
 #define WSM_RX_HDR_LEN          16u
+#define WSM_RX_RCPI_OFFSET      11u
+#define WSM_RX_FLAGS_OFFSET     12u
 #define WSM_RX_STATUS_ENCRYPTION(f) ((f) & 7u)
+#define WSM_RX_ENC_NONE         0u
+#define WSM_RX_ENC_TKIP         2u
 #define WSM_RX_ENC_AES          3u
+
+/* TX rate retry policies installed by wsm_set_tx_policies(). */
+#define WSM_POLICY_MGMT         0u      /* 1 Mbps, 15 tries */
+#define WSM_POLICY_DATA         1u      /* 24 / 11 / 1 Mbps fallback */
+#define WSM_RATE_MGMT           0x000fu /* first rate entry of each */
+#define WSM_RATE_DATA           0x00a4u
+
+/* ADD_KEY types */
+#define WSM_KEY_TYPE_TKIP_GROUP     2u
+#define WSM_KEY_TYPE_AES_GROUP      4u
+#define WSM_KEY_TYPE_AES_PAIRWISE   5u
 
 struct wsm_caps {
     uint16_t num_bufs;          /* numInpChBufs */
@@ -88,23 +122,24 @@ struct wsm_scan_channel {
 };
 
 struct wsm_join {
-    uint8_t band;
+    uint16_t phy_mode;          /* PhyModeCfg: 0x0007 = 2.4 GHz b/g/n, 20 MHz */
     uint16_t channel;
     uint8_t bssid[6];
     const uint8_t *ssid;
     uint8_t ssid_len;
     uint8_t dtim_period;
     uint32_t beacon_interval;
+    uint32_t basic_rates;       /* BIT(hw rate index) */
 };
-
-/* Indication / unsolicited message handler (RX frames, scan complete...). */
-typedef void (*wsm_ind_handler)(uint16_t id, const uint8_t *msg, uint32_t len);
 
 /* After firmware download: wait for the startup indication (consumes it). */
 int wsm_init(struct sdio_func *func, int timeout_ms);
 const struct wsm_caps *wsm_get_caps(void);
 int wsm_ready(void);
-void wsm_set_ind_handler(wsm_ind_handler h);
+
+/* One message from the bottom half: confirms complete the pending
+ * request or a TX; indications go to scan.c / sta.c / txrx.c. */
+void wsm_handle_rx(const uint8_t *msg, uint32_t len);
 
 /*
  * Send a request and wait for its confirm (dispatching indications that
@@ -122,22 +157,29 @@ int wsm_set_probe_request_template(const uint8_t station_id[6]);
 int wsm_scan(const struct wsm_scan_channel *channels, uint8_t num_channels,
              const uint8_t *ssid, uint8_t ssid_len);
 int wsm_join(const struct wsm_join *join);
+int wsm_set_edca_default(void);
+int wsm_set_tx_policies(void);
+int wsm_mib32(uint16_t mib_id, uint32_t value);
+int wsm_set_bss_params(uint16_t aid, uint8_t beacon_lost_count,
+                       uint32_t operational_rates);
+int wsm_set_beacon_wakeup_period(uint8_t beacon_periods,
+                                 uint16_t listen_interval);
+int wsm_set_beacon_filter(int enabled, uint32_t beacon_count);
+/* SET_PM, then wait for the firmware's SET_PM indication. */
+int wsm_set_pm(uint8_t mode);
+int wsm_add_key_pairwise(uint8_t index, const uint8_t peer[6],
+                         const uint8_t tk[16]);
+int wsm_add_key_group(uint8_t type, uint8_t index, const uint8_t *gtk,
+                      uint8_t key_id, const uint8_t rsc[8]);
+int wsm_remove_key(uint8_t index);
 
 /*
- * Queue an 802.11 frame (the 24-byte wsm_tx header is built here).
- * Returns the packet id (>0) or <0. The TX confirm (0x0404) is handled
- * internally; wsm_tx_status(id) returns its status once it arrived, or
- * -1 while pending.
+ * Queue an 802.11 frame (the 24-byte wsm_tx header is built here) with
+ * the caller's packet id; its TX confirm (0x0404) is reported through
+ * xradio_tx_confirm_cb().  Returns 0 or <0.
  */
-int wsm_tx_frame(const uint8_t *frame, uint32_t len, uint8_t queue,
-                 uint8_t policy, uint16_t rate_entry, uint8_t epta_prio);
-int wsm_tx_status(int packet_id);
-
-/* Read and dispatch everything currently pending; waits up to timeout_ms
- * for the first message. Returns number of messages handled or <0. */
-int wsm_poll(int timeout_ms);
-
-/* Monotonic microseconds (CNTPCT). */
-uint64_t t113_time_us(void);
+int wsm_tx_frame(uint32_t packet_id, const uint8_t *frame, uint32_t len,
+                 uint8_t queue, uint8_t policy, uint16_t rate_entry,
+                 uint8_t epta_prio);
 
 #endif

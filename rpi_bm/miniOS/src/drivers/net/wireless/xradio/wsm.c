@@ -1,46 +1,32 @@
 /*
- * XR829 WSM message layer (polled), after xradio bh.c / wsm.c.
- * See src/include/net/xradio/wsm.h for the wire format.
+ * XR829 WSM commands, confirms and indications, after the xradio
+ * driver's wsm.c.  See wsm.h for the message format; the transport is
+ * in bh.c.
  */
 #include "platform.h"
+#include "device.h"
 #include "mmc.h"
-#include "xradio/wsm.h"
 #include "mutex.h"
+#include "net/netutil.h"
+#include "xradio.h"
 
-#define HIF_CONTROL_REG_ID      0x1u
-#define HIF_IN_OUT_QUEUE_REG_ID 0x2u
-#define HIF_ADDR(buf_id, id)    ((((uint32_t)(buf_id) & 0x1fu) << 7) | ((id) << 2))
-#define HIF_CTRL_NEXT_LEN_MASK  0x0fffu
-#define HIF_CTRL_WUP_BIT        (1u << 12)
-
-#define WSM_RX_BUF_SIZE         4096u
+#define WSM_CMD_BUF_SIZE        2048u
 #define WSM_TX_BUF_SIZE         2048u
 #define WSM_TX_HDR_LEN          24u      /* struct wsm_tx, SUPPORT_HT40 */
-#define TX_STATUS_SLOTS         16u
 
 static struct {
-    struct sdio_func *func;
     int ready;
-    int dead;
     struct wsm_caps caps;
-    uint8_t tx_seq, rx_seq;
-    uint8_t buf_id_tx, buf_id_rx;
-    int hw_bufs_used;
-    uint32_t next_ctrl;          /* piggybacked CONTROL, 0 = read register */
-    wsm_ind_handler ind;
     /* pending command */
     uint16_t wait_cfm;
     int cfm_done;
     uint8_t *cfm_buf;
     uint32_t cfm_cap;
     int32_t cfm_status;
-    /* TX confirms */
-    uint32_t next_packet_id;
-    uint32_t tx_id[TX_STATUS_SLOTS];
-    int32_t tx_st[TX_STATUS_SLOTS];
+    int pm_ind;                  /* SET_PM indication arrived */
 } wsm;
 
-static uint32_t rx_buf[WSM_RX_BUF_SIZE / 4u];
+static uint32_t cmd_buf[WSM_CMD_BUF_SIZE / 4u];
 static uint32_t tx_buf[WSM_TX_BUF_SIZE / 4u];
 static struct mutex command_mutex;
 
@@ -57,34 +43,10 @@ static void put32(uint8_t *p, uint32_t v)
     p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
 }
 
-static void putdec(uint32_t v)
-{
-    char b[11];
-    int i = 10;
-    b[i] = '\0';
-    do {
-        b[--i] = (char)('0' + v % 10u);
-        v /= 10u;
-    } while (v && i);
-    t113_uart_puts(&b[i]);
-}
-
 static void wsm_msg(const char *s) { t113_uart_puts("wsm: "); t113_uart_puts(s); }
 
-/* Same rule as sdio_io_rw_extended: byte mode up to min(blksz, 512). */
-static uint32_t align_len(uint32_t n)
-{
-    uint32_t bs = wsm.func->blksz ? wsm.func->blksz : 512u;
-    uint32_t byte_max = bs < 512u ? bs : 512u;
-    n = (n + 3u) & ~3u;
-    if (n <= byte_max)
-        return n;
-    return (n + bs - 1u) / bs * bs;
-}
-
 const struct wsm_caps *wsm_get_caps(void) { return &wsm.caps; }
-int wsm_ready(void) { return wsm.ready && !wsm.dead; }
-void wsm_set_ind_handler(wsm_ind_handler h) { wsm.ind = h; }
+int wsm_ready(void) { return wsm.ready && !xradio_bh_halted(); }
 
 /* ---------------------------------------------------------- RX side */
 
@@ -113,16 +75,17 @@ static void parse_startup(const uint8_t *p, uint32_t len)
     wsm.caps.label[n] = '\0';
     if (!wsm.caps.num_bufs)
         wsm.caps.num_bufs = 1;
+    xradio_bh_set_caps(wsm.caps.num_bufs, wsm.caps.buf_size);
     wsm_msg("firmware startup: ");
-    putdec(wsm.caps.num_bufs);
+    net_putdec(wsm.caps.num_bufs);
     t113_uart_puts(" x ");
-    putdec(wsm.caps.buf_size);
+    net_putdec(wsm.caps.buf_size);
     t113_uart_puts(" B input buffers, hw ");
-    putdec(wsm.caps.hw_id);
+    net_putdec(wsm.caps.hw_id);
     t113_uart_putc('.');
-    putdec(wsm.caps.hw_subid);
+    net_putdec(wsm.caps.hw_subid);
     t113_uart_puts(", type ");
-    putdec(wsm.caps.fw_type);
+    net_putdec(wsm.caps.fw_type);
     t113_uart_puts(", api ");
     t113_uart_puthex(wsm.caps.fw_api);
     t113_uart_puts(status ? ", STATUS ERROR" : "");
@@ -133,36 +96,26 @@ static void parse_startup(const uint8_t *p, uint32_t len)
         wsm.ready = 1;
 }
 
-static void record_tx_confirm(const uint8_t *c)
+static void tx_confirm(const uint8_t *c)
 {
-    uint32_t id = get32(c), st = get32(c + 4);
-    uint32_t slot = id % TX_STATUS_SLOTS;
-    if (wsm.tx_id[slot] == id)
-        wsm.tx_st[slot] = (int32_t)st;
+    xradio_tx_confirm_cb(get32(c), get32(c + 4));
 }
 
-static void handle_msg(const uint8_t *m, uint32_t len)
+void wsm_handle_rx(const uint8_t *m, uint32_t len)
 {
-    uint16_t raw = get16(m + 2);
-    uint16_t id = WSM_MSG_ID(raw);
+    uint16_t id = WSM_MSG_ID(get16(m + 2));
 
     if (id & 0x0400u) {                         /* confirm */
-        if (wsm.hw_bufs_used > 0)
-            --wsm.hw_bufs_used;
         if (id == 0x0404u) {
             if (len >= 12u)
-                record_tx_confirm(m + 4);
+                tx_confirm(m + 4);
             return;
         }
         if (id == 0x041eu) {                    /* multi TX confirm */
             uint32_t cnt = len >= 8u ? get32(m + 4) : 0;
             const uint8_t *c = m + 8;
-            /* one buffer already released above */
-            for (uint32_t i = 0; i < cnt && c + 32 <= m + len; ++i, c += 32u) {
-                if (i && wsm.hw_bufs_used > 0)
-                    --wsm.hw_bufs_used;
-                record_tx_confirm(c);
-            }
+            for (uint32_t i = 0; i < cnt && c + 32 <= m + len; ++i, c += 32u)
+                tx_confirm(c);
             return;
         }
         if (wsm.wait_cfm && id == wsm.wait_cfm) {
@@ -180,137 +133,52 @@ static void handle_msg(const uint8_t *m, uint32_t len)
         }
         return;
     }
-    if (id == WSM_EXCEPTION_IND) {
+    switch (id) {
+    case WSM_EXCEPTION_IND:
         wsm_msg("FIRMWARE EXCEPTION, data:");
         for (uint32_t i = 4; i + 4 <= len && i < 4 + 64; i += 4) {
             t113_uart_putc(' ');
             t113_uart_puthex(get32(m + i));
         }
         t113_uart_putc('\n');
-        wsm.dead = 1;
-        return;
-    }
-    if (id == WSM_STARTUP_IND) {
+        xradio_bh_halt();
+        break;
+    case WSM_STARTUP_IND:
         parse_startup(m, len);
-        return;
-    }
-    if (wsm.ind)
-        wsm.ind(id, m, len);
-}
-
-/* Read one queue transfer if CONTROL says something is pending. */
-static int rx_one(void)
-{
-    struct sdio_func *f = wsm.func;
-    uint32_t ctrl = wsm.next_ctrl;
-    int ret;
-
-    if (!(ctrl & HIF_CTRL_NEXT_LEN_MASK)) {
-        if ((ret = xr829_reg_read32(f, HIF_CONTROL_REG_ID, &ctrl)) < 0)
-            return ret;
-    }
-    wsm.next_ctrl = 0;
-    uint32_t len = (ctrl & HIF_CTRL_NEXT_LEN_MASK) << 1;
-    if (!len)
-        return 0;
-    uint32_t rd = align_len(len + 2u);
-    if (len < WSM_HDR_LEN || rd > sizeof(rx_buf)) {
-        wsm_msg("bad rx length ");
-        putdec(len);
-        t113_uart_putc('\n');
-        return -EIO;
-    }
-    uint8_t *b = (uint8_t *)rx_buf;
-    uint32_t buf_id = wsm.buf_id_rx + 1u;
-    if ((ret = sdio_memcpy_fromio(f, b, HIF_ADDR(buf_id, HIF_IN_OUT_QUEUE_REG_ID), rd)) < 0) {
-        wsm_msg("queue read failed\n");
-        return ret;
-    }
-    wsm.buf_id_rx = (uint8_t)(buf_id & 3u);
-    wsm.next_ctrl = get16(b + rd - 2u);         /* piggyback */
-
-    uint8_t seq = (uint8_t)((get16(b + 2) >> 13) & 7u);
-    if (seq != wsm.rx_seq) {
-        wsm_msg("rx seq ");
-        putdec(seq);
-        t113_uart_puts(" expected ");
-        putdec(wsm.rx_seq);
-        t113_uart_putc('\n');
-    }
-    wsm.rx_seq = (uint8_t)((seq + 1u) & 7u);
-
-    /* One transfer may carry several RX indications (multi-rx). */
-    for (uint32_t off = 0; off + WSM_HDR_LEN <= len;) {
-        uint32_t mlen = get16(b + off);
-        if (mlen < WSM_HDR_LEN || off + mlen > len)
-            break;
-        handle_msg(b + off, mlen);
-        off += (mlen + 3u) & ~3u;
-    }
-    return 1;
-}
-
-int wsm_poll(int timeout_ms)
-{
-    uint64_t end = t113_time_us() + (uint64_t)(timeout_ms > 0 ? timeout_ms : 0) * 1000u;
-    int handled = 0;
-    for (;;) {
-        int r = rx_one();
-        if (r < 0)
-            return r;
-        if (r > 0) {
-            ++handled;
-            continue;                   /* drain */
+        break;
+    case WSM_SET_PM_IND:
+        wsm.pm_ind = 1;
+        break;
+    case WSM_RX_IND:
+        xradio_rx_cb(m, len);
+        break;
+    case WSM_SCAN_COMPLETE_IND:
+        xradio_scan_complete_cb(m, len);
+        break;
+    case WSM_EVENT_IND:
+        if (len >= 8u)
+            xradio_event_cb(get32(m + 4), len >= 12u ? get32(m + 8) : 0u);
+        break;
+    default:
+        if (!wsm.ready) {
+            wsm_msg("indication ");
+            t113_uart_puthex(id);
+            t113_uart_puts(" before startup\n");
         }
-        if (handled || t113_time_us() >= end || wsm.dead)
-            return handled;
-        t113_udelay(200);
+        break;
     }
 }
 
 /* ---------------------------------------------------------- TX side */
 
-static int tx_write(uint8_t *b, uint32_t len)
-{
-    struct sdio_func *f = wsm.func;
-    uint64_t end = t113_time_us() + 2000000u;
-    while (wsm.hw_bufs_used >= (int)wsm.caps.num_bufs) {
-        if (wsm_poll(10) < 0 || t113_time_us() > end || wsm.dead) {
-            wsm_msg("no free firmware input buffer\n");
-            return -ETIMEDOUT;
-        }
-    }
-    if (len > wsm.caps.buf_size && wsm.caps.buf_size) {
-        wsm_msg("message too long\n");
-        return -EINVAL;
-    }
-    put16(b, len);
-    put16(b + 2, (get16(b + 2) & 0x1fffu) | ((uint32_t)wsm.tx_seq << 13));
-    uint32_t wlen = len <= 8u ? 16u : len;
-    wlen = align_len(wlen);
-    if (wlen > sizeof(tx_buf))
-        return -EINVAL;
-    for (uint32_t i = len; i < wlen; ++i)
-        b[i] = 0;
-    int ret = sdio_memcpy_toio(f, HIF_ADDR(wsm.buf_id_tx, HIF_IN_OUT_QUEUE_REG_ID), b, wlen);
-    if (ret < 0) {
-        wsm_msg("queue write failed\n");
-        return ret;
-    }
-    wsm.buf_id_tx = (uint8_t)((wsm.buf_id_tx + 1u) & 31u);
-    wsm.tx_seq = (uint8_t)((wsm.tx_seq + 1u) & 7u);
-    ++wsm.hw_bufs_used;
-    return 0;
-}
-
 int wsm_cmd(uint16_t req, const void *payload, uint32_t len,
             void *cfm, uint32_t cfm_cap, int timeout_ms)
 {
     static uint32_t no_cfm[4];
-    uint8_t *b = (uint8_t *)tx_buf;
-    if (!wsm.func || !wsm.ready || wsm.dead)
+    uint8_t *b = (uint8_t *)cmd_buf;
+    if (!wsm.ready || xradio_bh_halted())
         return -ENODEV;
-    if (len + WSM_HDR_LEN > sizeof(tx_buf))
+    if (len + WSM_HDR_LEN > sizeof(cmd_buf))
         return -EINVAL;
     if (mutex_lock(&command_mutex) < 0)
         return -EBUSY;
@@ -325,15 +193,15 @@ int wsm_cmd(uint16_t req, const void *payload, uint32_t len,
     wsm.cfm_cap = cfm ? cfm_cap : sizeof(no_cfm);
     wsm.cfm_status = -ETIMEDOUT;
 
-    int ret = tx_write(b, len + WSM_HDR_LEN);
+    int ret = xradio_bh_tx(b, len + WSM_HDR_LEN, sizeof(cmd_buf));
     if (ret < 0) {
         wsm.wait_cfm = 0;
         mutex_unlock(&command_mutex);
         return ret;
     }
     uint64_t end = t113_time_us() + (uint64_t)timeout_ms * 1000u;
-    while (!wsm.cfm_done && !wsm.dead) {
-        if ((ret = wsm_poll(5)) < 0)
+    while (!wsm.cfm_done && !xradio_bh_halted()) {
+        if ((ret = xradio_bh_poll(5)) < 0)
             break;
         if (t113_time_us() > end)
             break;
@@ -441,14 +309,15 @@ int wsm_configuration(const uint8_t station_id[6], const void *dpd,
  */
 int wsm_set_probe_request_template(const uint8_t station_id[6])
 {
-    static uint8_t t[4u + 24u + 2u + 10u + 6u];
+    static uint8_t t[8u + 24u + 2u + 10u + 6u];
     uint32_t off = 0;
     if (!station_id)
         return -EINVAL;
 
-    t[off++] = 0;                         /* WSM_FRAME_TYPE_PROBE_REQUEST */
-    t[off++] = 0;                         /* firmware rate index: 1 Mbps */
-    put16(t + off, sizeof(t) - 4u); off += 2;
+    /* SUPPORT_HT40 template header: u16 type, u16 rate entry, u32 length */
+    put16(t + off, 0); off += 2;          /* WSM_FRAME_TYPE_PROBE_REQUEST */
+    put16(t + off, WSM_RATE_MGMT); off += 2;
+    put32(t + off, sizeof(t) - 8u); off += 4;
 
     /* IEEE 802.11 probe-request management header. */
     put16(t + off, 0x0040); off += 2;     /* type=management, subtype=probe */
@@ -501,48 +370,184 @@ int wsm_scan(const struct wsm_scan_channel *channels, uint8_t num_channels,
     return wsm_cmd(WSM_START_SCAN_REQ, request, off, 0, 0, 2000);
 }
 
+/* JOIN 0x000B, SUPPORT_HT40 layout (60 bytes); confirm status 0 = joined. */
 int wsm_join(const struct wsm_join *j)
 {
-    uint8_t request[96], confirm[12];
+    uint8_t request[60], confirm[12];
     uint32_t off = 0;
     if (!j || !j->ssid || !j->ssid_len || j->ssid_len > 32u || !j->channel)
         return -EINVAL;
-    request[off++] = 1;                 /* infrastructure BSS */
-    request[off++] = j->band;
+    put16(request + off, j->phy_mode ? j->phy_mode : 0x0007u); off += 2;
     put16(request + off, j->channel); off += 2;
     for (uint32_t i = 0; i < 6u; ++i) request[off++] = j->bssid[i];
-    put16(request + off, 0); off += 2;
-    request[off++] = 0;                 /* long preamble */
-    request[off++] = 0;                 /* do not probe again */
+    put16(request + off, 0); off += 2;  /* ATIM window */
+    request[off++] = 1;                 /* infrastructure BSS */
+    /* The vendor driver enables this even when the BSS was found by a
+     * passive scan; it lets firmware establish beacon synchronization. */
+    request[off++] = 1;                 /* probe for join */
     request[off++] = j->dtim_period ? j->dtim_period : 1u;
-    request[off++] = 0;                 /* MAC instance 0 */
+    request[off++] = 0;                 /* flags, MAC instance 0 */
     put32(request + off, j->ssid_len); off += 4;
     for (uint32_t i = 0; i < 32u; ++i)
         request[off++] = i < j->ssid_len ? j->ssid[i] : 0;
     put32(request + off, j->beacon_interval ? j->beacon_interval : 100u); off += 4;
-    put32(request + off, 7); off += 4;  /* basic rates 1, 2, 5.5 Mbps */
-
-    /* XR829's 0x0013 JOIN extension includes initial EDCA values. */
-    put16(request + off, 0x03ff); off += 2;
-    for (uint32_t i = 0; i < 4u; ++i) request[off++] = 0;
-    for (uint32_t i = 0; i < 4u; ++i) { put16(request + off, 0); off += 2; }
-    for (uint32_t i = 0; i < 4u; ++i) { put32(request + off, 0xc8); off += 4; }
+    put32(request + off, j->basic_rates ? j->basic_rates : 7u); off += 4;
     return wsm_cmd(WSM_JOIN_REQ, request, off, confirm, sizeof(confirm), 3000);
 }
 
-int wsm_tx_frame(const uint8_t *frame, uint32_t len, uint8_t queue,
-                 uint8_t policy, uint16_t rate_entry, uint8_t epta_prio)
+/* Vendor default EDCA (sta.c vif_setup); arrays on the wire are BK, BE,
+ * VI, VO: cwMin[4], cwMax[4], aifs[4], txop_us[4], maxRxLifetime[4]. */
+int wsm_set_edca_default(void)
+{
+    static const uint16_t cw_min[4] = { 15, 3, 7, 3 };
+    static const uint16_t cw_max[4] = { 1023, 7, 15, 7 };
+    static const uint8_t aifs[4] = { 7, 2, 2, 2 };
+    static const uint16_t txop[4] = { 0, 0, 3008, 1504 };
+    uint8_t p[44];
+    uint32_t off = 0;
+    for (uint32_t i = 0; i < 4u; ++i) { put16(p + off, cw_min[i]); off += 2; }
+    for (uint32_t i = 0; i < 4u; ++i) { put16(p + off, cw_max[i]); off += 2; }
+    for (uint32_t i = 0; i < 4u; ++i) p[off++] = aifs[i];
+    for (uint32_t i = 0; i < 4u; ++i) { put16(p + off, txop[i]); off += 2; }
+    for (uint32_t i = 0; i < 4u; ++i) { put32(p + off, 0xc8); off += 4; }
+    return wsm_cmd(WSM_SET_EDCA_REQ, p, off, 0, 0, 1000);
+}
+
+/*
+ * Rate retry policies (MIB 0x1016, HT40: 20 bytes each).  Rate entry:
+ * [15:14] modem (0 legacy), [13:12] bandwidth, [11:8] flags,
+ * [7:4] rate index (1M=0 2M=1 5.5M=2 11M=3 6M=6 ... 54M=13), [3:0] tries.
+ */
+int wsm_set_tx_policies(void)
+{
+    static const uint16_t rates[2][3] = {
+        { WSM_RATE_MGMT, 0, 0 },                 /* 1 Mbps x15 */
+        { WSM_RATE_DATA, 0x0034u, 0x0007u },     /* 24M x4, 11M x4, 1M x7 */
+    };
+    uint8_t p[4u + 2u * 20u];
+    for (uint32_t i = 0; i < sizeof(p); ++i) p[i] = 0;
+    p[0] = 2;
+    for (uint32_t n = 0; n < 2u; ++n) {
+        uint8_t *e = p + 4u + n * 20u;
+        e[0] = (uint8_t)n;              /* policy index */
+        e[1] = 14;                      /* short retry count */
+        e[2] = 14;                      /* long retry count */
+        e[3] = 0x0c;                    /* terminate at end, count 1st TX */
+        for (uint32_t r = 0; r < 3u; ++r)
+            put16(e + 8u + r * 2u, rates[n][r]);
+    }
+    return wsm_write_mib(WSM_MIB_SET_TX_RATE_RETRY_POLICY, p, sizeof(p));
+}
+
+int wsm_mib32(uint16_t mib_id, uint32_t value)
+{
+    uint8_t v[4];
+    put32(v, value);
+    return wsm_write_mib(mib_id, v, sizeof(v));
+}
+
+int wsm_set_bss_params(uint16_t aid, uint8_t beacon_lost_count,
+                       uint32_t operational_rates)
+{
+    uint8_t p[8];
+    p[0] = 0;                           /* do not just reset beacon loss */
+    p[1] = beacon_lost_count;
+    put16(p + 2, aid & 0x3fffu);
+    put32(p + 4, operational_rates);
+    return wsm_cmd(WSM_SET_BSS_PARAMS_REQ, p, sizeof(p), 0, 0, 1000);
+}
+
+/* Packed XR829 wire layout: u8 periods, u8 reserved, le16 interval. */
+int wsm_set_beacon_wakeup_period(uint8_t beacon_periods,
+                                 uint16_t listen_interval)
+{
+    uint8_t p[4] = { beacon_periods, 0, 0, 0 };
+    put16(p + 2, listen_interval);
+    return wsm_write_mib(WSM_MIB_BEACON_WAKEUP_PERIOD, p, sizeof(p));
+}
+
+/* Beacon-filter control consists of two little-endian u32 values. */
+int wsm_set_beacon_filter(int enabled, uint32_t beacon_count)
+{
+    uint8_t p[8];
+    uint32_t flags = enabled ? (WSM_BEACON_FILTER_ENABLE |
+                                WSM_BEACON_FILTER_AUTO_ERP |
+                                WSM_BEACON_FILTER_AUTO_HT) : 0u;
+    put32(p, flags);
+    put32(p + 4, beacon_count);
+    return wsm_write_mib(WSM_MIB_BEACON_FILTER_ENABLE, p, sizeof(p));
+}
+
+int wsm_set_pm(uint8_t mode)
+{
+    uint8_t p[4] = { mode, 200, 200, 0 };
+    wsm.pm_ind = 0;
+    int st = wsm_cmd(WSM_SET_PM_REQ, p, sizeof(p), 0, 0, 1000);
+    if (st)
+        return st;
+    uint64_t end = t113_time_us() + 1000000u;
+    while (!wsm.pm_ind && !xradio_bh_halted() && t113_time_us() < end)
+        if (xradio_bh_poll(10) < 0)
+            break;
+    return wsm.pm_ind ? 0 : -ETIMEDOUT;
+}
+
+/* ADD_KEY 0x000C: u8 type, u8 entry index, u16 0, 40-byte union. */
+static int add_key(uint8_t *p)
+{
+    int st = wsm_cmd(WSM_ADD_KEY_REQ, p, 44, 0, 0, 1000);
+    for (uint32_t i = 0; i < 44u; ++i) p[i] = 0;    /* no key copies left */
+    return st;
+}
+
+int wsm_add_key_pairwise(uint8_t index, const uint8_t peer[6],
+                         const uint8_t tk[16])
+{
+    uint8_t p[44];
+    for (uint32_t i = 0; i < sizeof(p); ++i) p[i] = 0;
+    p[0] = WSM_KEY_TYPE_AES_PAIRWISE;
+    p[1] = index;
+    for (uint32_t i = 0; i < 6u; ++i) p[4 + i] = peer[i];
+    for (uint32_t i = 0; i < 16u; ++i) p[12 + i] = tk[i];
+    return add_key(p);
+}
+
+/* AES group: key[16], keyId, 3 x 0, RSC[8].  TKIP group: key[16],
+ * rx MIC key[8], keyId, 3 x 0, RSC[8]; gtk is then 32 bytes. */
+int wsm_add_key_group(uint8_t type, uint8_t index, const uint8_t *gtk,
+                      uint8_t key_id, const uint8_t rsc[8])
+{
+    uint8_t p[44];
+    uint32_t off = 4;
+    for (uint32_t i = 0; i < sizeof(p); ++i) p[i] = 0;
+    p[0] = type;
+    p[1] = index;
+    for (uint32_t i = 0; i < 16u; ++i) p[off++] = gtk[i];
+    if (type == WSM_KEY_TYPE_TKIP_GROUP)
+        for (uint32_t i = 0; i < 8u; ++i) p[off++] = gtk[16 + i];
+    p[off] = key_id;
+    off += 4;
+    for (uint32_t i = 0; i < 8u; ++i) p[off++] = rsc ? rsc[i] : 0;
+    return add_key(p);
+}
+
+int wsm_remove_key(uint8_t index)
+{
+    uint8_t p[4] = { index, 0, 0, 0 };
+    return wsm_cmd(WSM_REMOVE_KEY_REQ, p, sizeof(p), 0, 0, 1000);
+}
+
+int wsm_tx_frame(uint32_t packet_id, const uint8_t *frame, uint32_t len,
+                 uint8_t queue, uint8_t policy, uint16_t rate_entry,
+                 uint8_t epta_prio)
 {
     uint8_t *b = (uint8_t *)tx_buf;
-    if (!wsm.func || wsm.dead)
+    if (!wsm.ready)
         return -ENODEV;
     if (WSM_TX_HDR_LEN + len > sizeof(tx_buf))
         return -EINVAL;
-    uint32_t id = ++wsm.next_packet_id;
-    if (!id)
-        id = ++wsm.next_packet_id;
     put16(b + 2, WSM_TX_REQ);
-    put32(b + 4, id);                   /* packetID */
+    put32(b + 4, packet_id);            /* packetID */
     b[8] = queue & 3u;                  /* raw_link_id 0 (STA) << 2 | queue */
     b[9] = 0;                           /* more */
     b[10] = WSM_TX_HDR_LEN;             /* DataOffset */
@@ -554,37 +559,20 @@ int wsm_tx_frame(const uint8_t *frame, uint32_t len, uint8_t queue,
     put32(b + 20, 0);
     for (uint32_t i = 0; i < len; ++i)
         b[WSM_TX_HDR_LEN + i] = frame[i];
-    uint32_t slot = id % TX_STATUS_SLOTS;
-    wsm.tx_id[slot] = id;
-    wsm.tx_st[slot] = -1;
-    int ret = tx_write(b, WSM_TX_HDR_LEN + len);
-    return ret < 0 ? ret : (int)id;
-}
-
-int wsm_tx_status(int packet_id)
-{
-    uint32_t slot = (uint32_t)packet_id % TX_STATUS_SLOTS;
-    if (wsm.tx_id[slot] != (uint32_t)packet_id)
-        return -2;
-    return wsm.tx_st[slot];
+    return xradio_bh_tx(b, WSM_TX_HDR_LEN + len, sizeof(tx_buf));
 }
 
 int wsm_init(struct sdio_func *func, int timeout_ms)
 {
     mutex_init(&command_mutex);
-    wsm.func = func;
     wsm.ready = 0;
-    wsm.dead = 0;
-    wsm.tx_seq = wsm.rx_seq = 0;
-    wsm.buf_id_tx = wsm.buf_id_rx = 0;
-    wsm.hw_bufs_used = 0;
-    wsm.next_ctrl = 0;
     wsm.caps.num_bufs = 1;
     wsm.caps.buf_size = 0;
+    xradio_bh_init(func);
 
     uint64_t end = t113_time_us() + (uint64_t)timeout_ms * 1000u;
-    while (!wsm.ready && !wsm.dead && t113_time_us() < end) {
-        if (wsm_poll(10) < 0)
+    while (!wsm.ready && !xradio_bh_halted() && t113_time_us() < end) {
+        if (xradio_bh_poll(10) < 0)
             break;
     }
     if (!wsm.ready) {
@@ -592,6 +580,6 @@ int wsm_init(struct sdio_func *func, int timeout_ms)
         return -ETIMEDOUT;
     }
     /* Keep the device awake (main.c after startup): CONTROL = WUP. */
-    xr829_reg_write32(func, HIF_CONTROL_REG_ID, HIF_CTRL_WUP_BIT);
+    xradio_reg_write_32(func, HIF_CONTROL_REG_ID, HIF_CTRL_WUP_BIT);
     return 0;
 }

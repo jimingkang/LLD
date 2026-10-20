@@ -5,6 +5,16 @@
 #include "fs/vfs.h"
 #include "fs/minifs.h"
 #include "exception.h"
+#ifdef CONFIG_NET
+#include "net/netdevice.h"
+#include "net/ip.h"
+#include "net/icmp.h"
+#include "net/ipconfig.h"
+#include "net/tftp.h"
+#endif
+#ifdef CONFIG_WPA2_PSK
+#include "net/wpa.h"
+#endif
 
 #define SYSCALL_WRITE_LIMIT 256u
 #define SYSCALL_PATH_LIMIT  128u
@@ -15,13 +25,6 @@
  * to User mode (see exec_checkpoint). */
 #ifndef EXEC_TRACE
 #define EXEC_TRACE          0
-#endif
-
-/* Character-at-a-time console tracing is useful while bringing UART RX up,
- * but it serialises several dozen bytes at 115200 baud for every key press.
- * Keep it available without making the normal interactive shell sluggish. */
-#ifndef STDIN_TRACE
-#define STDIN_TRACE         0
 #endif
 
 static int copy_user_string(char *destination, uint32_t address,
@@ -42,19 +45,21 @@ static int copy_user_string(char *destination, uint32_t address,
 
 static int32_t sys_open(uint32_t user_path, uint32_t flags)
 {
-    if (flags != VFS_O_RDONLY && flags != VFS_O_RDWR)
+    if ((flags & ~(VFS_O_ACCMODE | VFS_O_CREATE | VFS_O_TRUNC)) ||
+        ((flags & VFS_O_ACCMODE) != VFS_O_RDONLY &&
+         (flags & VFS_O_ACCMODE) != VFS_O_RDWR))
         return -1;
     char path[SYSCALL_PATH_LIMIT];
     if (copy_user_string(path, user_path, sizeof(path)) < 0)
         return -1;
-    struct vfs_file *file = t113_vfs_open(path, flags);
+    struct file *file = t113_vfs_open(path, flags);
     if (!file)
         return -1;
     for (uint32_t i = 0; i < T113_MAX_FDS; ++i) {
         if (t113_current->files[i])
             continue;
         t113_current->files[i] = file;
-        return (int32_t)(i + 3u);
+        return (int32_t)i;
     }
     t113_vfs_close(file);
     return -1;
@@ -62,47 +67,13 @@ static int32_t sys_open(uint32_t user_path, uint32_t flags)
 
 static int32_t sys_read(uint32_t fd, uint32_t address, uint32_t count)
 {
-    if (fd == 0u) {
-        if (!count || !t113_user_vm_range_writable(t113_current->mm,
-                                                    address, count)) {
-            t113_uart_puts("read: invalid stdin buffer pid=");
-            t113_uart_puthex(t113_current->pid);
-            t113_uart_puts(" address=");
-            t113_uart_puthex(address);
-            t113_uart_puts(" count=");
-            t113_uart_puthex(count);
-            t113_uart_putc('\n');
-            return -1;
-        }
-        char *buffer = (char *)(uintptr_t)address;
-#if STDIN_TRACE
-        static int stdin_wait_reported;
-        if (!stdin_wait_reported) {
-            stdin_wait_reported = 1;
-            t113_uart_puts("stdin: waiting, LSR=");
-            t113_uart_puthex(t113_uart_lsr());
-            t113_uart_puts(" USR=");
-            t113_uart_puthex(t113_uart_usr());
-            t113_uart_putc('\n');
-        }
-        uint64_t heartbeat = t113_time_us() + 3000000u;
-#endif
-        int received = t113_uart_read(buffer, count);
-#if STDIN_TRACE
-        (void)heartbeat;
-        t113_uart_puts("stdin: received=");
-        t113_uart_puthex((uint32_t)received);
-        t113_uart_putc('\n');
-#endif
-        return received;
-    }
-    if (fd < 3u || fd >= 3u + T113_MAX_FDS)
+    if (fd >= T113_MAX_FDS)
         return -1;
-    uint32_t slot = fd - 3u;
-    if (!t113_current->files[slot] ||
-        !t113_user_vm_range_writable(t113_current->mm, address, count))
+    if (!t113_current->files[fd] ||
+        (count && !t113_user_vm_range_writable(t113_current->mm,
+                                               address, count)))
         return -1;
-    return t113_vfs_read(t113_current->files[slot],
+    return t113_vfs_read(t113_current->files[fd],
                          (void *)(uintptr_t)address, count);
 }
 
@@ -141,12 +112,25 @@ static int32_t sys_getcwd(uint32_t address, uint32_t size)
 
 static int32_t sys_close(uint32_t fd)
 {
-    if (fd < 3u || fd >= 3u + T113_MAX_FDS ||
-        !t113_current->files[fd - 3u])
+    if (fd >= T113_MAX_FDS || !t113_current->files[fd])
         return -1;
-    t113_vfs_close(t113_current->files[fd - 3u]);
-    t113_current->files[fd - 3u] = 0;
+    t113_vfs_close(t113_current->files[fd]);
+    t113_current->files[fd] = 0;
     return 0;
+}
+
+static int32_t sys_dup(uint32_t oldfd)
+{
+    if (oldfd >= T113_MAX_FDS || !t113_current->files[oldfd])
+        return -1;
+    for (uint32_t newfd = 0; newfd < T113_MAX_FDS; ++newfd) {
+        if (t113_current->files[newfd])
+            continue;
+        t113_current->files[newfd] = t113_current->files[oldfd];
+        t113_vfs_file_get(t113_current->files[newfd]);
+        return (int32_t)newfd;
+    }
+    return -1;
 }
 
 static int copy_exec_args(uint32_t user_argv, char args[EXEC_ARG_BYTES],
@@ -337,7 +321,7 @@ static int32_t sys_exec(uint32_t user_path, uint32_t user_argv,
         t113_uart_putc('\n');
         return -1;
     }
-    struct vfs_file *file = t113_vfs_open(path, VFS_O_RDONLY);
+    struct file *file = t113_vfs_open(path, VFS_O_RDONLY);
     if (!file || t113_vfs_file_size(file) > EXEC_IMAGE_PAGES * 4096u) {
         t113_uart_puts(file ? "exec: image too large: " : "exec: not found: ");
         t113_uart_puts(path);
@@ -408,16 +392,68 @@ static int32_t sys_write(uint32_t fd, uint32_t address, uint32_t length)
         return -1;
 
     const char *text = (const char *)(uintptr_t)address;
-    if (fd == 1u || fd == 2u) {
-        for (uint32_t i = 0; i < length; ++i)
-            t113_uart_putc(text[i]);
-        return (int32_t)length;
-    }
-    if (fd < 3u || fd >= 3u + T113_MAX_FDS ||
-        !t113_current->files[fd - 3u])
+    if (fd >= T113_MAX_FDS || !t113_current->files[fd])
         return -1;
-    return t113_vfs_write(t113_current->files[fd - 3u], text, length);
+    return t113_vfs_write(t113_current->files[fd], text, length);
 }
+
+#ifdef CONFIG_NET
+/* Copy an optional user string argument; address 0 gives "". */
+static int copy_net_arg(char *destination, uint32_t address,
+                        uint32_t capacity)
+{
+    destination[0] = 0;
+    return address ? copy_user_string(destination, address, capacity) : 0;
+}
+
+#ifdef CONFIG_TFTP_CLIENT
+static int32_t sys_tftp(uint32_t user_server, uint32_t user_remote,
+                        uint32_t user_local)
+{
+    char server[20], remote[SYSCALL_PATH_LIMIT], local[SYSCALL_PATH_LIMIT];
+    uint32_t ip;
+    if (copy_net_arg(server, user_server, sizeof(server)) < 0 ||
+        copy_net_arg(remote, user_remote, sizeof(remote)) < 0 ||
+        copy_net_arg(local, user_local, sizeof(local)) < 0 ||
+        in4_pton(server, &ip) < 0 || !remote[0] || local[0] != '/')
+        return -22; /* -EINVAL */
+    return tftp_get(ip, remote, local);
+}
+#endif
+
+static int32_t sys_netctl(uint32_t cmd, uint32_t a1, uint32_t a2, uint32_t a3)
+{
+    char s1[20], s2[20], s3[20];
+    uint32_t ip, mask, gw;
+    struct net_device *dev = dev_get_default();
+    if (copy_net_arg(s1, a1, sizeof(s1)) < 0 ||
+        copy_net_arg(s2, a2, sizeof(s2)) < 0 ||
+        copy_net_arg(s3, a3, sizeof(s3)) < 0)
+        return -22;
+    switch (cmd) {
+    case NETCTL_STATUS:
+        inet_print_status(dev);
+        return 0;
+    case NETCTL_DHCP:
+        return ipconfig_dhcp(dev, 8000);
+    case NETCTL_PING:
+        if (in4_pton(s1, &ip) < 0)
+            return -22;
+        return icmp_ping(ip, 1000);
+    case NETCTL_STATIC:
+        if (in4_pton(s1, &ip) < 0 || in4_pton(s2, &mask) < 0 ||
+            (s3[0] ? in4_pton(s3, &gw) : (int)(gw = 0)) < 0)
+            return -22;
+        return inet_set_addr(dev, ip, mask, gw);
+#ifdef CONFIG_WPA2_PSK
+    case NETCTL_WIFI:
+        return wpa_supplicant_connect(dev);
+#endif
+    default:
+        return -38;
+    }
+}
+#endif
 
 void t113_syscall_dispatch(struct arm32_trapframe *tf)
 {
@@ -479,6 +515,19 @@ void t113_syscall_dispatch(struct arm32_trapframe *tf)
         result = sys_exec(tf->r[0], tf->r[1], tf);
         if (result == 0)
             return; /* Preserve argc/argv installed in the new trapframe. */
+        break;
+#ifdef CONFIG_TFTP_CLIENT
+    case T113_SYS_TFTP:
+        result = sys_tftp(tf->r[0], tf->r[1], tf->r[2]);
+        break;
+#endif
+#ifdef CONFIG_NET
+    case T113_SYS_NETCTL:
+        result = sys_netctl(tf->r[0], tf->r[1], tf->r[2], tf->r[3]);
+        break;
+#endif
+    case T113_SYS_DUP:
+        result = sys_dup(tf->r[0]);
         break;
     case T113_SYS_SBRK:
         result = t113_user_vm_sbrk(t113_current->mm, (int32_t)tf->r[0]);

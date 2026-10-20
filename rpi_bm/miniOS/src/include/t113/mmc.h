@@ -178,8 +178,4 @@ static inline void *sdio_get_drvdata(const struct sdio_func *f)
 #define SDIO_FBR_CIS        0x09
 #define SDIO_FBR_BLKSIZE    0x10
 
-/* XR829 HIF register access (xr829.c). */
-int xr829_reg_read32(struct sdio_func *func, uint32_t reg_id, uint32_t *val);
-int xr829_reg_write32(struct sdio_func *func, uint32_t reg_id, uint32_t val);
-
 #endif

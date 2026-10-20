@@ -1,0 +1,4 @@
+config CFG80211
+    bool "cfg80211 - wireless configuration API"
+    depends on NET
+    default y

@@ -2,6 +2,7 @@ mainmenu "miniOS Configuration"
 
 source "src/arch/Kconfig"
 source "src/boards/Kconfig"
+source "src/net/Kconfig"
 source "src/drivers/Kconfig"
 source "src/fs/Kconfig"
 

@@ -1,6 +1,6 @@
 /* RFC 1350 read-only TFTP engine. UDP/IP transport is deliberately separate. */
 #include "device.h"
-#include "tftp.h"
+#include "net/tftp.h"
 
 #define TFTP_RRQ   1u
 #define TFTP_DATA  3u

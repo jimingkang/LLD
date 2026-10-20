@@ -1,0 +1,4 @@
+config MAC80211
+    bool "Generic IEEE 802.11 stack (mac80211)"
+    depends on CFG80211
+    default y

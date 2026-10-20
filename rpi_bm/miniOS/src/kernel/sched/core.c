@@ -41,6 +41,8 @@ static struct t113_task *alloc_process_common(void)
     task->pid = next_pid++;
     spin_unlock_irqrestore(&sched_lock, irq_flags);
     task->state = T113_TASK_RUNNING;
+    for (uint32_t i = 0; i < T113_MAX_FDS; ++i)
+        task->files[i] = 0;
     task->kernel_stack = stack;
     task->trapframe = (struct arm32_trapframe *)(
         stack + TASK_STACK_SIZE - sizeof(struct arm32_trapframe));

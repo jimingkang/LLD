@@ -10,6 +10,14 @@ int main(void)
     int pid, wpid;
     char *argv[] = {"sh", 0};
 
+    /* The initial file table is empty, so console becomes fd 0 and the two
+     * dup calls create stdout/stderr as shared console descriptions. */
+    if (open("/dev/console", O_RDWR) != STDIN_FILENO ||
+        dup(STDIN_FILENO) != STDOUT_FILENO ||
+        dup(STDIN_FILENO) != STDERR_FILENO)
+        for (;;)
+            sleep(1);
+
     for (;;) {
         puts("init: starting shell on console");
         pid = fork();

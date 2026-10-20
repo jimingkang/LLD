@@ -27,37 +27,50 @@ static const char *entry_name(const char *path)
     return 0;
 }
 
-static int bootfs_lookup(const char *path, struct vfs_node *node)
+static const struct inode_operations bootfs_iops;
+static const struct file_operations bootfs_file_fops;
+static const struct file_operations bootfs_dir_fops;
+
+static int bootfs_lookup(struct inode *directory, struct dentry *child)
 {
-    const char *name = entry_name(path);
+    (void)directory;
+    const char *name = entry_name(child->d_path);
     const struct bootpack_entry *e = name ? t113_bootpack_find(name) : 0;
     if (!e || !e->size) return -1;
-    node->id = e->load_addr;
-    node->size = e->size;
-    node->type = BOOTFS_T_FILE;
-    return 0;
+    return t113_vfs_bind_inode(child, e->load_addr, e->size, BOOTFS_T_FILE,
+                               0, (void *)e, &bootfs_iops,
+                               &bootfs_file_fops);
 }
 
-static int bootfs_read(const struct vfs_node *node, uint32_t offset,
-                       void *destination, uint32_t count)
+static int bootfs_read(struct file *file, void *destination, uint32_t count)
 {
-    if (!node || !destination || offset > node->size) return -1;
-    if (count > node->size - offset) count = node->size - offset;
+    struct inode *inode = file ? file->f_inode : 0;
+    uint32_t offset = file ? file->f_pos : 0;
+    if (!inode || !destination || offset > inode->i_size) return -1;
+    if (count > inode->i_size - offset) count = inode->i_size - offset;
     uint8_t *dst = destination;
-    const uint8_t *src = (const uint8_t *)(uintptr_t)(node->id + offset);
+    const uint8_t *src =
+        (const uint8_t *)(uintptr_t)(inode->i_ino + offset);
     for (uint32_t i = 0; i < count; ++i) dst[i] = src[i];
     return (int)count;
 }
 
-static const struct vfs_backend_ops bootfs_ops = {
+static const struct inode_operations bootfs_iops = {
     .lookup = bootfs_lookup,
+};
+
+static const struct file_operations bootfs_file_fops = {
     .read = bootfs_read,
+};
+
+static const struct file_operations bootfs_dir_fops = {
     .readdir = 0,
 };
 
 int t113_bootfs_mount_vfs(void)
 {
-    int ret = t113_vfs_mount("/boot", &bootfs_ops);
+    int ret = t113_vfs_mount_fs("/boot", 0x424f4f54u, 0, 0,
+                                &bootfs_iops, &bootfs_dir_fops);
     if (!ret) t113_uart_puts("bootfs: FAT32 handoff mounted at /boot\n");
     return ret;
 }

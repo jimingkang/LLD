@@ -1,0 +1,124 @@
+\contentsline {chapter}{\numberline {第一章}进程创建与切换调用链}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}总调用链}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}第一个用户进程}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}第二个用户进程}{2}{section.1.3}%
+\contentsline {section}{\numberline {1.4}系统调用调用链}{2}{section.1.4}%
+\contentsline {section}{\numberline {1.5}定时器中断和进程切换}{3}{section.1.5}%
+\contentsline {section}{\numberline {1.6}两类上下文的职责}{3}{section.1.6}%
+\contentsline {section}{\numberline {1.7}TTBR0 与 TTBR1}{3}{section.1.7}%
+\contentsline {section}{\numberline {1.8}PSTATE 注意事项}{4}{section.1.8}%
+\contentsline {chapter}{\numberline {第二章}根文件系统与 devfs}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}SD 卡布局}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}总调用链}{6}{section.2.2}%
+\contentsline {section}{\numberline {2.3}VFS：挂载表 + 文件表}{6}{section.2.3}%
+\contentsline {section}{\numberline {2.4}rootdev：MBR 分区 2 块设备}{7}{section.2.4}%
+\contentsline {section}{\numberline {2.5}minifs：xv6 磁盘 ABI 的只读实现}{7}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}两种挂载方式}{8}{subsection.2.5.1}%
+\contentsline {section}{\numberline {2.6}bootfs：\texttt {\color {structurecolor!80!black}/boot} 的 FAT32 交接}{8}{section.2.6}%
+\contentsline {section}{\numberline {2.7}devfs：\texttt {\color {structurecolor!80!black}/dev} 设备文件}{9}{section.2.7}%
+\contentsline {section}{\numberline {2.8}用户态视角：从 \texttt {\color {structurecolor!80!black}/init} 到 shell}{9}{section.2.8}%
+\contentsline {section}{\numberline {2.9}与 Linux / xv6 的对照}{10}{section.2.9}%
+\contentsline {section}{\numberline {2.10}构建与烧写}{10}{section.2.10}%
+\contentsline {section}{\numberline {2.11}预期串口输出}{11}{section.2.11}%
+\contentsline {chapter}{\numberline {第三章}/boot：从 bootpack 视图到可读写 FAT32}{12}{chapter.3}%
+\contentsline {section}{\numberline {3.1}改动前：bootfs 只是 bootpack 的视图}{12}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}加载流程}{12}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}本质}{12}{subsection.3.1.2}%
+\contentsline {section}{\numberline {3.2}改动后：分层结构}{13}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}挂载顺序}{13}{subsection.3.2.1}%
+\contentsline {section}{\numberline {3.3}bio：扇区缓存（\texttt {\color {structurecolor!80!black}bio.c}）}{13}{section.3.3}%
+\contentsline {section}{\numberline {3.4}fat32（\texttt {\color {structurecolor!80!black}fat32.c}）}{14}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}挂载 \texttt {\hyphenchar \font =-1 t113\_fat32\_mount\_vfs()}}{14}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}内存中的 inode 表}{14}{subsection.3.4.2}%
+\contentsline {subsection}{\numberline {3.4.3}路径解析}{15}{subsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.4.4}读路径}{15}{subsection.3.4.4}%
+\contentsline {subsection}{\numberline {3.4.5}写路径}{15}{subsection.3.4.5}%
+\contentsline {subsection}{\numberline {3.4.6}创建 \texttt {\hyphenchar \font =-1 fat32\_create()}（\texttt {\hyphenchar \font =-1 open} 带 \texttt {\hyphenchar \font =-1 O\_CREAT}）}{15}{subsection.3.4.6}%
+\contentsline {subsection}{\numberline {3.4.7}截断 \texttt {\hyphenchar \font =-1 fat32\_truncate()}（\texttt {\hyphenchar \font =-1 open} 带 \texttt {\hyphenchar \font =-1 O\_TRUNC}）}{16}{subsection.3.4.7}%
+\contentsline {subsection}{\numberline {3.4.8}列目录 \texttt {\hyphenchar \font =-1 fat32\_readdir()}}{16}{subsection.3.4.8}%
+\contentsline {subsection}{\numberline {3.4.9}不支持}{16}{subsection.3.4.9}%
+\contentsline {section}{\numberline {3.5}VFS 的配套改动}{16}{section.3.5}%
+\contentsline {section}{\numberline {3.6}谁在用 \texttt {\color {structurecolor!80!black}/boot}}{17}{section.3.6}%
+\contentsline {subsection}{\numberline {3.6.1}XR829 固件}{17}{subsection.3.6.1}%
+\contentsline {subsection}{\numberline {3.6.2}tftp}{17}{subsection.3.6.2}%
+\contentsline {subsection}{\numberline {3.6.3}WiFi 配置}{17}{subsection.3.6.3}%
+\contentsline {subsection}{\numberline {3.6.4}SPL 从 FAT32 加载内核}{17}{subsection.3.6.4}%
+\contentsline {section}{\numberline {3.7}一致性与限制}{17}{section.3.7}%
+\contentsline {section}{\numberline {3.8}改动前后对照}{18}{section.3.8}%
+\contentsline {section}{\numberline {3.9}测试}{18}{section.3.9}%
+\contentsline {chapter}{\numberline {第四章}UART3 控制台：TX 轮询、RX 中断与 /dev/console}{19}{chapter.4}%
+\contentsline {section}{\numberline {4.1}硬件与初始化}{19}{section.4.1}%
+\contentsline {section}{\numberline {4.2}启动时序：early console 与驱动 probe 的分工}{19}{section.4.2}%
+\contentsline {section}{\numberline {4.3}TX 路径：轮询 + 停转看门狗}{20}{section.4.3}%
+\contentsline {section}{\numberline {4.4}RX 路径：中断如何拿到数据}{20}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}使能}{20}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}中断分派链}{20}{subsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.4.3}中断里做什么}{21}{subsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.4.4}阻塞读：锁内入队防丢唤醒}{21}{subsection.4.4.4}%
+\contentsline {subsection}{\numberline {4.4.5}RX 看门狗：漏中断恢复}{21}{subsection.4.4.5}%
+\contentsline {section}{\numberline {4.5}\texttt {\color {structurecolor!80!black}/dev/console} 如何关联}{21}{section.4.5}%
+\contentsline {subsection}{\numberline {4.5.1}注册：probe → devfs 节点}{21}{subsection.4.5.1}%
+\contentsline {subsection}{\numberline {4.5.2}使用：fd 0/1/2 特判，不走 VFS}{22}{subsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.5.3}全景数据流}{22}{subsection.4.5.3}%
+\contentsline {section}{\numberline {4.6}双模式读的设计意图}{23}{section.4.6}%
+\contentsline {section}{\numberline {4.7}调试设施}{23}{section.4.7}%
+\contentsline {section}{\numberline {4.8}与 xv6 / Linux 对照}{24}{section.4.8}%
+\contentsline {chapter}{\numberline {第五章}WiFi 驱动：XR829 / SDIO 枚举与固件下载}{25}{chapter.5}%
+\contentsline {section}{\numberline {5.1}硬件连接}{25}{section.5.1}%
+\contentsline {section}{\numberline {5.2}文件组成}{26}{section.5.2}%
+\contentsline {section}{\numberline {5.3}分层结构}{26}{section.5.3}%
+\contentsline {section}{\numberline {5.4}总调用链}{28}{section.5.4}%
+\contentsline {section}{\numberline {5.5}初始化顺序与驱动核心约束}{29}{section.5.5}%
+\contentsline {section}{\numberline {5.6}SDIO 枚举}{29}{section.5.6}%
+\contentsline {subsection}{\numberline {5.6.1}CMD52：单字节读写}{29}{subsection.5.6.1}%
+\contentsline {subsection}{\numberline {5.6.2}CCCR / FBR / CIS}{29}{subsection.5.6.2}%
+\contentsline {section}{\numberline {5.7}CMD53 与数据通路}{30}{section.5.7}%
+\contentsline {subsection}{\numberline {5.7.1}SMHC PIO 数据阶段}{31}{subsection.5.7.1}%
+\contentsline {section}{\numberline {5.8}SMHC 主机控制器}{31}{section.5.8}%
+\contentsline {section}{\numberline {5.9}HIF 寄存器与间接寻址}{32}{section.5.9}%
+\contentsline {section}{\numberline {5.10}固件下载}{33}{section.5.10}%
+\contentsline {subsection}{\numberline {5.10.1}镜像}{33}{subsection.5.10.1}%
+\contentsline {subsection}{\numberline {5.10.2}流程}{33}{subsection.5.10.2}%
+\contentsline {subsection}{\numberline {5.10.3}下载 FIFO 协议}{34}{subsection.5.10.3}%
+\contentsline {subsection}{\numberline {5.10.4}进入 queue 模式}{35}{subsection.5.10.4}%
+\contentsline {section}{\numberline {5.11}WSM 首条消息}{35}{section.5.11}%
+\contentsline {section}{\numberline {5.12}固件打包与加载（bootpack，现为后备路径）}{35}{section.5.12}%
+\contentsline {section}{\numberline {5.13}预期串口输出}{36}{section.5.13}%
+\contentsline {section}{\numberline {5.14}排障提示}{36}{section.5.14}%
+\contentsline {section}{\numberline {5.15}当前边界与下一步}{37}{section.5.15}%
+\contentsline {chapter}{\numberline {第六章}网络栈与 WiFi 驱动分层}{39}{chapter.6}%
+\contentsline {section}{\numberline {6.1}分层总览}{39}{section.6.1}%
+\contentsline {section}{\numberline {6.2}目录与 Linux 对照}{40}{section.6.2}%
+\contentsline {section}{\numberline {6.3}接口边界}{41}{section.6.3}%
+\contentsline {section}{\numberline {6.4}一个包怎么走}{41}{section.6.4}%
+\contentsline {section}{\numberline {6.5}连接流程}{41}{section.6.5}%
+\contentsline {section}{\numberline {6.6}执行上下文（没有中断时的规则）}{42}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Kconfig}{42}{section.6.7}%
+\contentsline {section}{\numberline {6.8}加一块新网卡要做什么}{42}{section.6.8}%
+\contentsline {section}{\numberline {6.9}从旧结构的对应关系}{43}{section.6.9}%
+\contentsline {section}{\numberline {6.10}验证}{43}{section.6.10}%
+\contentsline {chapter}{\numberline {第七章}驱动：模型、网络驱动分层与 WiFi / UART 实现}{45}{chapter.7}%
+\contentsline {section}{\numberline {7.1}驱动架构：总线、设备与绑定}{45}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}kobject/kset：没有 sysfs 的目录树}{45}{subsection.7.1.1}%
+\contentsline {subsection}{\numberline {7.1.2}一把锁规则与初始化顺序}{45}{subsection.7.1.2}%
+\contentsline {subsection}{\numberline {7.1.3}平台设备：手写的设备树替身}{46}{subsection.7.1.3}%
+\contentsline {section}{\numberline {7.2}网络驱动分层}{47}{section.7.2}%
+\contentsline {subsection}{\numberline {7.2.1}从 ndo\_ops 到 ieee80211\_ops}{47}{subsection.7.2.1}%
+\contentsline {subsection}{\numberline {7.2.2}轮询顶替中断}{47}{subsection.7.2.2}%
+\contentsline {subsection}{\numberline {7.2.3}ieee80211\_ops：驱动与 mac80211 的契约}{48}{subsection.7.2.3}%
+\contentsline {section}{\numberline {7.3}SDIO WiFi 初始化}{48}{section.7.3}%
+\contentsline {subsection}{\numberline {7.3.1}卡枚举：CMD5 到绑定}{48}{subsection.7.3.1}%
+\contentsline {subsection}{\numberline {7.3.2}probe 链：从 function 到 wlan0}{49}{subsection.7.3.2}%
+\contentsline {section}{\numberline {7.4}数据接收与发送}{49}{section.7.4}%
+\contentsline {subsection}{\numberline {7.4.1}HIF 队列与底半部}{49}{subsection.7.4.1}%
+\contentsline {subsection}{\numberline {7.4.2}发送侧流控与接收排水}{50}{subsection.7.4.2}%
+\contentsline {subsection}{\numberline {7.4.3}接收路径：从 CMD53 到 socket}{50}{subsection.7.4.3}%
+\contentsline {subsection}{\numberline {7.4.4}发送路径：从 write 到 CMD53}{51}{subsection.7.4.4}%
+\contentsline {section}{\numberline {7.5}无线部分的发射}{52}{section.7.5}%
+\contentsline {subsection}{\numberline {7.5.1}802.11 帧封装}{52}{subsection.7.5.1}%
+\contentsline {subsection}{\numberline {7.5.2}速率与重试策略}{53}{subsection.7.5.2}%
+\contentsline {subsection}{\numberline {7.5.3}EDCA 与队列映射}{53}{subsection.7.5.3}%
+\contentsline {subsection}{\numberline {7.5.4}WSM TX 请求与 confirm}{53}{subsection.7.5.4}%
+\contentsline {subsection}{\numberline {7.5.5}EAPOL 发射特例}{54}{subsection.7.5.5}%
+\contentsline {section}{\numberline {7.6}UART 串口驱动与 /dev/console}{54}{section.7.6}%
+\contentsline {section}{\numberline {7.7}与 Linux 的对照}{55}{section.7.7}%

@@ -1,6 +1,7 @@
 menu "Device Drivers"
 source "src/drivers/mmc/Kconfig"
 source "src/drivers/net/Kconfig"
+source "src/drivers/input/Kconfig"
 
 config I2C
     bool "I2C support"

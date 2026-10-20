@@ -12,7 +12,7 @@
 
 #define PF_USER           0x00000001u
 #define PF_KTHREAD        0x00000002u
-#define T113_MAX_FDS      4u
+#define T113_MAX_FDS      16u
 
 /* Internal task-creation policy flags, deliberately separate from PF_*.
  * PF_* describes what an existing task is; T113_CLONE_* describes how a
@@ -30,7 +30,7 @@ struct arm32_trapframe {
 };
 
 struct t113_user_vm;
-struct vfs_file;
+struct file;
 
 struct t113_cpu_context {
     uint32_t r4;
@@ -66,7 +66,7 @@ struct t113_task {
     struct t113_task *wait_next;
     uint32_t wake_tick;
     int32_t exit_status;
-    struct vfs_file *files[T113_MAX_FDS];
+    struct file *files[T113_MAX_FDS];
 };
 
 extern struct t113_task *t113_current;

@@ -31,4 +31,8 @@ int tftp_client_input(struct tftp_client *c, uint16_t source_port,
                       const void *packet, uint32_t length,
                       void *reply, uint32_t reply_capacity);
 
+/* Download remote from server (TFTP over UDP) and store it at local.
+ * Returns the file size or a negative error. */
+int tftp_get(uint32_t server, const char *remote, const char *local);
+
 #endif

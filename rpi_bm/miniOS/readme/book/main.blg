@@ -1,0 +1,12 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: main.aux
+The style file: biblatex.bst
+A level-1 auxiliary file: chapters/01-process.aux
+A level-1 auxiliary file: chapters/02-rootfs-devfs.aux
+A level-1 auxiliary file: chapters/03-boot-fat32.aux
+A level-1 auxiliary file: chapters/04-uart-console.aux
+A level-1 auxiliary file: chapters/05-wifi-xr829.aux
+A level-1 auxiliary file: chapters/06-net-stack.aux
+Database file #1: main-blx.bib
+Biblatex version: 3.17

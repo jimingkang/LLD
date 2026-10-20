@@ -1,0 +1,265 @@
+\chapter{UART3 控制台：TX 轮询、RX 中断与 /dev/console}
+\label{chap:uart}
+
+本章对应当前 miniOS（100ASK T113-S3）的实现，说明 UART3 从初始化到收发数据的完整工作流程：发送侧为什么用轮询、接收侧如何用中断 + 256 字节环形缓冲把按键交给 shell、\file{/dev/console} 这个设备文件是怎么注册和关联到 fd 0/1/2 的。涉及的代码集中在 \file{src/boards/100ask\_t113/uart.c}、\file{timer.c}（IRQ 分派）、\file{src/kernel/fs/devfs.c}、\file{src/kernel/syscall.c}。
+
+当前已打通的链路：
+
+\begin{itemize}
+  \item \code{t113\_uart\_init()} 是 \code{kernel\_main()} 做的第一件事，串口立即可用，内核所有 \code{t113\_uart\_puts} 调试用打印都走它（early console）；
+  \item TX 纯轮询：等 \code{USR.TFNF} 有空槽就写 THR，带 10 ms 停转看门狗；
+  \item RX 双模式：中断使能前用轮询，使能后走 IRQ 37 → 环形缓冲 → 等待队列唤醒阻塞读；
+  \item 驱动模型 probe 把同一对读写函数注册成 devfs 的 \code{console}(1,0) 和 \code{ttyS0}(3,0)，\code{open("/dev/console")} 可用；
+  \item 用户 stdio 不走 VFS：\code{sys\_read} 对 fd 0、\code{sys\_write} 对 fd 1/2 直接特判到 UART。
+\end{itemize}
+
+尚未实现：TX 软件环形缓冲 + 发送中断（现在写是忙等）、RX 流控（无 RTS/CTS，环形缓冲满只能丢字节）、行规约（echo/退格/canonical 模式在 sh 的 readline 里自己做）、串口参数 ioctl（波特率固定 115200）、多个串口。
+
+\section{硬件与初始化}
+
+UART3 是 DesignWare APB UART（16550 兼容 + 扩展寄存器）：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{10.4cm}}
+\toprule
+引脚/时钟 & 配置 \\
+\midrule
+PB6 = TX，PB7 = RX & \code{GPIO PB CFG0} 复用 7（\code{gpio\_set\_uart3}，uart.c:77） \\
+时钟 & CCU \code{UART\_BGR} bit3 = UART3 gate，bit19 = 复位释放（uart.c:87-92，先关 gate 再开，中间 100 次空转等待） \\
+波特率 & 24 MHz / (16 $\times$ 13) = 115200（\code{LCR.DLAB=1} 写 \code{DLL=13}，uart.c:97-98） \\
+帧格式 & 8N1（\code{LCR=0x03}，uart.c:100） \\
+FIFO & \code{FCR=0x07}：使能 + 收发 FIFO 复位，触发级默认（uart.c:101） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+比普通 16550 多出来的两个状态位贯穿全文：
+
+\begin{itemize}
+  \item \code{USR}（UART+0x7C）：bit0 BUSY、bit1 TFNF（TX FIFO 未满）、bit3 RFNE（RX FIFO 非空）——8250 驱动里通常轮 \code{LSR.THRE}，DW 变体要看 \code{USR.TFNF}；
+  \item \code{IIR} 的 \code{0x07} = Busy detect：在 \code{USR.BUSY} 期间写 LCR 会挂起这个中断，\textbf{只有读一次 USR 才清}，不清的话电平中断会一直挂着（uart.c:242-243 专门处理）。
+\end{itemize}
+
+\section{启动时序：early console 与驱动 probe 的分工}
+
+\begin{txtcode}
+kernel_main (platform_kernel.c:32)
+├── t113_uart_init()          ← 第一件事：裸寄存器初始化，串口立刻能打
+├── t113_mmu_init()
+└── kernel_boot (src/kernel/init/main.c:27)
+    ├── 挂载 /boot / /dev
+    ├── t113_driver_core_init()   → t113_uart_probe (uart.c:349)
+    │                                 只校验 mem/IRQ 与硬编码值一致,
+    │                                 注册 devfs "console"/"ttyS0"
+    ├── t113_gic_init()
+    ├── t113_sched_init()
+    ├── kernel_platform_console_irq_init()  → t113_uart_irq_init (uart.c:194)
+    ├── start_init_process()      ← 加载 /init
+    └── timer0_init + cpsie i     ← 从此 IRQ 37 (UART RX) 开始到达
+\end{txtcode}
+
+注意 \code{t113\_uart\_probe} 里那句注释：硬件在 \code{kernel\_main()} 开头就已经初始化好了，probe \textbf{不做任何硬件操作}，只把``这块板子的 UART3 资源确实对应 early console''这件事校验一遍，然后向 devfs 登记节点（uart.c:343-364）。这是把``启动早期就要用的裸驱动''嫁接到驱动模型上的典型做法：硬件归 boot 代码，注册归 probe。
+
+\section{TX 路径：轮询 + 停转看门狗}
+
+\begin{txtcode}
+write(1, buf, n)  或内核 t113_uart_puts
+  → sys_write (syscall.c:405)  fd==1||fd==2 特判
+    → t113_uart_putc (uart.c:141)  逐字节:
+        '\n' → 先递归发 '\r'                  (终端要 CRLF)
+        uart_tx_wait_slot()                    等 USR.TFNF
+        uart3->rbr_thr_dll = c                 写 THR
+        uart_tx_report_stall()                 有停转则补打诊断
+\end{txtcode}
+
+\textbf{为什么 TX 用轮询不用中断 + 缓冲}：这个串口的第一职责是内核调试打印（panic、exception dump、驱动 probe 信息），语义上要求``打完这句才继续''，而且要能在 IRQ 关掉的上下文里用。环形缓冲 + 发送中断适合吞吐量场景，对 printk 反而是负担——xv6 的 \code{uartputc} 同样是关中断轮询 LSR.THRE，Linux 则只在 \code{console\_unlock} 的 atomic copy 阶段用轮询。miniOS 现在连 TX 软件缓冲都没有，\code{console\_write}（uart.c:307）就是逐字节 putc 循环。
+
+轮询的代价由 \code{uart\_tx\_wait\_slot}（uart.c:108）兜底：
+
+\begin{itemize}
+  \item 正常路径：\code{USR.TFNF} 为 1 就返回，一个字节约 87 µs（115200 8N1）；
+  \item 停转路径：连续 10 ms 没有空槽（\code{UART\_TX\_STALL\_US}），认为发送器卡死——快照 \code{USR}/\code{LSR}、计数、\textbf{只复位 TX FIFO}（\code{FCR=0x05}，保住 RX FIFO 里没读走的输入），把诊断推迟到 putc 末尾再打（\code{uart\_tx\_report\_stall}，避免在持锁/IRQ 上下文里递归打印）。
+\end{itemize}
+
+\section{RX 路径：中断如何拿到数据}
+
+\subsection{使能}
+
+\code{t113\_uart\_irq\_init()}（uart.c:194）在调度器就绪后、第一个用户进程创建前调用（main.c:45）：
+
+\begin{enumerate}
+  \item \code{rx\_irq\_enabled = 1}（持锁写，读侧据此在``轮询直读''和``睡等待队列''之间二选一）；
+  \item \code{IER = ERBFI}：只开``接收数据可用''中断；
+  \item \code{dsb sy} + \code{t113\_gic\_enable\_irq(T113\_IRQ\_UART3)}——IRQ 37 = GIC SPI 5（platform.h:21）。
+\end{enumerate}
+
+\subsection{中断分派链}
+
+\begin{txtcode}
+硬件 IRQ 37 电平触发
+  → vector → kernel_irq_entry (kernel_entry.S:122)
+      srsdb sp!, #0x13            IRQ→SVC, 保存 LR+SPSR
+      cps #0x13                   切 SVC 栈
+      stmdb sp!, {r0-r12, lr}
+      bl t113_irq_handler         (timer.c:96)
+        ├── GIC IAR 取号 + EOI
+        ├── irq == T113_IRQ_UART3 → t113_uart_irq_handler() (uart.c:235)
+        └── UART3: t113_sched_yield()   ← 让被唤醒的读任务立即跑
+      ldmia / rfeia               恢复原上下文(可能已是新任务)
+\end{txtcode}
+
+\subsection{中断里做什么}
+
+\code{t113\_uart\_irq\_handler}（uart.c:235）很短，三个动作：
+
+\begin{enumerate}
+  \item \textbf{清 Busy detect}：\code{IIR == 0x07} 时读一次 \code{USR}（唯一清除方式，不清则电平中断永久挂起）；
+  \item \textbf{drain FIFO} → \code{uart\_rx\_drain}（uart.c:204）：
+    \begin{itemize}
+      \item 不信任 IIR 的瞬态 \code{NO\_INT}——DW 版在第一次读 RBR 后可能立即报``无中断''，但 \code{LSR.DR} 还挂着同一串按键的后续字节。所以按\textbf{FIFO 状态}（\code{LSR.DR}）循环抽干，而不是按中断原因数字节；
+      \item 每字节：持 \code{rx\_wait.lock} → 写 \code{rx\_buffer[rx\_head]} → \code{rx\_head = (head+1) \& 255}，\code{next == rx\_tail} 说明 256 字节环形缓冲\textbf{满了，丢弃}（无流控，丢字节好过覆盖）；
+      \item 收尾重写 \code{IER = ERBFI}（timeout/line-status 中断服务后防丢使能的保险）；
+    \end{itemize}
+  \item \textbf{唤醒读方}：收到字节就 \code{wake\_up\_all(\&rx\_wait)}，把睡在队列上的任务置为 RUNNING；返回 \code{t113\_irq\_handler} 后立刻 \code{t113\_sched\_yield()}，不等下一秒 Timer0——这是交互延迟的关键：shell 按一键，UART IRQ 在同一条中断路径里完成``存字符 → 唤醒 → 调度走''，read 系统调用毫秒级返回。
+\end{enumerate}
+
+\subsection{阻塞读：锁内入队防丢唤醒}
+
+\begin{txtcode}
+read(0, buf, n) → sys_read (syscall.c:63)  fd==0 特判
+  → t113_uart_read (uart.c:161):
+      持 rx_wait.lock 查环形缓冲:
+        有字符 → 拷贝并立刻返回(终端语义: 有 1 字节就返回)
+        空 + IRQ 模式 → wait_queue_sleep_locked(&rx_wait, flags)
+                         持锁状态下把自己入队再睡 —— 与 IRQ 生产者
+                         共用一把锁, "查空→入队" 与 "存字节→唤醒"
+                         不可能交错丢唤醒
+        空 + 轮询模式 → 解锁, 直接读硬件 LSR.DR, 否则 yield 自旋
+\end{txtcode}
+
+\code{wait\_queue\_sleep\_locked}（\file{src/kernel/sync.c:43}）= 持锁入队 → 解锁并恢复 IRQ → \code{t113\_sched\_yield()}。拿锁用 \code{spin\_lock\_irqsave}，因为生产者那半在 IRQ 上下文里跑。
+
+\subsection{RX 看门狗：漏中断恢复}
+
+UART 中断毕竟刚调通，留了一道保险：Timer0 每秒 tick 里调用 \code{t113\_uart\_rx\_watchdog}（uart.c:247，挂在 timer.c:104）——若 \code{LSR.DR} 显示有数据而 IRQ 没把它们搬走（漏中断/使能丢失），就主动 \code{uart\_rx\_drain()} 一次，并打印一次 ``recovered missed RX interrupt''。能自愈，又能暴露问题。
+
+\section{\file{/dev/console} 如何关联}
+
+\subsection{注册：probe → devfs 节点}
+
+uart probe（uart.c:359-360）：
+
+\begin{ccode}
+t113_devfs_register_chrdev("console", 1u, 0u, &console_fops);
+t113_devfs_register_chrdev("ttyS0",   3u, 0u, &console_fops);
+\end{ccode}
+
+\code{console\_fops} 只有两个成员 \code{.read} 与 \code{.write}，都是 \code{t113\_uart\_read} / 逐字节 \code{t113\_uart\_putc} 的薄封装（uart.c:302-318）——devfs 的 read/write 本就不带 offset（字符设备无位置概念），正好匹配串口语义。
+
+devfs 侧（devfs.c）：节点表 16 项，名字 $\leq$30 字符；\code{devfs\_basename} 剥掉 \file{/dev} 前缀后线性查名；\code{lookup} 命中后把 \code{id = major<<16 | minor}、\code{private\_data = \&nodes[i]} 填进 VFS 节点；\code{devfs\_read/write} 转发到 \code{node->ops->read/write}。VFS 层负责``哪个挂载点接这个路径''（最长前缀匹配，\file{/dev} → devfs），这部分详见第~\ref{chap:rootfs} 章。
+
+\subsection{使用：fd 0/1/2 特判，不走 VFS}
+
+这是与 xv6/Linux 差异最大的一处。当前 \code{sys\_read}/\code{sys\_write} 对 stdio 是硬编码特判（syscall.c:65、syscall.c:411）：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6.8cm}}
+\toprule
+fd & 系统调用 & 去向 \\
+\midrule
+0 (stdin) & \code{sys\_read} & 直接 \code{t113\_uart\_read} \\
+1/2 (stdout/stderr) & \code{sys\_write} & 直接逐字节 \code{t113\_uart\_putc} \\
+$\geq$3 & open/read/write/close & 经 VFS → devfs → \code{console\_fops}（\code{open("/dev/console", O\_RDONLY)} 可读串口） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+用户进程创建时不打开任何文件，\code{files[]} 全空；sh 的 \code{read(0,...)} / \code{write(1,...)} 全靠 fd 特判落到 UART。\file{/dev/console} 节点现在主要给将来的用户程序用（以及证明 devfs 通路完整），init 并未像 xv6 那样 \code{open("/dev/console")} 后 dup 成 0/1/2。
+
+\subsection{全景数据流}
+
+\begin{txtcode}
+键盘
+ │ USB 转串口
+ ▼
+UART3 RX FIFO (硬件, 16 深)
+ │ IRQ 37 电平触发, IER.ERBFI
+ ▼
+t113_uart_irq_handler → uart_rx_drain
+ │ 持锁写 256B 环形缓冲 rx_buffer[head]   (满则丢)
+ │ wake_up_all(&rx_wait)  → sched_yield
+ ▼
+sh: read(0, &c, 1)
+ │ svc #0, r7=9 (T113_SYS_READ)
+ ▼
+sys_read (fd==0 特判) → t113_uart_read
+ │ 环形缓冲空 → wait_queue_sleep_locked 阻塞
+ │ 有字节 → 拷给用户 buf, 返回 1
+ ▼
+sh readline 回显: putchar(c)
+ │ write(1, &c, 1) → svc #0, r7=1 (T113_SYS_WRITE)
+ ▼
+sys_write (fd==1 特判) → t113_uart_putc
+ │ '\n'→'\r\n'; 等 USR.TFNF; 写 THR
+ ▼
+UART3 TX FIFO → PB6 → USB 转串口 → 终端
+\end{txtcode}
+
+内核打印（\code{t113\_uart\_puts}）与用户 \code{write(1,...)} 共用同一个 putc，\textbf{没有互斥}：多任务并发打印会逐字节交错，这是有意保留的调试行为（调度器 trace 就是靠它看交错的）。xv6 用 \code{Console.lock} 保证整行不穿插；Linux 靠 \code{console\_sem} + per-console lock。
+
+\section{双模式读的设计意图}
+
+\code{rx\_irq\_enabled} 把读路径切成两副面孔，是为了 bring-up 顺序：
+
+\begin{itemize}
+  \item 阶段一（\code{t113\_uart\_irq\_init} 之前，含 SPL 交接后的早期内核）：GIC 未初始化，IRQ 到不了，\code{t113\_uart\_read}/\code{t113\_uart\_getc} 退化为轮询 + \code{yield} 自旋。kernel\_shell（kernel\_shell.c:63，当前未接入启动流程，留作调试）用的就是这套；
+  \item 阶段二（调度器 + GIC 就绪后）：开 IER、开 GIC，读路径切到``环形缓冲 + 睡眠唤醒''，CPU 空转代价归零。
+\end{itemize}
+
+\code{getc\_nonblock}（uart.c:150）也保留双模式：IRQ 模式下只查环形缓冲（硬件 FIFO 由中断独占搬运，避免与 IRQ 竞争读 RBR），轮询模式下才直读硬件。
+
+\section{调试设施}
+
+调通这条链路留下的开关，全部默认 0（除 Kconfig 项）：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{3.6cm}p{7.6cm}}
+\toprule
+开关 & 位置 & 作用 \\
+\midrule
+\code{CONFIG\_DEBUG\_TIMER\_TICK} & menuconfig / autoconf.h & 每秒打印 tick 计数 \\
+\code{SCHED\_STATUS\_TRACE} & timer.c:20 & 每秒一行：任务状态 + IER/LSR/USR + GIC 中 IRQ37 状态 + 等待队列 \\
+\code{HEARTBEAT\_TRACE} & timer.c:28 & 每 5 秒 `.', 有新 UART IRQ 时打 \code{<qN>} \\
+\code{STDIN\_TRACE} & syscall.c:23 & 首次 stdin 等待/返回时打 LSR/USR/收到数 \\
+\code{EXEC\_TRACE} & syscall.c:16 & exec 返回用户前经真实 MMU 校验 entry/sp/argc \\
+运行时计数 & uart.c:282 & \code{t113\_uart\_rx\_irq\_count()}；\code{t113\_uart\_debug\_print()} 打 \code{q<irq数> r<head>/<tail> w<等待者pid>} \\
+TX 停转 & uart.c:42 & \code{tx\_stall\_count/usr/lsr}，发生时打印 \code{uart3: TX stall \#N USR=.. LSR=..} \\
+RX 看门狗 & uart.c:247 & 漏中断自愈 + 一次性提示 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+排障口诀：\code{st} 行里的 \code{g}（GIC 视角 IRQ37 状态）为 1 而 \code{r<head/tail>} 不动 → 中断到了但 drain 没跑；\code{q} 计数不动而 LSR 有 DR → IRQ 没进来，查 IER/GIC enable；\code{q} 涨、\code{r} 动、shell 仍卡 → 问题在唤醒/调度，不在串口。
+
+\section{与 xv6 / Linux 对照}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{4.3cm}p{3.6cm}p{3.3cm}}
+\toprule
+话题 & miniOS & xv6 & Linux \\
+\midrule
+TX & 轮询 \code{USR.TFNF}，无缓冲 & \code{uartputc} 关中断轮 \code{LSR.THRE}，无缓冲 & serial core：环形 xmit\_buf + 发送中断/PIO 兜底 \\
+RX & IRQ → 256B 环形缓冲 → 等待队列 & IRQ → \code{uartrecv} 直存 console 输入队列（同样睡眠唤醒） & IRQ → \code{tty\_port} flip buffer → line discipline → read \\
+阻塞读 & \code{wait\_queue\_sleep\_locked} 持锁入队 & \code{sleep(\&cons.r, ...)} 同样要求持锁 & wait\_event + tty 互斥 \\
+行规约 & 无，sh 的 readline 自己 echo/退格 & 无（echo 在 console 输入回显里做了一半） & tty ldisc：echo、canonical、信号 \\
+/dev/console & devfs 节点已注册，但 stdio 走 fd 特判 & init 显式 open + dup 到 0/1/2 & 内核 console（printk）与用户 tty 分离又共存 \\
+丢数据 & RX 满丢字节，无流控 & 输入队列满丢字节 & 有 RTS/CTS 流控、可设 termios \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+演进方向（如果要做）：照 xv6 的样子把 init 改成 \code{open("/dev/console")} + dup 到 0/1/2，撤掉 syscall 的 fd 特判；TX 加软件环形缓冲 + \code{IER.ETBEI} 发送中断，把长打印从忙等里解放出来；这两点做完，UART 子系统就和 xv6 的 console/ 基本同构了。

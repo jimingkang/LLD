@@ -1,259 +1,211 @@
-/* XR829 station-management layer: firmware configuration and scan. */
+/*
+ * XRadio station operations, after the xradio driver's sta.c: the
+ * ieee80211_ops that mac80211 calls to start the MAC, join and
+ * associate, program keys and poll the device.
+ *
+ * The firmware joins the BSS, retries frames and does CCMP/TKIP itself;
+ * frames and the 802.11 state machine live in mac80211.
+ */
 #include "platform.h"
 #include "device.h"
-#include "xradio/wsm.h"
-#include "xradio/sta.h"
+#include "net/netutil.h"
+#include "xradio.h"
 
-#define SCAN_AP_LOG_MAX 16u
+#define KEY_INDEX_PAIRWISE 0u
+#define KEY_INDEX_GROUP    1u
 
-static const char *const target_ssids[] = {
-    "TP-Link_B114",       /* preferred: XR829 is a 2.4 GHz radio */
-    "TP-Link_B114_5G",
-};
-
-static struct {
-    int scanning;
-    int scan_done;
-    uint32_t scan_status;
-    uint32_t frames;
-    int found;
-    uint8_t bssid[6];
-    uint16_t channel;
-    uint8_t rcpi;
-    uint8_t rsn[64];
-    uint8_t rsn_len;
-    int target_index;
-    uint8_t ssid[32];
-    uint8_t ssid_len;
-    uint8_t dtim_period;
-    uint16_t beacon_interval;
-    uint8_t ap_count;
-    uint8_t ap_bssid[SCAN_AP_LOG_MAX][6];
-} sta;
-
-static uint16_t le16(const uint8_t *p)
+static void say(const char *s)
 {
-    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+    t113_uart_puts("xradio: ");
+    t113_uart_puts(s);
 }
 
-static uint32_t le32(const uint8_t *p)
+static void say_hex(const char *s, uint32_t v)
 {
-    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
-           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
-}
-
-static int bytes_equal(const uint8_t *a, const uint8_t *b, uint32_t n)
-{
-    for (uint32_t i = 0; i < n; ++i)
-        if (a[i] != b[i]) return 0;
-    return 1;
-}
-
-static uint32_t string_len(const char *s)
-{
-    uint32_t n = 0;
-    while (s[n]) ++n;
-    return n;
-}
-
-static int target_ssid_index(const uint8_t *ssid, uint8_t len)
-{
-    for (uint32_t i = 0; i < sizeof(target_ssids) / sizeof(target_ssids[0]); ++i) {
-        uint32_t target_len = string_len(target_ssids[i]);
-        if (len == target_len &&
-            bytes_equal(ssid, (const uint8_t *)target_ssids[i], len))
-            return (int)i;
-    }
-    return -1;
-}
-
-static void print_mac(const uint8_t mac[6]);
-
-static int remember_ap(const uint8_t bssid[6])
-{
-    for (uint32_t i = 0; i < sta.ap_count; ++i)
-        if (bytes_equal(sta.ap_bssid[i], bssid, 6))
-            return 0;
-    if (sta.ap_count >= SCAN_AP_LOG_MAX)
-        return 0;
-    for (uint32_t i = 0; i < 6u; ++i)
-        sta.ap_bssid[sta.ap_count][i] = bssid[i];
-    ++sta.ap_count;
-    return 1;
-}
-
-static void print_ap(const uint8_t bssid[6], const uint8_t *ssid,
-                     uint8_t ssid_len, uint16_t channel, uint8_t rcpi)
-{
-    t113_uart_puts("xradio: AP ssid=\"");
-    if (!ssid_len)
-        t113_uart_puts("<hidden>");
-    for (uint32_t i = 0; i < ssid_len; ++i) {
-        uint8_t c = ssid[i];
-        t113_uart_putc((c >= 32u && c < 127u) ? (char)c : '.');
-    }
-    t113_uart_puts("\" bssid="); print_mac(bssid);
-    t113_uart_puts(" channel="); t113_uart_puthex(channel);
-    t113_uart_puts(" rcpi="); t113_uart_puthex(rcpi);
+    say(s);
+    t113_uart_puthex(v);
     t113_uart_putc('\n');
 }
 
-static void parse_scan_frame(const uint8_t *msg, uint32_t len)
+/* One-time MAC setup (main.c / vif_setup in the vendor driver). */
+static int xradio_start(struct ieee80211_hw *hw)
 {
-    if (len < WSM_HDR_LEN + WSM_RX_HDR_LEN + 36u)
-        return;
-    const uint8_t *rx = msg + WSM_HDR_LEN;
-    const uint8_t *frame = rx + WSM_RX_HDR_LEN;
-    uint32_t frame_len = len - WSM_HDR_LEN - WSM_RX_HDR_LEN;
-    uint16_t fc = le16(frame);
-    uint8_t subtype = (uint8_t)((fc >> 4) & 0xfu);
-    if ((fc & 0xcu) || (subtype != 8u && subtype != 5u))
-        return;                            /* beacon or probe response only */
-    ++sta.frames;
-
-    const uint8_t *ssid = 0;
-    uint8_t ssid_len = 0;
-    uint32_t pos = 36u;
-    int matched_target = -1;
-    uint16_t channel = le16(rx + 4);
-    uint8_t dtim_period = 1;
-    while (pos + 2u <= frame_len) {
-        uint8_t id = frame[pos], n = frame[pos + 1u];
-        if (pos + 2u + n > frame_len) break;
-        if (id == 0) {
-            ssid = frame + pos + 2u;
-            ssid_len = n <= 32u ? n : 32u;
-            matched_target = target_ssid_index(ssid, ssid_len);
-        }
-        if (id == 3 && n == 1)
-            channel = frame[pos + 2u];
-        if (id == 5 && n >= 2u)
-            dtim_period = frame[pos + 3u];
-        if (matched_target >= 0 && id == 48 && n + 2u <= sizeof(sta.rsn)) {
-            sta.rsn_len = n + 2u;
-            for (uint32_t i = 0; i < sta.rsn_len; ++i)
-                sta.rsn[i] = frame[pos + i];
-        }
-        pos += 2u + n;
-    }
-    const uint8_t *bssid = frame + 16u;
-    if (remember_ap(bssid))
-        print_ap(bssid, ssid, ssid_len, channel, rx[7]);
-    if (matched_target < 0)
-        return;
-    /* Keep the first match, except that the 2.4 GHz name has priority. */
-    if (sta.found && sta.target_index <= matched_target)
-        return;
-    sta.found = 1;
-    sta.target_index = matched_target;
-    sta.ssid_len = ssid_len;
-    for (uint32_t i = 0; i < ssid_len; ++i) sta.ssid[i] = ssid[i];
-    sta.dtim_period = dtim_period;
-    sta.beacon_interval = le16(frame + 32u);
-    sta.channel = channel;
-    sta.rcpi = rx[7];
-    for (uint32_t i = 0; i < 6; ++i)
-        sta.bssid[i] = frame[16 + i];
-}
-
-static void sta_indication(uint16_t id, const uint8_t *msg, uint32_t len)
-{
-    if (id == WSM_RX_IND && sta.scanning)
-        parse_scan_frame(msg, len);
-    else if (id == WSM_SCAN_COMPLETE_IND && len >= 8u) {
-        sta.scan_status = le32(msg + 4);
-        sta.scan_done = 1;
-        sta.scanning = 0;
-    }
-}
-
-static void print_mac(const uint8_t mac[6])
-{
-    static const char hex[] = "0123456789abcdef";
-    for (uint32_t i = 0; i < 6; ++i) {
-        if (i) t113_uart_putc(':');
-        t113_uart_putc(hex[mac[i] >> 4]);
-        t113_uart_putc(hex[mac[i] & 15]);
-    }
-}
-
-int xradio_sta_start(const void *sdd, uint32_t sdd_len)
-{
-    static const uint8_t requested_mac[6] = { 0x02, 0x0a, 0x9e, 0x22, 0x82, 0x01 };
-    struct wsm_configuration cfg;
-    t113_uart_puts("xradio: configure firmware, SDD bytes=");
-    t113_uart_puthex(sdd_len);
-    t113_uart_putc('\n');
-    int ret = wsm_configuration(requested_mac, sdd, sdd_len, &cfg);
-    if (ret < 0) {
-        t113_uart_puts("xradio: WSM configuration failed ");
-        t113_uart_puthex((uint32_t)ret); t113_uart_putc('\n');
-        return ret;
-    }
-    t113_uart_puts("xradio: configured MAC "); print_mac(cfg.station_id);
-    t113_uart_puts(" bands="); t113_uart_puthex(cfg.bands);
-    t113_uart_puts(" rates="); t113_uart_puthex(cfg.rate_mask); t113_uart_putc('\n');
-
-    struct wsm_scan_channel channels[13];
-    for (uint32_t i = 0; i < 13u; ++i) {
-        channels[i].number = i + 1u;
-        channels[i].min_time_ms = 50;
-        channels[i].max_time_ms = 110;
-    }
-    sta.scanning = 1; sta.scan_done = 0; sta.frames = 0; sta.found = 0;
-    sta.ap_count = 0;
-    sta.target_index = -1;
-    sta.rsn_len = 0;
-    wsm_set_ind_handler(sta_indication);
-    /* First bring-up uses a broadcast passive scan.  It does not exercise
-     * firmware's probe-request TX/template path, which is kept separate until
-     * RX/beacon parsing is known-good on this XR829 firmware revision. */
-    t113_uart_puts("xradio: passive scan channels 1-13\n");
-    ret = wsm_scan(channels, 13, 0, 0);
-    if (ret < 0) {
-        sta.scanning = 0;
-        t113_uart_puts("xradio: scan command failed ");
-        t113_uart_puthex((uint32_t)ret); t113_uart_putc('\n');
-        return ret;
-    }
-    uint64_t deadline = t113_time_us() + 5000000u;
-    while (!sta.scan_done && t113_time_us() < deadline)
-        if (wsm_poll(20) < 0) break;
-    if (!sta.scan_done) {
-        t113_uart_puts("xradio: scan completion timeout\n");
-        return -ETIMEDOUT;
-    }
-    t113_uart_puts("xradio: scan complete status=");
-    t113_uart_puthex(sta.scan_status);
-    t113_uart_puts(" management-frames="); t113_uart_puthex(sta.frames);
-    t113_uart_putc('\n');
-    if (!sta.found) {
-        t113_uart_puts("xradio: neither target SSID found\n");
-        return -ENODEV;
-    }
-    t113_uart_puts("xradio: selected SSID=\"");
-    t113_uart_puts(target_ssids[sta.target_index]);
-    t113_uart_puts("\" bssid="); print_mac(sta.bssid);
-    t113_uart_puts(" channel="); t113_uart_puthex(sta.channel);
-    t113_uart_puts(" rcpi="); t113_uart_puthex(sta.rcpi);
-    t113_uart_puts(" rsn-bytes="); t113_uart_puthex(sta.rsn_len);
-    t113_uart_putc('\n');
-
-    struct wsm_join join;
-    join.band = 0;
-    join.channel = sta.channel;
-    join.ssid = sta.ssid;
-    join.ssid_len = sta.ssid_len;
-    join.dtim_period = sta.dtim_period;
-    join.beacon_interval = sta.beacon_interval;
-    for (uint32_t i = 0; i < 6u; ++i) join.bssid[i] = sta.bssid[i];
-    t113_uart_puts("xradio: joining selected BSS\n");
-    ret = wsm_join(&join);
-    if (ret < 0) {
-        t113_uart_puts("xradio: WSM JOIN failed ");
-        t113_uart_puthex((uint32_t)ret); t113_uart_putc('\n');
-        return ret;
-    }
-    t113_uart_puts("xradio: WSM JOIN accepted; association/WPA pending\n");
+    int ret = wsm_mib32(WSM_MIB_OPERATIONAL_POWER_MODE, 0x12);
+    if (!ret)
+        ret = wsm_set_probe_request_template(hw->wiphy->perm_addr);
+    if (!ret)
+        ret = wsm_set_edca_default();
+    if (!ret)
+        ret = wsm_set_tx_policies();
+    if (ret)
+        say_hex("initial firmware setup failed, status ", (uint32_t)ret);
+    else
+        say("probe-request template installed\n");
+    if (ret)
+        return ret < 0 ? ret : -EIO;
     return 0;
 }
+
+/* xradio_join_work: pre-join MIBs, JOIN, then update_filtering. */
+static int xradio_do_join(struct ieee80211_bss_conf *conf)
+{
+    wsm_mib32(WSM_MIB_OPERATIONAL_POWER_MODE, 0x12);
+    wsm_mib32(WSM_MIB_BLOCK_ACK_POLICY, 0);
+    wsm_mib32(WSM_MIB_PROTECTED_MGMT_POLICY, 0x06);
+
+    struct wsm_join join;
+    join.phy_mode = 0x0007;             /* 2.4 GHz b/g/n, 20 MHz, long preamble */
+    join.channel = conf->channel;
+    join.ssid = conf->ssid;
+    join.ssid_len = conf->ssid_len;
+    join.dtim_period = conf->dtim_period;
+    join.beacon_interval = conf->beacon_int;
+    /* Vendor join_work uses 1/2/5.5 Mbps for a 2.4 GHz JOIN.  The complete
+     * AP basic-rate mask is installed after association. */
+    join.basic_rates = 0x00000007u;
+    net_memcpy(join.bssid, conf->bssid, ETH_ALEN);
+    int ret = wsm_join(&join);
+    if (ret)
+        return ret;
+
+    /*
+     * The vendor driver temporarily disables beacon filtering while JOIN is
+     * settling, then enables its automatic ERP/HT filter after association.
+     * Keeping it disabled forever can fill the polled host RX path with every
+     * beacon.  Upload the table here, but do not enable it yet.
+     */
+    static const uint8_t beacon_table[20] = {
+        0x02, 0x00, 0x00, 0x00,
+        0xdd, 0x07, 0x50, 0x6f, 0x9a, 0x00, 0x00, 0x00,
+        0x3d, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    if ((ret = wsm_mib32(WSM_MIB_RX_FILTER, 0)) != 0 ||
+        (ret = wsm_write_mib(WSM_MIB_BEACON_FILTER_TABLE, beacon_table,
+                             sizeof(beacon_table))) != 0 ||
+        (ret = wsm_set_beacon_filter(0, 1)) != 0 ||
+        (ret = wsm_mib32(WSM_MIB_DISABLE_BSSID_FILTER, 0)) != 0)
+        say_hex("filtering setup failed, status ", (uint32_t)ret);
+    return ret;
+}
+
+/*
+ * bss_info_changed(ASSOC) for the current legacy b/g association request.
+ * This is intentionally the ARM32 ABI layout used verbatim by the vendor
+ * driver, not a packed structure: flags @0, pad @1, PhyModeCfg @2,
+ * mpduStartSpacing @4, pad @5..7 and basicRateSet @8; total 12 bytes.
+ * PhyModeCfg=0x0003 is b/g because mac80211 does not yet send an HT
+ * capability IE.  JOIN's earlier 0x0007 merely permits firmware probing.
+ */
+static int xradio_set_assoc(struct ieee80211_bss_conf *conf)
+{
+    uint16_t phy_mode = 0x0003u;        /* b/g, 20 MHz, primary channel 1 */
+    if (conf->use_short_preamble)
+        phy_mode |= 1u << 12;           /* PreambleCfg = SHORT */
+    uint8_t assoc_mode[12] = { 0x07, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    put_unaligned_le16(phy_mode, assoc_mode + 2);
+    put_unaligned_le32(conf->basic_rates, assoc_mode + 8);
+    int ret;
+    if ((ret = wsm_mib32(WSM_MIB_SET_HT_PROTECTION, 0)) != 0 ||
+        (ret = wsm_write_mib(WSM_MIB_SET_ASSOCIATION_MODE, assoc_mode,
+                             sizeof(assoc_mode))) != 0 ||
+        (ret = wsm_mib32(WSM_MIB_KEEP_ALIVE_PERIOD, 28)) != 0 ||
+        (ret = wsm_set_bss_params(conf->aid, 50, conf->supp_rates)) != 0) {
+        say_hex("association parameters failed, status ", (uint32_t)ret);
+        return ret;
+    }
+    uint32_t wake = (uint32_t)conf->beacon_int * conf->dtim_period > 1000u
+                  ? 1u : conf->dtim_period;
+    if ((ret = wsm_set_beacon_wakeup_period((uint8_t)(wake ? wake : 1u), 0)) != 0 ||
+        (ret = wsm_set_pm(0)) != 0 ||
+        (ret = wsm_mib32(WSM_MIB_DOT11_SLOT_TIME,
+                         conf->use_short_slot ? 9u : 20u)) != 0 ||
+        (ret = wsm_set_beacon_filter(1, 1)) != 0) {
+        say_hex("post-association setup failed, status ", (uint32_t)ret);
+        return ret;
+    }
+    return 0;
+}
+
+static int xradio_bss_info_changed(struct ieee80211_hw *hw,
+                                   struct ieee80211_bss_conf *info,
+                                   uint32_t changed)
+{
+    (void)hw;
+    if (changed & BSS_CHANGED_BSSID) {
+        int ret = xradio_do_join(info);
+        if (ret) {
+            say_hex("WSM JOIN failed, status ", (uint32_t)ret);
+            return ret < 0 ? ret : -EIO;
+        }
+    }
+    if ((changed & BSS_CHANGED_ASSOC) && info->assoc) {
+        int ret = xradio_set_assoc(info);
+        if (ret)
+            return ret < 0 ? ret : -EIO;
+    }
+    return 0;
+}
+
+static int xradio_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+                          struct ieee80211_key_conf *key)
+{
+    (void)hw;
+    if (cmd == DISABLE_KEY)
+        return wsm_remove_key(key->hw_key_idx);
+
+    if (key->pairwise) {
+        if (key->cipher != WLAN_CIPHER_SUITE_CCMP || key->keylen < 16u)
+            return -EINVAL;
+        key->hw_key_idx = KEY_INDEX_PAIRWISE;
+        return wsm_add_key_pairwise(KEY_INDEX_PAIRWISE, key->peer, key->key);
+    }
+
+    /* Group key.  TKIP keys come in the nl80211 layout: key | tx MIC |
+     * rx MIC; the firmware wants key | rx MIC. */
+    uint8_t k[24];
+    uint8_t type;
+    if (key->cipher == WLAN_CIPHER_SUITE_CCMP && key->keylen >= 16u) {
+        type = WSM_KEY_TYPE_AES_GROUP;
+        net_memcpy(k, key->key, 16);
+    } else if (key->cipher == WLAN_CIPHER_SUITE_TKIP && key->keylen >= 32u) {
+        type = WSM_KEY_TYPE_TKIP_GROUP;
+        net_memcpy(k, key->key, 16);
+        net_memcpy(k + 16, key->key + 24, 8);
+    } else {
+        return -EINVAL;
+    }
+    key->hw_key_idx = KEY_INDEX_GROUP;
+    int ret = wsm_add_key_group(type, KEY_INDEX_GROUP, k, key->keyidx, key->rsc);
+    net_memset(k, 0, sizeof(k));
+    return ret;
+}
+
+static int xradio_poll(struct ieee80211_hw *hw, int timeout_ms)
+{
+    (void)hw;
+    return xradio_bh_poll(timeout_ms);
+}
+
+/* WSM EVENT indication (from the bottom half). */
+void xradio_event_cb(uint32_t event_id, uint32_t event_data)
+{
+    if (event_id == WSM_EVENT_BSS_LOST && xradio_priv.hw) {
+        say("BSS_LOST beacon-miss=");
+        t113_uart_puthex((event_data >> 8) & 0xffu);
+        t113_uart_puts(" reason=");
+        t113_uart_puthex(event_data & 0xffu);
+        t113_uart_putc('\n');
+        ieee80211_beacon_loss(xradio_priv.hw);
+    } else if (event_id == WSM_EVENT_BSS_REGAINED) {
+        say("BSS_REGAINED\n");
+    }
+}
+
+const struct ieee80211_ops xradio_ops = {
+    .start = xradio_start,
+    .tx = xradio_tx,
+    .hw_scan = xradio_hw_scan,
+    .bss_info_changed = xradio_bss_info_changed,
+    .set_key = xradio_set_key,
+    .poll = xradio_poll,
+};

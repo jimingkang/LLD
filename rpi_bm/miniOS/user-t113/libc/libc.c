@@ -20,11 +20,14 @@ void __sys_exit(int status) __attribute__((noreturn));
 int __sys_open(const char *path, int flags);
 int __sys_read(int fd, void *buffer, size_t count);
 int __sys_close(int fd);
+int __sys_dup(int oldfd);
 int __sys_uptime(void);
 int __sys_exec(const char *path, char *const argv[]);
 void *__sys_sbrk(ptrdiff_t increment);
 int __sys_readdir(const char *path, unsigned int index, struct dirent *entry);
 char *__sys_getcwd(char *buffer, size_t size);
+int __sys_tftp(const char *server, const char *remote, const char *local);
+int __sys_netctl(int command, const char *a1, const char *a2, const char *a3);
 
 int errno;
 
@@ -70,6 +73,20 @@ int readdir(const char *path, unsigned int index, struct dirent *entry)
     return syscall_result(__sys_readdir(path, index, entry));
 }
 
+int tftp(const char *server, const char *remote, const char *local)
+{
+    if (!server || !remote || !local) {
+        errno = EFAULT;
+        return -1;
+    }
+    return syscall_result(__sys_tftp(server, remote, local));
+}
+
+int netctl(int command, const char *a1, const char *a2, const char *a3)
+{
+    return syscall_result(__sys_netctl(command, a1, a2, a3));
+}
+
 char *getcwd(char *buffer, size_t size)
 {
     if (!buffer || size < 2u) {
@@ -85,6 +102,7 @@ char *getcwd(char *buffer, size_t size)
 }
 
 int close(int fd) { return syscall_result(__sys_close(fd)); }
+int dup(int oldfd) { return syscall_result(__sys_dup(oldfd)); }
 unsigned int uptime(void) { return (unsigned int)__sys_uptime(); }
 int exec(const char *path, char *const argv[])
 {

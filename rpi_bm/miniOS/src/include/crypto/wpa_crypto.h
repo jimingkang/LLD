@@ -1,5 +1,5 @@
-#ifndef MINIOS_NET_WPA_CRYPTO_H
-#define MINIOS_NET_WPA_CRYPTO_H
+#ifndef MINIOS_CRYPTO_WPA_CRYPTO_H
+#define MINIOS_CRYPTO_WPA_CRYPTO_H
 
 #include <stdint.h>
 

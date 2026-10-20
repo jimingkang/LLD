@@ -18,6 +18,11 @@ enum t113_gpio_port {
 #define T113_GPIO_IN        0u
 #define T113_GPIO_OUT       1u
 #define T113_GPIO_DISABLED  0xfu
+#define T113_GPIO_IRQ       6u
+
+#define T113_GPIO_IRQ_RISING  0u
+#define T113_GPIO_IRQ_FALLING 1u
+#define T113_GPIO_IRQ_BOTH    4u
 
 #define T113_PULL_NONE      0u
 #define T113_PULL_UP        1u
@@ -42,6 +47,13 @@ uint32_t t113_gpio_get_value(uint32_t port, uint32_t pin);
 
 /* gpio = T113_GPIO(port, pin); ignored when gpio < 0. */
 void t113_gpio_direction_output(int gpio, uint32_t value);
+void t113_gpio_direction_input(int gpio);
+int t113_gpio_get(int gpio);
+int t113_gpio_irq_config(int gpio, uint32_t mode);
+void t113_gpio_irq_enable(int gpio);
+void t113_gpio_irq_disable(int gpio);
+int t113_gpio_irq_pending(int gpio);
+void t113_gpio_irq_ack(int gpio);
 
 void t113_pinmux_apply(const struct t113_pin *pins, uint32_t count);
 

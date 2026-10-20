@@ -1,5 +1,5 @@
 menu "XRadio wireless support"
-    depends on WLAN && SDIO
+    depends on WLAN && SDIO && MAC80211
 config WLAN_XRADIO
     bool "XRadio XR8xx support"
     default y if BOARD_100ASK_T113
@@ -10,9 +10,5 @@ config WLAN_XRADIO_XR829
 config XR829_WSM
     bool "WSM firmware command layer"
     depends on WLAN_XRADIO_XR829
-    default y
-config WPA2_PSK
-    bool "WPA2-PSK host supplicant primitives"
-    depends on XR829_WSM
     default y
 endmenu

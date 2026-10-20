@@ -1,0 +1,12 @@
+menu "Networking support"
+config NET
+    bool "Networking support (core, Ethernet, IPv4/UDP/ICMP, DHCP)"
+    default y if BOARD_100ASK_T113
+config TFTP_CLIENT
+    bool "TFTP client and miniBoot updater"
+    depends on NET
+    default y
+source "src/net/wireless/Kconfig"
+source "src/net/mac80211/Kconfig"
+source "src/net/wpa/Kconfig"
+endmenu

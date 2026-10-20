@@ -23,6 +23,7 @@
 #define T113_IRQ_SMHC1          73u     /* GIC_SPI 41 */
 #define T113_IRQ_VINC0          127u    /* GIC_SPI 95 */
 #define T113_IRQ_CSI0           132u    /* GIC_SPI 100 */
+#define T113_IRQ_GPIOB          101u    /* GIC_SPI 69 */
 
 #define T113_CCU_UART_BGR       (T113_CCU_BASE + 0x090cu)
 #define T113_CCU_TWI_BGR        (T113_CCU_BASE + 0x091cu) /* gate b0-3, rst b16-19 */
@@ -96,6 +97,7 @@ uint32_t t113_gic_highest_pending(void);
 
 void t113_timer0_init(void);
 void t113_timer0_acknowledge(void);
+void t113_timer0_irq(uint32_t irq, void *data);
 uint32_t t113_timer_ticks(void);
 void t113_irq_handler(void);
 

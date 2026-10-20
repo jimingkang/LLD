@@ -8,6 +8,9 @@ struct i2c_driver;
 extern struct platform_driver t113_uart_driver;
 extern struct platform_driver t113_gic_driver;
 extern struct platform_driver t113_timer_driver;
+#ifdef CONFIG_INPUT_GPIO_KEYS
+extern struct platform_driver gpio_keys_driver;
+#endif
 
 /* Camera path: CSIC DVP interface, TWI controller, OV5640 sensor. */
 #ifdef CONFIG_VIDEO
@@ -20,13 +23,13 @@ extern struct platform_driver t113_twi_driver;
 extern struct i2c_driver ov5640_driver;
 #endif
 
-/* WiFi path: SMHC1 SDIO host, XR829 function driver. */
+/* WiFi path: SMHC1 SDIO host, XRadio function driver (XR829). */
 struct sdio_driver;
 #ifdef CONFIG_MMC_SUNXI
 extern struct platform_driver t113_smhc_driver;
 #endif
 #ifdef CONFIG_WLAN_XRADIO_XR829
-extern struct sdio_driver xr829_driver;
+extern struct sdio_driver xradio_sdio_driver;
 #endif
 
 /* Static board description: 100ASK T113-S3 platform devices. */

@@ -1,0 +1,4 @@
+config WPA2_PSK
+    bool "In-kernel WPA2-PSK supplicant"
+    depends on CFG80211
+    default y

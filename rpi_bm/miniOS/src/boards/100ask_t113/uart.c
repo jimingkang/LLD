@@ -3,6 +3,8 @@
 #include "platform_device.h"
 #include "board.h"
 #include "fs/devfs.h"
+#include "fs/chrdev.h"
+#include "irq.h"
 #include "wait.h"
 #include "sched.h"
 
@@ -45,6 +47,8 @@ static uint32_t tx_stall_lsr;
 static uint32_t tx_stall_pending;
 static uint32_t tx_stall_reporting;
 static uint32_t rx_irq_count;
+
+static void t113_uart_irq(uint32_t irq, void *data);
 
 static int uart_hw_getc_nonblock(void)
 {
@@ -193,12 +197,23 @@ int t113_uart_read(void *buffer, uint32_t count)
 
 void t113_uart_irq_init(void)
 {
+    if (t113_request_irq(T113_IRQ_UART3, t113_uart_irq, 0) < 0) {
+        t113_uart_puts("uart3: cannot request IRQ\n");
+        return;
+    }
     uint32_t flags = spin_lock_irqsave(&rx_wait.lock);
     rx_irq_enabled = 1u;
     spin_unlock_irqrestore(&rx_wait.lock, flags);
     uart3->ier_dlh = UART_IER_ERBFI;
     __asm__ volatile("dsb sy" ::: "memory");
     t113_gic_enable_irq(T113_IRQ_UART3);
+}
+
+static void t113_uart_irq(uint32_t irq, void *data)
+{
+    (void)irq;
+    (void)data;
+    t113_uart_irq_handler();
 }
 
 static uint32_t uart_rx_drain(void)
@@ -299,20 +314,22 @@ void t113_uart_debug_print(void)
         t113_uart_putc('-');
 }
 
-static int console_read(void *buffer, uint32_t count)
+static int console_read(struct file *file, void *buffer, uint32_t count)
 {
+    (void)file;
     return t113_uart_read(buffer, count);
 }
 
-static int console_write(const void *buffer, uint32_t count)
+static int console_write(struct file *file, const void *buffer, uint32_t count)
 {
+    (void)file;
     const uint8_t *bytes = (const uint8_t *)buffer;
     for (uint32_t i = 0; i < count; ++i)
         t113_uart_putc((char)bytes[i]);
     return (int)count;
 }
 
-static const struct devfs_file_ops console_fops = {
+static const struct file_operations console_fops = {
     .read = console_read,
     .write = console_write,
 };
@@ -356,8 +373,10 @@ static int t113_uart_probe(struct platform_device *pdev)
     if (platform_get_irq(pdev, 0) < 0)
         return -ENODEV;
     platform_set_drvdata(pdev, uart3);
-    if (t113_devfs_register_chrdev("console", 1u, 0u, &console_fops) < 0 ||
-        t113_devfs_register_chrdev("ttyS0", 3u, 0u, &console_fops) < 0)
+    if (t113_chrdev_register(1u, 0u, &console_fops) < 0 ||
+        t113_chrdev_register(3u, 0u, &console_fops) < 0 ||
+        t113_devfs_create_chrdev("console", 1u, 0u) < 0 ||
+        t113_devfs_create_chrdev("ttyS0", 3u, 0u) < 0)
         return -ENOSPC;
     platform_dev_info(pdev, "early console bound (hw already up)");
     return 0;

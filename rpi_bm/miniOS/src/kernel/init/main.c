@@ -4,12 +4,18 @@
 #include "fs/vfs.h"
 #include "fs/minifs.h"
 #include "fs/devfs.h"
+#include "fs/chrdev.h"
 #include "fs/bootfs.h"
+#include "fs/fat32.h"
 #include "driver_model.h"
+#include "irq.h"
+#ifdef CONFIG_NET
+#include "net/netdevice.h"
+#endif
 
 static int start_init_process(void)
 {
-    struct vfs_file *file = t113_vfs_open("/init", VFS_O_RDONLY);
+    struct file *file = t113_vfs_open("/init", VFS_O_RDONLY);
     uint32_t size = file ? t113_vfs_file_size(file) : 0;
     uint32_t pages = (size + 4095u) / 4096u;
     void *image = pages ? t113_alloc_pages(pages, 1) : 0;
@@ -32,16 +38,26 @@ void kernel_boot(uint32_t page_pool_base, uint32_t physical_memory_end)
                          physical_memory_end - page_pool_base);
 
     t113_vfs_init();
-    if (t113_bootfs_mount_vfs() < 0)
-        kernel_platform_panic("cannot mount boot filesystem at /boot");
+    /* The root device initialises the SD card that /boot shares. */
     if (t113_minifs_mount_rootdev() < 0)
         kernel_platform_panic("cannot mount root filesystem");
+    if (t113_fat32_mount_vfs() < 0) {
+        t113_uart_puts("fat32: mount failed, using SPL handoff images\n");
+        if (t113_bootfs_mount_vfs() < 0)
+            kernel_platform_panic("cannot mount boot filesystem at /boot");
+    }
+    t113_chrdev_init();
     if (t113_devfs_init() < 0)
         kernel_platform_panic("cannot mount devfs at /dev");
 
-    t113_driver_core_init();
-    kernel_platform_interrupt_init();
+#ifdef CONFIG_NET
+    /* Before the drivers: probing a network device registers it. */
+    net_init();
+#endif
     t113_sched_init();
+    t113_irq_init();
+    kernel_platform_interrupt_init();
+    t113_driver_core_init();
     kernel_platform_console_irq_init();
 
     if (start_init_process() < 0)

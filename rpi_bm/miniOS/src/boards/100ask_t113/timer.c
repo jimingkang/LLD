@@ -2,6 +2,7 @@
 #include "platform_device.h"
 #include "board.h"
 #include "sched.h"
+#include "irq.h"
 
 #define TIMER_IRQ_EN       (T113_TIMER_BASE + 0x00u)
 #define TIMER_IRQ_STATUS   (T113_TIMER_BASE + 0x04u)
@@ -13,6 +14,7 @@
 #define TIMER_CTRL_OSC24M  (1u << 2)
 
 static volatile uint32_t ticks;
+static uint32_t timer_irq_seen;
 
 /* 1: print one status line per Timer0 tick (once a second): who runs,
  * every task's state, UART3 IER/LSR/USR, and the GIC view of IRQ 37.
@@ -78,9 +80,34 @@ void t113_timer0_init(void)
     mmio_write32(TIMER0_CTRL, TIMER_CTRL_OSC24M | TIMER_CTRL_RELOAD);
     while (mmio_read32(TIMER0_CTRL) & TIMER_CTRL_RELOAD) { }
 
+    if (t113_request_irq(T113_IRQ_TIMER0, t113_timer0_irq, 0) < 0) {
+        t113_uart_puts("timer0: cannot request IRQ\n");
+        return;
+    }
     mmio_write32(TIMER_IRQ_EN, 1u);
     t113_gic_enable_irq(T113_IRQ_TIMER0);
     mmio_write32(TIMER0_CTRL, TIMER_CTRL_OSC24M | TIMER_CTRL_ENABLE);
+}
+
+void t113_timer0_irq(uint32_t irq, void *data)
+{
+    (void)irq;
+    (void)data;
+    t113_timer0_acknowledge();
+    ++ticks;
+    timer_irq_seen = 1u;
+    t113_uart_rx_watchdog();
+#if SCHED_STATUS_TRACE
+    status_line();
+#endif
+#if HEARTBEAT_TRACE
+    heartbeat();
+#endif
+#ifdef CONFIG_DEBUG_TIMER_TICK
+    t113_uart_puts("timer0 tick ");
+    t113_uart_puthex(ticks);
+    t113_uart_putc('\n');
+#endif
 }
 
 void t113_timer0_acknowledge(void)
@@ -98,24 +125,9 @@ void t113_irq_handler(void)
     uint32_t ack = t113_gic_acknowledge();
     uint32_t irq = ack & 0x3ffu;
 
-    if (irq == T113_IRQ_TIMER0) {
-        t113_timer0_acknowledge();
-        ++ticks;
-        t113_uart_rx_watchdog();
-#if SCHED_STATUS_TRACE
-        status_line();
-#endif
-#if HEARTBEAT_TRACE
-        heartbeat();
-#endif
-#ifdef CONFIG_DEBUG_TIMER_TICK
-        t113_uart_puts("timer0 tick ");
-        t113_uart_puthex(ticks);
-        t113_uart_putc('\n');
-#endif
-    } else if (irq == T113_IRQ_UART3) {
-        t113_uart_irq_handler();
-    } else if (irq < 1020u) {
+    timer_irq_seen = 0u;
+    int handled = irq < 1020u ? t113_irq_dispatch(irq) : 0;
+    if (!handled && irq < 1020u) {
         t113_uart_puts("unexpected IRQ ");
         t113_uart_puthex(irq);
         t113_uart_putc('\n');
@@ -127,9 +139,9 @@ void t113_irq_handler(void)
     /* EOI must be visible before a context switch can leave this handler.
      * UART RX may have made a console reader runnable, so dispatch it now
      * instead of waiting for the next one-second timer tick. */
-    if (irq == T113_IRQ_TIMER0)
+    if (timer_irq_seen)
         t113_sched_tick();
-    else if (irq == T113_IRQ_UART3)
+    else if (handled)
         t113_sched_yield();
 }
 

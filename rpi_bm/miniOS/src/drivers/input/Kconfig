@@ -1,0 +1,6 @@
+menu "Input device support"
+config INPUT_GPIO_KEYS
+    bool "GPIO buttons"
+    depends on BOARD_100ASK_T113
+    default y
+endmenu

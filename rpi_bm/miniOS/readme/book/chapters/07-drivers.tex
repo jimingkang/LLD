@@ -1,0 +1,647 @@
+\chapter{驱动：模型、网络驱动分层与 WiFi / UART 实现}
+\label{chap:drivers}
+
+前面各章从协议、文件系统或单条链路的角度描述过驱动的各个侧面。本章把它们收拢到
+\emph{驱动模型}这条主线上：miniOS 仿照 Linux 搭建了一个轻量的总线--设备--驱动核心
+（bus / device / driver），网络驱动按 Linux 的分层重新组织（第~\ref{chap:netstack}~章），
+XR829 挂在 SDIO 总线上（第~\ref{chap:wifi}~章），UART 作为最早的设备走
+``裸驱动 + probe 登记''的路线（第~\ref{chap:uart}~章）。
+
+本章内容：
+
+\begin{itemize}
+  \item 驱动架构：kobject/kset、三种总线、probe 绑定与初始化顺序的锁约束；
+  \item 网络驱动分层：\code{net\_device} / \code{ieee80211\_ops} / \code{cfg80211\_ops}
+        边界，轮询如何顶替中断；
+  \item SDIO WiFi 初始化：卡枚举 $\rightarrow$ function 绑定 $\rightarrow$
+        CMD53 自检 $\rightarrow$ 固件 $\rightarrow$ WSM 启动 $\rightarrow$ 注册 wlan0；
+  \item 数据的接收与发送：HIF 队列、底半部、固件输入缓冲流控、skb 双向转换；
+  \item 无线部分的发射：802.11 帧封装、CCMP 预留、速率重试策略、EDCA、EAPOL 特例；
+  \item UART 串口驱动与 \code{/dev/console}：驱动模型视角的回顾。
+\end{itemize}
+
+\section{驱动架构：总线、设备与绑定}
+
+\subsection{kobject/kset：没有 sysfs 的目录树}
+
+驱动核心建立在轻量 \code{kobject}/\code{kset} 之上（\file{kobject.c}）：kobject 有
+\code{parent}（虚拟目录树中的位置）和 \code{kset}（成员列表），\code{kobject\_get\_path()}
+沿 parent 链拼出 ``\code{/a/b/c}'' 风格路径。没有 sysfs，但启动时
+\code{t113\_driver\_core\_dump()} 会把整棵树打印到串口，相当于一次
+``\code{ls -lR /sys}''：
+
+\begin{txtcode}
+/devices/gic  /devices/uart3  /devices/sdc1  ...     kset "devices"
+/bus/platform  /bus/i2c  /bus/sdio                      kset "bus"
+/bus/platform/devices  /bus/platform/drivers/...        总线下的两个目录
+/drivers/t113-uart  /drivers/xradio_wlan ...            kset "drivers"
+\end{txtcode}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6.2cm}}
+\toprule
+miniOS & Linux & 说明 \\
+\midrule
+\code{struct kobject/kset} & \code{kobject/kset} & 无 sysfs：只有 parent/kset 与引用计数 \\
+\code{struct bus\_type} & \code{struct bus\_type} & \code{match/probe/remove}，devices/drivers 两个链表 \\
+\code{struct device} & \code{struct device} & \code{platform\_data}、\code{driver\_data} \\
+\code{struct device\_driver} & \code{struct device\_driver} & \code{probe/remove}、已绑定设备链表 \\
+\code{of\_device\_id.compatible} & device tree 匹配 & 纯字符串比较，DT 替身 \\
+\code{kref} 引用计数 & \code{kref} & \code{get\_device/put\_device} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{一把锁规则与初始化顺序}
+
+所有 \code{register/unregister/bind/unbind} 由\textbf{一把驱动核心锁}串行化，而且这把锁
+\emph{跨 \code{->probe()}/\code{->remove()} 持有}。由此推出两条硬约束：
+
+\begin{itemize}
+  \item probe/remove 里\textbf{不能睡眠}、\textbf{不能再调用注册 API}；
+  \item 没有 deferred probe（Linux 用它重试依赖不满足的 probe），依赖只能用
+        \textbf{注册顺序}表达。
+\end{itemize}
+
+两个具体例子。其一是摄像头链：csi（提供 MCLK）和 twi（I2C 适配器）必须先绑定，
+ov5640 驱动才能后注册，注释原话是 ``probe runs under the core lock and there is no
+deferred-probe retry yet''。其二是 SDIO 卡枚举：\code{device\_register()} 会注册设备，
+所以绝不能在任何 probe 里跑——Linux 把 \code{mmc\_rescan} 挂在 workqueue 上，
+miniOS 则把它显式放在所有驱动注册完之后调用一次：
+
+\begin{ccode}
+void t113_driver_core_init(void)
+{
+    kset_register(&devices, 0, "devices");      /* 三个顶层 kset */
+    kset_register(&buses,   0, "bus");
+    kset_register(&drivers, 0, "drivers");
+    platform_bus_init();
+    i2c_bus_init();
+    sdio_bus_init();
+    /* Devices first, then drivers: binding happens in driver_register(). */
+    t113_board_register_devices();
+    t113_board_register_drivers();
+    /* Card enumeration registers devices: must run outside any probe. */
+    mmc_rescan_all();
+    t113_driver_core_dump();
+}
+\end{ccode}
+
+设备先注册、驱动后注册，绑定发生在 \code{driver\_register()} 里（遍历总线上未绑定的
+设备逐个尝试 \code{match}）。board.c 的数组顺序同时表达了电气依赖：中断控制器
+（gic）永远排第一，``和真实 Linux 按设备树顺序 probe 一样''。
+
+\subsection{平台设备：手写的设备树替身}
+
+\file{board.c} 用静态结构体描述 SoC 上内核实际驱动的块，地址/中断号取自
+\code{sun8i-t113s.dtsi}：
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llp{5.6cm}}
+\toprule
+设备 & compatible & 资源与平台数据 \\
+\midrule
+\code{gic} & \code{arm,cortex-a7-gic} & dist + cpu 两段 mem \\
+\code{uart3} & \code{allwinner,sun20i-d1-uart} & mem + IRQ 37；probe 不碰硬件（见~7.6） \\
+\code{timer0} & \code{allwinner,sun20i-d1-timer} & mem + IRQ \\
+\code{twi2} & \code{allwinner,sun20i-d1-i2c} & mem；PE12/13，100 kHz \\
+\code{sdc1} & \code{allwinner,sun20i-d1-mmc} & mem + IRQ 73；PG0..5 总线、WL\_REG\_ON、32k fanout \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+以 uart3 为例，资源用 Linux 风格的宏声明：
+
+\begin{ccode}
+static const struct resource uart3_resources[] = {
+    DEFINE_RES_MEM(T113_UART3_BASE, T113_UART3_SIZE),
+    DEFINE_RES_IRQ(T113_IRQ_UART3),
+};
+\end{ccode}
+
+\code{sdc1} 的平台数据最丰富：\code{t113\_mmc\_platform\_data} 带总线引脚表
+（PG0..PG5，功能号 2，CMD/D0..D3 上拉）、\code{power\_gpio = PG12}（WL\_REG\_ON）
+加 100 ms 上电延时，以及 \code{fanout\_pin}——XR829 没有内部 RTC 时钟，32.768 kHz
+由 CCU 的 CLK-FANOUT1 输出到 PG11。SMHC 驱动的 probe 把它注册成 \code{mmc\_host}，
+\code{smhc\_power()} 负责整条上电时序（fanout 门控、引脚复用、延时）。
+
+\section{网络驱动分层}
+
+\subsection{从 ndo\_ops 到 ieee80211\_ops}
+
+miniOS 的网络代码按 Linux 的边界拆成 \code{src/net/}（core、ethernet、ipv4、
+wireless、mac80211、wpa、tftp）和 \code{src/drivers/net/wireless/xradio/}，协议栈的
+内部结构见第~\ref{chap:netstack}~章；从\textbf{驱动}的角度看，关键的只有三个接口层：
+
+\begin{txtcode}
+ipv4 / icmp / udp
+   │ dev_queue_xmit                      (rtnl_lock 约定, __net_poll)
+   ▼
+net_device "wlan0"                       net/core/dev.c
+   │ ndo_start_xmit = ieee80211_subif_start_xmit
+   │ ndo_poll      = ieee80211_poll      ← 轮询顶替中断 + tasklet
+   ▼
+mac80211  tx.c rx.c mlme.c               802.11 状态机与帧封装
+   │ struct ieee80211_ops                驱动必须实现的 6 个回调
+   ▼
+xradio   sta.c txrx.c bh.c wsm.c         帧搬运、WSM 协议、HIF 队列
+   │ sdio_memcpy_toio/fromio (CMD53)
+   ▼
+mmc core  drivers/mmc/core.c             CMD52/53、卡枚举、sdio 总线
+   │ mmc_host_ops.request/set_ios/power
+   ▼
+host     drivers/mmc/host/sunxi-smhc.c   SMHC1 寄存器 + PIO FIFO
+\end{txtcode}
+
+依赖只向下：IP 层只看见一块以太网设备，mac80211 不认识 SDIO，驱动不构造任何
+管理帧。每层的头文件名也与 Linux 一致（\code{netdevice.h}、\code{mac80211.h}、
+\code{cfg80211.h}\ldots）。
+
+\subsection{轮询顶替中断}
+
+miniOS 没有接 SDIO 中断（IRQ 73 已声明但未使用），Linux 里``中断 $\rightarrow$ 底半部
+$\rightarrow$ tasklet''的链条全部由轮询驱动：
+
+\begin{ccode}
+/* net/core/dev.c: net_poll() -> __net_poll() */
+int __net_poll(struct net_device *dev, int timeout_ms)
+{
+    int r = dev->netdev_ops->ndo_poll
+                ? dev->netdev_ops->ndo_poll(dev, timeout_ms) : 0;
+    net_rx_action();                    /* backlog -> ip_rcv / arp_rcv */
+    net_run_work();                     /* workqueue 替身 */
+    return r;
+}
+
+/* mac80211/main.c: wlan0 的 ndo_poll */
+static int ieee80211_poll(struct net_device *dev, int timeout_ms)
+{
+    struct ieee80211_local *local = dev->ml_priv;
+    int r = local->hw.ops->poll(&local->hw, timeout_ms);   /* 驱动底半部 */
+    if (!local->in_tasklet)
+        ieee80211_rx_tasklet(local);                       /* RX tasklet */
+    return r;
+}
+\end{ccode}
+
+注意顺序：先跑\textbf{驱动}的 poll（收 HIF 队列，等价 Linux 的 IRQ 底半部），再跑
+mac80211 的 RX tasklet（分派帧、可以发帧下命令）。\code{ieee80211\_poll} 是所有
+轮询的汇聚点：\code{wsm\_cmd} 等 confirm、supplicant 等握手帧、\code{net\_poll}
+处理收包，最终都回到这里。
+
+\subsection{ieee80211\_ops：驱动与 mac80211 的契约}
+
+驱动实现 6 个回调，注册时由 mac80211 在 \code{ieee80211\_register\_hw()} 里回调
+\code{start} 做一次性 MAC 配置：
+
+\begin{ccode}
+const struct ieee80211_ops xradio_ops = {
+    .start           = xradio_start,           /* 电源模式/probe 模板/EDCA/重试策略 */
+    .tx              = xradio_tx,              /* 帧 -> WSM TX 请求 */
+    .hw_scan         = xradio_hw_scan,         /* WSM START_SCAN */
+    .bss_info_changed= xradio_bss_info_changed,/* BSSID→JOIN, ASSOC→MIB 组 */
+    .set_key         = xradio_set_key,         /* WSM ADD_KEY/REMOVE_KEY */
+    .poll            = xradio_poll,            /* = xradio_bh_poll */
+};
+\end{ccode}
+
+驱动向上只用四个函数：\code{ieee80211\_rx\_irqsafe()}（RX 入队）、
+\code{ieee80211\_tx\_status()}（TX confirm）、\code{ieee80211\_scan\_completed()}、
+\code{ieee80211\_beacon\_loss()}。再往上一层的 \code{cfg80211\_ops} 边界与执行上下文
+规则（bh 不能发帧、tasklet 可以、\code{\_\_} 前缀要求持 rtnl 锁）见
+第~\ref{chap:netstack}~章，此处不重复。
+
+\section{SDIO WiFi 初始化}
+
+SDIO 总线在 miniOS 里是三段结构（\file{src/include/t113/mmc.h}，对应 Linux
+\code{drivers/mmc/}）：
+
+\begin{itemize}
+  \item \code{mmc\_host}：控制器，由 SMHC 驱动 probe 时 \code{mmc\_add\_host()}
+        进静态表（最多 3 个）；
+  \item \code{sdio\_card}：枚举出的卡（RCA、OCR、CCCR 版本、function 数、
+        从 CIS MANFID 读到的 vendor/device）；
+  \item \code{sdio\_func}：一个 SDIO function（1..7），内嵌一个
+        \code{struct device} 挂在 \code{sdio\_bus\_type} 上，名字形如
+        \code{"mmc1:0001:1"}（host:rca:func）。
+\end{itemize}
+
+function 驱动按 \code{id\_table} 匹配（class/vendor/device，\code{SDIO\_ANY\_ID}
+表示不关心）：
+
+\begin{ccode}
+static const struct sdio_device_id xradio_sdio_ids[] = {
+    { SDIO_ANY_ID, 0x0a9e, 0x2282 },        /* XR829（实测） */
+    { SDIO_ANY_ID, 0x0020, 0x2281 },        /* XR819 */
+    { SDIO_ANY_ID, 0x0a9e, SDIO_ANY_ID },   /* 其它 XRadio 芯片也绑定 */
+    { SDIO_ANY_ID, 0x0020, SDIO_ANY_ID },
+    { 0, 0, 0 },
+};
+\end{ccode}
+
+\subsection{卡枚举：CMD5 到绑定}
+
+\begin{txtcode}
+mmc_rescan_all()                        所有驱动注册完之后调用一次
+└── sdio_attach_card(host)
+    ├── ops->power(host, 1)             PG12 WL_REG_ON + 32k fanout + 100 ms
+    ├── ops->set_ios(400 kHz, 1-bit)    识别期时钟
+    ├── CMD0 GO_IDLE → CMD5 读 OCR（R4）
+    │     校验 2.7-3.6 V 窗口, 轮询 R4_READY (10 ms × 100)
+    │     function 数 = R4[30:28]
+    ├── CMD3 取 RCA → CMD7 选中（R1B）
+    ├── CMD52 读 CCCR 版本 / CAPS / CIS 指针 (CCCR 0x09)
+    └── 沿 CIS 元组链找 MANFID (0x20) → card->vendor/device
+└── sdio_add_funcs(host)
+    ├── 每个 function: 读 FBR (class @+0x00, per-func CIS @+0x09)
+    └── device_register(&func->dev)     sdio 总线上立即尝试绑定
+\end{txtcode}
+
+CMD52/CMD53 的参数位域与 R5 错误掩码见第~\ref{chap:wifi}~章；软件层只需要记住
+\code{sdio\_io\_rw\_extended} 的三条约束：长度必须 4 字节对齐、缓冲区 4 字节对齐、
+长度 $>$ 512 走块模式（须为 \code{func->blksz} 整数倍，最多 511 块），否则走字节模式。
+\code{sdio\_enable\_func()} 置 CCCR IOEx 位后轮询 IORx 等就绪（1 ms × 1000）；
+\code{sdio\_set\_block\_size()} 写 FBR+0x10 的两个字节。
+
+\subsection{probe 链：从 function 到 wlan0}
+
+因为 xradio 驱动在 \code{mmc\_rescan\_all()} 之前就已注册，
+\code{device\_register()} 会在枚举现场直接完成绑定：
+
+\begin{txtcode}
+xradio_sdio_probe(func)                          xradio/sdio.c
+├── sdio_enable_func()               IOEx 置位, 轮询 IORx
+├── sdio_set_block_size(512)
+├── CMD53 自检
+│     HIF_CONFIG 读两次必须一致（验证 32 位读稳定）
+│     HIF_TSET_GEN 写读 3 组模式 0xa5a55a5a / 0x12345678 / 0
+├── mmc_set_clock(12 MHz) + 复测自检（失败回退 400 kHz）
+└── xradio_core_probe()                           xradio/main.c
+    ├── xradio_load_firmware()       固件下载（第~\ref{chap:wifi}~章）
+    ├── wsm_init(func, 2000)         轮询等 startup indication
+    │     caps: num_bufs × buf_size, hw_id, fw 版本/label
+    ├── xradio_setup_mac()
+    │     WSM CONFIGURATION（必须是其后的第一条普通命令）
+    │     交 SDD, 得 MAC 02:0a:9e:22:82:01
+    └── ieee80211_alloc_hw / ieee80211_register_hw
+        ├── wiphy_register()
+        ├── wlan0 net_device (ndo_start_xmit / ndo_poll)
+        ├── ops->start()             电源模式/probe 模板/EDCA/重试策略
+        └── register_netdev()
+\end{txtcode}
+
+两处值得注意的取舍：
+
+\begin{itemize}
+  \item CMD53 自检失败时 probe \textbf{返回 0 保持绑定}（``数据面还在 bring-up：
+        报告，但留住绑定''），只有固件下载失败才真正放弃设备——这样串口上的
+        寄存器诊断始终可见；
+  \item 提速后必须\textbf{在 12 MHz 下复测自检}，不过关就退回识别时钟。174 KiB
+        固件在 400 kHz 1-bit 总线上要以秒计。
+\end{itemize}
+
+\section{数据接收与发送}
+
+\subsection{HIF 队列与底半部}
+
+\file{bh.c} 是驱动的心脏。它维护的队列状态全部是静态的：
+
+\begin{ccode}
+static struct {
+    struct sdio_func *func;
+    uint32_t num_bufs;           /* 固件输入缓冲个数 (startup 后更新) */
+    uint32_t buf_size;
+    int hw_bufs_used;            /* 已占用的固件输入缓冲 */
+    uint8_t tx_seq, rx_seq;      /* 3-bit 消息序号 */
+    uint8_t buf_id_tx, buf_id_rx;/* TX buf_id 0..31, RX 0..3 */
+    uint32_t next_ctrl;          /* 捎带回的 CONTROL, 0 = 读寄存器 */
+    int halted, in_rx;
+} bh;
+\end{ccode}
+
+队列语义（HIF 寄存器定义见第~\ref{chap:wifi}~章）：
+
+\begin{itemize}
+  \item 发送写 \code{HIF\_IN\_OUT\_QUEUE}，地址用 \code{buf\_id\_tx}
+        （0..31 循环）；读用 \code{buf\_id\_rx + 1}（RX id 只有 0..3）；
+  \item \code{CONTROL.NEXT\_LEN} 给出下一条消息长度，单位是 16 位字
+        （代码里 \code{<< 1}）；
+  \item 每次队列读会多返回 2 字节：\textbf{下一条}的 CONTROL 值
+        （piggyback），下次可以不再读寄存器；
+  \item 消息头里有 3-bit 序号，错序只告警不重传；
+  \item 一次队列传输可以携带多条 RX indication（multi-rx），按长度字段切分；
+  \item \textbf{流控的核心}：每个 TX 请求/命令占用一个固件输入缓冲，每个
+        confirm 释放一个（multi-TX-confirm 一次释放 N 个，id 0x041e 的
+        首个字段是计数）。
+\end{itemize}
+
+\subsection{发送侧流控与接收排水}
+
+\begin{ccode}
+int xradio_bh_tx(uint8_t *b, uint32_t len, uint32_t cap)
+{
+    uint64_t end = t113_time_us() + 2000000u;
+    while (bh.hw_bufs_used >= (int)bh.num_bufs) {      /* 固件缓冲用尽 */
+        if (xradio_bh_poll(10) < 0 || t113_time_us() > end)
+            return -ETIMEDOUT;                         /* 边轮询边等 confirm */
+    }
+    if (bh.buf_size && len > bh.buf_size)
+        return -EINVAL;
+    put_unaligned_le16(len, b);                        /* len 字段 */
+    put_unaligned_le16((get_unaligned_le16(b + 2) & 0x1fffu) |
+                       ((uint32_t)bh.tx_seq << 13), b + 2);  /* 序号入 id 字段 */
+    uint32_t wlen = align_len(len <= 8u ? 16u : len);  /* 4 对齐/块对齐 */
+    int ret = sdio_memcpy_toio(f, HIF_ADDR(bh.buf_id_tx,
+                                        HIF_IN_OUT_QUEUE_REG_ID), b, wlen);
+    bh.buf_id_tx = (bh.buf_id_tx + 1u) & 31u;
+    bh.tx_seq = (bh.tx_seq + 1u) & 7u;
+    ++bh.hw_bufs_used;
+    return ret;
+}
+\end{ccode}
+
+读方向由 \code{xradio\_bh\_poll()} 驱动，\code{in\_rx} 守卫保证底半部不可重入
+（handler 里再 poll 会被拒绝）：按 FIFO 状态反复排水，\code{handled} 后立即返回，
+队列空则每 200 µs 查一次直到超时。Linux 里这是``SDIO 中断唤醒的内核线程''，
+这里被 \code{wsm\_cmd} 的 confirm 等待和 \code{ieee80211\_poll} 复用。
+
+\subsection{接收路径：从 CMD53 到 socket}
+
+\begin{txtcode}
+xradio_bh_poll() ── rx_one()
+  ├── CMD53 读 IN_OUT_QUEUE (buf_id_rx+1)，取回 piggyback CONTROL
+  ├── release_buffers()          confirm 释放固件输入缓冲
+  └── wsm_handle_rx()
+        ├── TX confirm 0x0404 → xradio_tx_confirm_cb
+        │                      → ieee80211_tx_status(cookie, status)
+        ├── 命令 confirm     → 命中 wait_cfm, 唤醒 wsm_cmd
+        ├── EVENT            → BSS_LOST → ieee80211_beacon_loss()
+        └── RX indication    → xradio_rx_cb()
+              ├── RX status ≠ 0 (错误/无密钥) → 丢弃
+              ├── 剥 CCMP IV (8B) / MIC (8B)   固件已解密
+              ├── memmove 802.11 头盖回 IV 位置, trim 尾部
+              ├── rx_status = { channel, rcpi, DECRYPTED|IV/MIC_STRIPPED }
+              └── ieee80211_rx_irqsafe()   ← 只入队, 不处理
+                                            ▼ 驱动 poll 之后
+ieee80211_rx_tasklet()
+  ├── 管理帧: 扫描中 → cfg80211_inform_bss_frame; 已加入 → mlme
+  ├── 数据帧: ieee80211_data_to_8023 → EAPOL? control port : netif_rx
+  └── net_rx_action → ip_rcv / arp_rcv → icmp_rcv / udp_rcv → socket 队列
+\end{txtcode}
+
+xradio\_rx\_cb 的剥密钥逻辑是``硬件加密''驱动照 Linux 约定交帧的标准写法：
+
+\begin{ccode}
+if (enc == WSM_RX_ENC_AES) {
+    head = IEEE80211_CCMP_HDR_LEN;      /* 8: IV/PN */
+    tail = IEEE80211_CCMP_MIC_LEN;      /* 8: MIC */
+} else if (enc == WSM_RX_ENC_TKIP) {
+    head = IEEE80211_TKIP_IV_LEN;
+    tail = IEEE80211_TKIP_TAIL_LEN;
+} else if (enc != WSM_RX_ENC_NONE || ieee80211_has_protected(fc)) {
+    return;                             /* 固件没解密的帧不收 */
+}
+if (head)
+    flag = RX_FLAG_DECRYPTED | RX_FLAG_IV_STRIPPED | RX_FLAG_MIC_STRIPPED;
+...
+net_memcpy(p, frame, frame_len);
+if (head) {
+    net_memmove(p + head, p, hdrlen);   /* 802.11 头盖过 IV */
+    skb_pull(skb, head);
+    skb_trim(skb, skb->len - tail);
+}
+\end{ccode}
+
+\subsection{发送路径：从 write 到 CMD53}
+
+\begin{txtcode}
+write()/sendto → udp/icmp → ip_queue_xmit → eth_header → dev_queue_xmit
+└── ndo_start_xmit = ieee80211_subif_start_xmit(skb, wlan0)
+      ├── !associated → 丢帧; 剥以太网头 (da, ethertype)
+      ├── ieee80211_build_data_hdr()
+      │     push RFC1042 LLC/SNAP + ethertype
+      │     ptk_set → push CCMP IV 8B, put MIC 8B, fc |= PROTECTED
+      │     push 802.11 头: ToDS, seqno, duration=0(硬件填)
+      └── ieee80211_tx_skb(ac=AC_BE)
+            ├── cookie = ++next_cookie          TX 完成凭据
+            ├── tx_status[cookie % SLOTS] = {cookie, PENDING}
+            └── ops->tx = xradio_tx
+                  ├── AC → WSM queue 映射 (VO/VI/BE/BK)
+                  └── wsm_tx_frame(): 24B wsm_tx 头 + 原帧
+                        └── xradio_bh_tx() → CMD53 写队列
+                                        ...... TX confirm ......
+wsm_handle_rx: 0x0404 → xradio_tx_confirm_cb → ieee80211_tx_status()
+            → tx_status[slot].status = 结果 (control_port 帧还要
+              cfg80211_control_port_tx_status 唤醒 supplicant)
+\end{txtcode}
+
+\code{ieee80211\_tx\_skb} 里有一个 tinyOS 风格的决定：\code{ops->tx} 返回后立即
+\code{kfree\_skb(skb)}——因为驱动把帧拷进自己的静态 \code{tx\_buf} 再发，mac80211
+不保留 skb。cookie 与 \code{tx\_status[]} 槽位表顶替了 Linux 的
+\code{skb->cb} + \code{IEEE80211\_TX\_STAT}；\code{ieee80211\_wait\_tx\_status()}
+在槽位上自旋（每轮 \code{\_\_net\_poll(5)}），supplicant 用它等 EAPOL 的 TX confirm。
+
+\section{无线部分的发射}
+
+\subsection{802.11 帧封装}
+
+数据帧从以太网帧原地变换而来，\code{skb\_push} 逐层加头：
+
+\begin{ccode}
+static uint8_t *put_hdr(struct ieee80211_local *local, struct sk_buff *skb,
+                        uint16_t fc, const uint8_t *a1, const uint8_t *a3)
+{
+    uint8_t *h = skb_push(skb, IEEE80211_HDR_3ADDR_LEN);
+    put_unaligned_le16(fc, h);
+    put_unaligned_le16(0, h + 2);            /* duration: 硬件填 */
+    net_memcpy(h + 4,  a1, ETH_ALEN);        /* A1 = BSSID (ToDS) */
+    net_memcpy(h + 10, local->dev.dev_addr, ETH_ALEN);  /* A2 = SA */
+    net_memcpy(h + 16, a3, ETH_ALEN);        /* A3 = DA */
+    put_unaligned_le16((uint32_t)(local->seq++ & 0x0fffu) << 4, h + 22);
+    return h;
+}
+
+int ieee80211_build_data_hdr(struct ieee80211_local *local,
+                             struct sk_buff *skb, const uint8_t *da,
+                             uint16_t ethertype)
+{
+    static const uint8_t rfc1042[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+    int protect = local->ptk_set;            /* 装钥后才加密 */
+    uint8_t *llc = skb_push(skb, 8);
+    net_memcpy(llc, rfc1042, 6);
+    put_unaligned_be16(ethertype, llc + 6);
+    if (protect) {                           /* 只预留, 硬件填 IV/MIC */
+        uint8_t *iv  = skb_push(skb, IEEE80211_CCMP_HDR_LEN);
+        uint8_t *mic = skb_put(skb, IEEE80211_CCMP_MIC_LEN);
+        net_memset(iv, 0, IEEE80211_CCMP_HDR_LEN);
+        net_memset(mic, 0, IEEE80211_CCMP_MIC_LEN);
+    }
+    uint16_t fc = IEEE80211_FTYPE_DATA | IEEE80211_STYPE_DATA |
+                  IEEE80211_FCTL_TODS |
+                  (protect ? IEEE80211_FCTL_PROTECTED : 0);
+    return put_hdr(local, skb, fc, local->bss_conf.bssid, da) ? 0 : -EINVAL;
+}
+\end{ccode}
+
+要点：
+
+\begin{itemize}
+  \item ToDS 帧三个地址是 A1=BSSID、A2=源、A3=目的；
+  \item duration 固定写 0——NAV/重传时间由固件按速率计算；
+  \item 序号由 mac80211 的 \code{local->seq} 递增，12 位序号 + 4 位分片号；
+  \item \code{ptk\_set} 之后才置 PROTECTED 并\textbf{预留} CCMP 头尾：
+        IV/PN 和 MIC 由固件填，主机只负责留出空间——这就是 RX 侧要剥
+        8+8 字节的镜像操作。
+\end{itemize}
+
+\subsection{速率与重试策略}
+
+发射速率不是逐帧选的：\code{start} 时通过 MIB 0x1016 装两条重试策略，之后每帧只
+带一个策略索引：
+
+\begin{ccode}
+static const uint16_t rates[2][3] = {
+    { WSM_RATE_MGMT, 0, 0 },               /* 管理帧: 1 Mbps × 15 */
+    { WSM_RATE_DATA, 0x0034u, 0x0007u },   /* 数据: 24M×4, 11M×4, 1M×7 */
+};
+/* rate entry 位域: [15:14] modem(0=legacy) [13:12] 带宽 [11:8] flags
+ *                  [7:4] 速率索引 (1M=0 2M=1 5.5M=2 11M=3 6M=6 .. 54M=13)
+ *                  [3:0] 尝试次数 */
+e[1] = 14;  e[2] = 14;   /* short / long retry count */
+\end{ccode}
+
+管理帧和 EAPOL 走策略 0（最低速率最可靠），数据帧走策略 1 的三级降速链。
+注册到 mac80211 的 \code{xradio\_rates} 表（12 个 legacy 速率，\code{hw\_value}
+是固件速率索引 0..3 / 6..13）就是这套索引的对照表。
+
+\subsection{EDCA 与队列映射}
+
+固件管 QoS，主机只下一组 vendor 默认 EDCA 参数（上线时一次）：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+队列 (wire 顺序) & cwMin & cwMax & AIFS & TXOP (µs) \\
+\midrule
+BK & 15 & 1023 & 7 & 0 \\
+BE & 3 & 7 & 2 & 0 \\
+VI & 7 & 15 & 2 & 3008 \\
+VO & 3 & 7 & 2 & 1504 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+每帧的接入类别映射成 WSM 队列号，塞进 wsm\_tx 头第 8 字节
+（\code{raw\_link\_id << 2 | queue}，STA 模式 link id 恒 0）：
+
+\begin{ccode}
+static const uint8_t ac_to_queue[4] = {
+    [IEEE80211_AC_VO] = WSM_QUEUE_VOICE,
+    [IEEE80211_AC_VI] = WSM_QUEUE_VIDEO,
+    [IEEE80211_AC_BE] = WSM_QUEUE_BEST_EFFORT,
+    [IEEE80211_AC_BK] = WSM_QUEUE_BACKGROUND,
+};
+\end{ccode}
+
+\subsection{WSM TX 请求与 confirm}
+
+\code{wsm\_tx\_frame()} 把 802.11 帧包进 24 字节 \code{wsm\_tx} 头：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6.0cm}}
+\toprule
+偏移 & 字段 & 值 \\
+\midrule
+0 & len & 由 \code{xradio\_bh\_tx} 填（13-bit，[15:13] 是序号） \\
+2 & id & \code{WSM\_TX\_REQ} \\
+4 & packetID & mac80211 cookie，confirm 原样带回 \\
+8 & queue & \code{raw\_link\_id << 2 | queue} \\
+10 & DataOffset & 24（头之后才是帧） \\
+12 & TxRateEntry & 策略表条目 \\
+14 & TxPolicyIndex & 0=管理 1=数据 \\
+16 & expireTime & 0（固件默认） \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+confirm 回来时 \code{packet\_id} 就是 cookie，\code{xradio\_tx\_confirm\_cb()} 校验
+后调 \code{ieee80211\_tx\_status()}，槽位表把状态交还等待者。整个环路的驱动方
+仍是轮询：发送侧若固件缓冲耗尽，\code{xradio\_bh\_tx} 边 poll 边等 confirm 腾
+缓冲；EAPOL 这类同步发射用 \code{ieee80211\_wait\_tx\_status()} 主动转轮子。
+
+\subsection{EAPOL 发射特例}
+
+四次握手的帧与普通数据帧共用 \code{build\_data\_hdr}，但有三点不同
+（\code{ieee80211\_tx\_control\_port()}）：
+
+\begin{itemize}
+  \item 前置条件只要求 \code{local->joined} 而非 \code{associated}——AP 的
+        EAPOL M1 常与 assoc response 背靠背到达，等自己走完关联状态机就晚了；
+  \item 队列用 \code{AC\_VO} 且置 \code{IEEE80211\_TX\_CTL\_USE\_MINRATE}，
+        驱动侧翻译成 \code{WSM\_POLICY\_MGMT} + \code{WSM\_RATE\_MGMT}
+        （1 Mbps），握手帧宁可慢不可丢；
+  \item \code{control\_port = 1}：TX confirm 里会额外调
+        \code{cfg80211\_control\_port\_tx\_status()}，M4 发送成功才触发
+        装钥（PTK/GTK 下到固件），这是 supplicant 状态机的节拍器。
+\end{itemize}
+
+\section{UART 串口驱动与 /dev/console}
+
+UART3 在驱动模型里走的是另一条路线：它是内核第一个设备，也是唯一一个
+``boot 代码先摸硬件、probe 只做登记''的设备。完整的中断、环形缓冲与
+\code{/dev/console} 流程见第~\ref{chap:uart}~章，这里只看驱动模型视角：
+
+\begin{itemize}
+  \item \code{t113\_uart\_init()} 在 \code{kernel\_main()} 最先执行，串口作为
+        early console 立即可用；此时驱动核心还没起来，谈不上 probe；
+  \item \code{uart3\_device} 注册进平台总线后，probe \textbf{不做任何硬件操作}，
+        只校验资源表（mem/IRQ）与早控制台实际使用的值一致，然后向 devfs 登记
+        两个字符设备节点；
+  \item TX 纯轮询（等 \code{USR.TFNF} 写 THR，10 ms 停转看门狗），RX 走
+        IRQ 37 $\rightarrow$ 256 字节环形缓冲 $\rightarrow$ 等待队列唤醒。
+\end{itemize}
+
+\begin{ccode}
+/* uart probe: 硬件已由 boot 代码初始化, probe 只登记 devfs 节点 */
+t113_devfs_register_chrdev("console", 1u, 0u, &console_fops);
+t113_devfs_register_chrdev("ttyS0",   3u, 0u, &console_fops);
+\end{ccode}
+
+用户态 stdio 目前不走 VFS：\code{sys\_read} 对 fd 0、\code{sys\_write} 对 fd 1/2
+直接特判到 UART 读写函数；\code{/dev/console}（major 1）与 \code{/dev/ttyS0}
+（major 3，沿 Linux 惯例）作为设备文件可被 \code{open}，主要留给将来的用户程序。
+对照：xv6 的 \code{uart.c} 同样是轮询发送 + 中断接收，但 init 显式
+\code{open("/dev/console")} 再 dup 成 0/1/2；miniOS 把这一步留作演进方向。
+
+\section{与 Linux 的对照}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lp{4.4cm}p{5.4cm}}
+\toprule
+话题 & miniOS & Linux \\
+\midrule
+kobject/kset & 有树与路径，无 sysfs & 绑定 sysfs，用户态可见 \\
+总线 & platform + i2c + sdio 三条 & 同名总线 + 更多（usb/spi\ldots） \\
+匹配 & compatible/id\_table 字符串比较 & device tree / ACPI / id 表 \\
+probe 串行化 & 一把核心锁，跨 probe 持有 & per-device 锁，可并发 probe \\
+依赖处理 & 注册顺序约束 & deferred probe / probe retry \\
+卡枚举 & \code{mmc\_rescan\_all()} 显式一次 & \code{mmc\_rescan} workqueue \\
+SDIO 中断 & 无，全轮询 & SDIO IRQ + 底半部线程 \\
+TX 状态 & cookie + 静态槽位表 & \code{skb->cb} + TX status 回调/队列 \\
+帧加密 & 硬件 CCMP/TKIP，主机预留头尾 & 同（\code{mac80211} 硬件加密路径） \\
+速率 & 静态重试策略 MIB & minstrel 自适应 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+总结成一句话：miniOS 把 Linux 驱动模型的\textbf{形状}（总线/设备/驱动、分层接口、
+上下文规则）完整保留，把\textbf{机制}（并发 probe、deferred probe、中断、自适应
+速率）简化成单核轮询下的顺序代码——每个简化点都是有意为之的 bring-up 取舍，
+且在源码注释里标明了对应的 Linux 原型。

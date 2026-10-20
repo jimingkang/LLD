@@ -4,7 +4,7 @@
  * HMAC ipad/opad SHA-1 states (4096 iterations x 2 blocks on a
  * Cortex-A7 takes about a second); AES tables are built once.
  */
-#include "wpa_crypto.h"
+#include "crypto/wpa_crypto.h"
 
 struct sha1_ctx {
     uint32_t h[5];

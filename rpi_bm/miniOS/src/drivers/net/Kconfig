@@ -1,10 +1,4 @@
-menu "Networking support"
-config NET
-    bool "Networking support"
-    default y if BOARD_100ASK_T113
-config TFTP_CLIENT
-    bool "TFTP client (read-only)"
+menu "Network device support"
     depends on NET
-    default y
 source "src/drivers/net/wireless/Kconfig"
 endmenu

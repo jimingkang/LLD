@@ -114,3 +114,24 @@ __sys_getcwd:
     mov r7, #16
     svc #0
     pop {r7, pc}
+
+.global __sys_tftp
+__sys_tftp:
+    push {r7, lr}
+    mov r7, #17
+    svc #0
+    pop {r7, pc}
+
+.global __sys_netctl
+__sys_netctl:
+    push {r7, lr}
+    mov r7, #18
+    svc #0
+    pop {r7, pc}
+
+.global __sys_dup
+__sys_dup:
+    push {r7, lr}
+    mov r7, #19
+    svc #0
+    pop {r7, pc}

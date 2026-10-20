@@ -18,6 +18,7 @@
 #include "mmc.h"
 #include "wifi.h"
 #include "board.h"
+#include "input/gpio_keys.h"
 
 static const struct resource uart3_resources[] = {
     DEFINE_RES_MEM(T113_UART3_BASE, T113_UART3_SIZE),
@@ -33,6 +34,22 @@ static const struct resource timer0_resources[] = {
     DEFINE_RES_MEM(T113_TIMER_BASE, T113_TIMER_SIZE),
     DEFINE_RES_IRQ(T113_IRQ_TIMER0),
 };
+
+#ifdef CONFIG_INPUT_GPIO_KEYS
+static const struct resource user_key_resources[] = {
+    DEFINE_RES_IRQ(T113_IRQ_GPIOB),
+};
+
+/* 100ASK T113-S3 USER KEY beside RESET: PB4, active low. */
+static const struct gpio_keys_platform_data user_key_pdata = {
+    .gpio = T113_GPIO(T113_PB, 4),
+    .irq = T113_IRQ_GPIOB,
+    .code = MINIOS_KEY_ENTER,
+    .active_low = 1u,
+    .pull = T113_PULL_UP,
+    .debounce_ms = 20u,
+};
+#endif
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -133,6 +150,16 @@ static struct platform_device timer0_device = {
     .resource = timer0_resources,
 };
 
+#ifdef CONFIG_INPUT_GPIO_KEYS
+static struct platform_device user_key_device = {
+    .name = "user-key",
+    .compatible = "gpio-keys",
+    .num_resources = ARRAY_SIZE(user_key_resources),
+    .resource = user_key_resources,
+    .dev = { .platform_data = (void *)&user_key_pdata },
+};
+#endif
+
 #ifdef CONFIG_VIDEO
 static struct platform_device csi0_device = {
     .name = "csi0",
@@ -191,6 +218,9 @@ static struct platform_device *const board_devices[] = {
     &gic_device,
     &uart3_device,
     &timer0_device,
+#ifdef CONFIG_INPUT_GPIO_KEYS
+    &user_key_device,
+#endif
 #ifdef CONFIG_VIDEO
     &csi0_device,
 #endif
@@ -211,6 +241,9 @@ static struct platform_driver *const board_drivers[] = {
     &t113_gic_driver,
     &t113_uart_driver,
     &t113_timer_driver,
+#ifdef CONFIG_INPUT_GPIO_KEYS
+    &gpio_keys_driver,
+#endif
 #ifdef CONFIG_VIDEO
     &t113_csi_driver,
 #endif
@@ -260,7 +293,7 @@ int t113_board_register_drivers(void)
         }
     }
 #ifdef CONFIG_WLAN_XRADIO_XR829
-    if (sdio_driver_register(&xr829_driver) < 0) {
+    if (sdio_driver_register(&xradio_sdio_driver) < 0) {
         t113_uart_puts("board: cannot register sdio driver xradio_wlan\n");
         ++failed;
     }

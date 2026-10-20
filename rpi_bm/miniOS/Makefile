@@ -1,6 +1,9 @@
 RPI_VERSION ?= 3
 
 -include .config
+CONFIG_NET ?= y
+CONFIG_CFG80211 ?= y
+CONFIG_MAC80211 ?= y
 CONFIG_WLAN_XRADIO_XR829 ?= y
 CONFIG_WPA2_PSK ?= y
 PYTHON ?= python3
@@ -40,7 +43,7 @@ all : $(DEFAULT_IMAGE)
 
 .PHONY: all clean install rpi-install run debug qemu qemu-gdb \
 	qemu-gdb-client armstub t113 t113-kernel t113-clean menuconfig \
-	100ask_t113_defconfig rpi3_defconfig savedefconfig
+	100ask_t113_defconfig rpi3_defconfig savedefconfig tftp-image
 
 menuconfig:
 	$(PYTHON) scripts/kconfig/menuconfig.py
@@ -80,8 +83,8 @@ C_FILES := $(filter-out $(SRC_DIR)/boards/100ask_t113/% \
 	$(SRC_DIR)/kernel/sync.c \
 	$(SRC_DIR)/kernel/syscall.c \
 	$(SRC_DIR)/kernel/init/main.c \
-	$(SRC_DIR)/net/tftp.c \
-	$(SRC_DIR)/lib/wpa_crypto.c,$(C_FILES))
+	$(SRC_DIR)/net/% \
+	$(SRC_DIR)/lib/crypto/%,$(C_FILES))
 
 ASM_FILES = $(wildcard $(SRC_DIR)/*.S)
 ASM_FILES += $(wildcard $(SRC_DIR)/*/*.S)
@@ -160,6 +163,9 @@ debug: qemu-gdb
 # ../miniBoot and embeds the binary produced here.
 T113_CROSS ?= arm-none-eabi-
 T113_BUILD := build-t113
+TFTP_ROOT ?= /private/tftpboot
+TFTP_IMAGE_NAME ?= kernel_minios.img
+SUDO ?= sudo
 T113_SRC := src/boards/100ask_t113
 T113_KERNEL_SRC := src/kernel
 T113_USER_SRC := user-t113
@@ -170,7 +176,7 @@ T113_COMMON_CFLAGS := -g -Os -mcpu=cortex-a7 -marm -mno-unaligned-access \
 	-Wall -Wextra
 
 T113_CFLAGS := $(T113_COMMON_CFLAGS) -I$(T113_KERNEL_INCLUDE) \
-	-Isrc/include -Isrc/include/net
+	-Isrc/include
 ifneq ($(wildcard src/include/generated/autoconf.h),)
 T113_CFLAGS += -include src/include/generated/autoconf.h
 endif
@@ -180,6 +186,7 @@ T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/timer.o $(T113_BUILD)/mmu.o \
 	$(T113_BUILD)/kernel/mm/page_alloc.o $(T113_BUILD)/user_vm.o \
 	$(T113_BUILD)/kernel/sched/core.o $(T113_BUILD)/kernel/sync.o \
+	$(T113_BUILD)/kernel/irq.o \
 	$(T113_BUILD)/kobject.o \
 	$(T113_BUILD)/device.o $(T113_BUILD)/platform_bus.o \
 	$(T113_BUILD)/board.o $(T113_BUILD)/driver_model.o \
@@ -189,10 +196,15 @@ T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/fork_entry.o \
 	$(T113_BUILD)/kernel/syscall.o $(T113_BUILD)/kernel/init/main.o \
 	$(T113_BUILD)/fs/vfs.o \
-	$(T113_BUILD)/fs/minifs.o $(T113_BUILD)/fs/devfs.o \
-	$(T113_BUILD)/fs/bootfs.o \
+	$(T113_BUILD)/fs/minifs.o $(T113_BUILD)/fs/chrdev.o $(T113_BUILD)/fs/devfs.o \
+	$(T113_BUILD)/fs/bootfs.o $(T113_BUILD)/fs/bio.o \
+	$(T113_BUILD)/fs/fat32.o \
 	$(T113_BUILD)/fs/rootdev.o $(T113_BUILD)/drivers/mmc/sunxi-sd.o \
 	$(T113_BUILD)/platform_kernel.o
+
+ifeq ($(CONFIG_INPUT_GPIO_KEYS),y)
+T113_OBJS += $(T113_BUILD)/drivers/input/gpio_keys.o
+endif
 
 ifeq ($(CONFIG_I2C),y)
 T113_OBJS += $(T113_BUILD)/i2c_core.o $(T113_BUILD)/twi.o
@@ -208,27 +220,46 @@ T113_OBJS += $(T113_BUILD)/drivers/mmc/core.o \
 	$(T113_BUILD)/drivers/mmc/host/sunxi-smhc.o
 endif
 
-ifeq ($(CONFIG_WLAN_XRADIO_XR829),y)
-T113_OBJS += $(T113_BUILD)/drivers/net/wireless/xradio/core.o \
-	$(T113_BUILD)/drivers/net/wireless/xradio/wsm.o \
-	$(T113_BUILD)/drivers/net/wireless/xradio/sta.o
+# Network stack, laid out like Linux net/: core, ethernet, ipv4, then
+# cfg80211 (net/wireless), mac80211 and the in-kernel WPA supplicant.
+ifeq ($(CONFIG_NET),y)
+T113_OBJS += $(addprefix $(T113_BUILD)/net/, \
+	core/skbuff.o core/dev.o core/utils.o ethernet/eth.o \
+	ipv4/af_inet.o ipv4/devinet.o ipv4/arp.o ipv4/ip_input.o \
+	ipv4/ip_output.o ipv4/icmp.o ipv4/udp.o ipv4/ipconfig.o)
+endif
+ifeq ($(CONFIG_CFG80211),y)
+T113_OBJS += $(addprefix $(T113_BUILD)/net/wireless/, \
+	core.o scan.o sme.o util.o)
+endif
+ifeq ($(CONFIG_MAC80211),y)
+T113_OBJS += $(addprefix $(T113_BUILD)/net/mac80211/, \
+	main.o rx.o tx.o mlme.o scan.o key.o cfg.o)
 endif
 ifeq ($(CONFIG_WPA2_PSK),y)
-T113_OBJS += $(T113_BUILD)/lib/wpa_crypto.o
+T113_OBJS += $(T113_BUILD)/net/wpa/supplicant.o $(T113_BUILD)/net/wpa/eapol.o \
+	$(T113_BUILD)/lib/crypto/wpa_crypto.o
+endif
+# drivers/net/wireless/xradio, split like the Linux xradio driver.
+ifeq ($(CONFIG_WLAN_XRADIO_XR829),y)
+T113_OBJS += $(addprefix $(T113_BUILD)/drivers/net/wireless/xradio/, \
+	sdio.o hwio.o fwio.o bh.o wsm.o main.o sta.o scan.o txrx.o)
 endif
 ifeq ($(CONFIG_TFTP_CLIENT),y)
-T113_OBJS += $(T113_BUILD)/net/tftp.o \
+T113_OBJS += $(T113_BUILD)/net/tftp/tftp.o $(T113_BUILD)/net/tftp/tftp_udp.o \
 	$(T113_BUILD)/miniboot_update.o
 endif
 T113_USER_LIB_OBJS := $(T113_BUILD)/user/usys.o \
 	$(T113_BUILD)/user/libc/libc.o
 T113_USER_LIB := $(T113_BUILD)/user/libc.a
 T113_USER_COMMON := $(T113_BUILD)/user/start.o
-T113_USER_PROGRAMS := sh ls echo pwd cat sleep uptime grep wc forktest zombie
+T113_USER_PROGRAMS := sh ls echo pwd cat sleep uptime grep wc forktest zombie \
+	tftp ping ifconfig wifi keytest
 T113_USER_BINARIES := $(addprefix $(T113_BUILD)/_,$(T113_USER_PROGRAMS))
 
 t113: t113-kernel
-t113-kernel: $(T113_BUILD)/minios-kernel.bin $(T113_BUILD)/minifs.img
+t113-kernel: $(T113_BUILD)/minios-kernel.bin $(T113_BUILD)/minifs.img \
+	tftp-image
 
 $(T113_BUILD):
 	mkdir -p $@
@@ -249,6 +280,10 @@ $(T113_BUILD)/drivers/mmc/%.o: src/drivers/mmc/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -DMINIOS_KERNEL -c $< -o $@
 
+$(T113_BUILD)/drivers/input/%.o: src/drivers/input/%.c | $(T113_BUILD)
+	mkdir -p $(@D)
+	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
+
 $(T113_BUILD)/drivers/mmc/host/%.o: src/drivers/mmc/host/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
@@ -257,23 +292,15 @@ $(T113_BUILD)/%.o: $(T113_SRC)/%.S | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
-$(T113_BUILD)/drivers/net/wireless/xradio/core.o: src/drivers/net/wireless/xradio/xr829_core.c | $(T113_BUILD)
+$(T113_BUILD)/drivers/net/%.o: src/drivers/net/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
-$(T113_BUILD)/drivers/net/wireless/xradio/wsm.o: src/drivers/net/wireless/xradio/wsm.c | $(T113_BUILD)
+$(T113_BUILD)/lib/%.o: src/lib/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
-$(T113_BUILD)/drivers/net/wireless/xradio/sta.o: src/drivers/net/wireless/xradio/sta.c | $(T113_BUILD)
-	mkdir -p $(@D)
-	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
-
-$(T113_BUILD)/lib/wpa_crypto.o: src/lib/wpa_crypto.c | $(T113_BUILD)
-	mkdir -p $(@D)
-	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
-
-$(T113_BUILD)/net/tftp.o: src/net/tftp.c | $(T113_BUILD)
+$(T113_BUILD)/net/%.o: src/net/%.c | $(T113_BUILD)
 	mkdir -p $(@D)
 	$(T113_CROSS)gcc $(T113_CFLAGS) -c $< -o $@
 
@@ -330,6 +357,16 @@ $(T113_BUILD)/minios-kernel.elf: $(T113_OBJS) $(T113_SRC)/linker.ld
 
 $(T113_BUILD)/minios-kernel.bin: $(T113_BUILD)/minios-kernel.elf
 	$(T113_CROSS)objcopy -O binary $< $@
+
+# Name exported by the development TFTP server and loaded by miniBoot from
+# the FAT32 boot partition.
+$(T113_BUILD)/$(TFTP_IMAGE_NAME): $(T113_BUILD)/minios-kernel.bin
+	cp $< $@
+
+tftp-image: $(T113_BUILD)/$(TFTP_IMAGE_NAME)
+	@$(SUDO) mkdir -p "$(TFTP_ROOT)"
+	$(SUDO) install -m 0644 $< "$(TFTP_ROOT)/$(TFTP_IMAGE_NAME)"
+	@echo "TFTP image: $(TFTP_ROOT)/$(TFTP_IMAGE_NAME)"
 
 t113-clean:
 	rm -rf $(T113_BUILD)

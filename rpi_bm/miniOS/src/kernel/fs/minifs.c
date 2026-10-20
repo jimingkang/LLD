@@ -10,7 +10,9 @@ static int block_backed;
 static uint8_t block_cache[MINIFS_BSIZE] __attribute__((aligned(4)));
 static uint32_t cached_block;
 static int cache_valid;
-static const struct vfs_backend_ops minifs_vfs_ops;
+static const struct inode_operations minifs_iops;
+static const struct file_operations minifs_file_fops;
+static const struct file_operations minifs_dir_fops;
 
 static void copy_bytes(void *destination, const void *source, uint32_t bytes)
 {
@@ -175,7 +177,8 @@ int t113_minifs_mount_rootdev(void)
     t113_uart_puthex(fs_sb.size);
     t113_uart_puts(" inodes="); t113_uart_puthex(fs_sb.ninodes);
     t113_uart_putc('\n');
-    return t113_vfs_mount("/", &minifs_vfs_ops);
+    return t113_vfs_mount_fs("/", MINIFS_MAGIC, &fs_sb, 0,
+                             &minifs_iops, &minifs_dir_fops);
 }
 
 int t113_minifs_read_file(const char *path, void *destination,
@@ -288,26 +291,35 @@ int t113_minifs_readdir(const char *path, uint32_t index,
     return 0;
 }
 
-static int minifs_vfs_lookup(const char *path, struct vfs_node *node)
+static int minifs_vfs_lookup(struct inode *directory, struct dentry *child)
 {
-    uint32_t inum, size;
-    if (t113_minifs_open(path, &inum, &size) < 0)
+    (void)directory;
+    uint32_t inum;
+    if (namei(child->d_path, &inum) < 0)
         return -1;
-    node->id = inum;
-    node->size = size;
-    node->type = MINIFS_T_FILE;
-    return 0;
+    struct minifs_dinode inode;
+    if (read_inode(inum, &inode) < 0)
+        return -1;
+    const struct file_operations *fops = inode.type == MINIFS_T_DIR
+                                      ? &minifs_dir_fops
+                                      : &minifs_file_fops;
+    return t113_vfs_bind_inode(child, inum, inode.size,
+                               (uint32_t)inode.type, 0, 0,
+                               &minifs_iops, fops);
 }
 
-static int minifs_vfs_read(const struct vfs_node *node, uint32_t offset,
-                        void *destination, uint32_t count)
+static int minifs_vfs_read(struct file *file, void *destination,
+                           uint32_t count)
 {
-    return t113_minifs_read(node->id, offset, destination, count);
+    return t113_minifs_read(file->f_inode->i_ino, file->f_pos,
+                            destination, count);
 }
 
-static int minifs_vfs_readdir(const char *path, uint32_t index,
+static int minifs_vfs_readdir(struct inode *inode, const char *path,
+                              uint32_t index,
                               struct vfs_dirent *entry)
 {
+    (void)inode;
     struct t113_minifs_user_dirent minifs_entry;
     int result = t113_minifs_readdir(path, index, &minifs_entry);
     if (result > 0) {
@@ -320,9 +332,15 @@ static int minifs_vfs_readdir(const char *path, uint32_t index,
     return result;
 }
 
-static const struct vfs_backend_ops minifs_vfs_ops = {
+static const struct inode_operations minifs_iops = {
     .lookup = minifs_vfs_lookup,
+};
+
+static const struct file_operations minifs_file_fops = {
     .read = minifs_vfs_read,
+};
+
+static const struct file_operations minifs_dir_fops = {
     .readdir = minifs_vfs_readdir,
 };
 
@@ -330,5 +348,6 @@ int t113_minifs_mount_vfs(const void *image, uint32_t bytes)
 {
     if (t113_minifs_mount(image, bytes) < 0)
         return -1;
-    return t113_vfs_mount("/", &minifs_vfs_ops);
+    return t113_vfs_mount_fs("/", MINIFS_MAGIC, &fs_sb, 0,
+                             &minifs_iops, &minifs_dir_fops);
 }

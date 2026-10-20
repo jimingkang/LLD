@@ -1,0 +1,123 @@
+% !TEX program = xelatex
+%
+% miniOS 技术文档
+% 模板：ElegantBook（https://github.com/ElegantLaTeX/ElegantBook）
+% 编译：tectonic main.tex（或 XeLaTeX 多遍）
+% 本书必须用 XeLaTeX（或 LuaLaTeX / tectonic）编译。
+\RequirePackage{iftex}
+\ifPDFTeX
+  \errmessage{This book must be compiled with XeLaTeX (or tectonic), not pdfLaTeX.}
+  \expandafter\stop
+\fi
+\documentclass[lang=cn,newtx,10pt,scheme=chinese,fontset=fandol,cyan,bibend=bibtex]{elegantbook}
+
+\title{miniOS 技术文档}
+\subtitle{从进程调用链到 WiFi 与 IPv4 协议栈\ ——\ T113-S3 裸机实现}
+
+\author{Jiming Kang}
+\institute{rpi\_bm / miniOS 项目}
+\date{2026 年 10 月}
+\version{0.1}
+\bioinfo{源码}{rpi-bm（miniOS T113 / AArch64 学习内核）}
+
+\extrainfo{进程调用链、根文件系统与 devfs、/boot FAT32、UART 控制台、XR829 WiFi 驱动、IPv4 协议栈、SMHC 主机控制器、VFS 对象模型。}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+% ---------------------------------------------------------------- 宏包
+\usepackage{array,tabularx,longtable}
+\usepackage{cprotect}
+\usepackage{float}
+
+% ---------------------------------------------------------------- 代码样式
+% 模板默认把 listings 设成 LaTeX 语言并高亮一批 LaTeX 词，这里为 C、汇编、
+% 终端和纯文本示意图分别定义样式，并清空模板的 emph 列表。
+\definecolor{codekw}{RGB}{160,30,60}
+\definecolor{codecm}{RGB}{110,120,130}
+\definecolor{codestr}{RGB}{20,110,90}
+\definecolor{codebg}{RGB}{248,249,250}
+
+\lstdefinelanguage{armasm}{
+  sensitive=false,
+  morekeywords={mov,movk,movz,ldr,ldrb,str,strb,ldp,stp,adr,adrp,add,sub,subs,
+    and,orr,bic,lsr,lsl,mul,cmp,cbz,cbnz,tbz,tbnz,b,bl,br,blr,ret,eret,msr,mrs,
+    isb,dsb,dmb,tlbi,ic,dc,sev,wfe,wfi,svc,hvc,smc,ldar,stlr,ldaxr,stxr,nop},
+  morekeywords=[2]{.global,.section,.balign,.align,.org,.word,.quad,.ascii,
+    .macro,.endm,.ltorg,.p2align,.text,.data},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinestyle{xbase}{
+  emph={}, emphstyle={},
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{structurecolor!60},
+  backgroundcolor=\color{codebg},
+  tabsize=4,
+  showstringspaces=false,
+  aboveskip=6pt, belowskip=6pt,
+  xleftmargin=2pt, xrightmargin=2pt,
+}
+\lstdefinestyle{xc}{style=xbase, language=C,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecm},
+  stringstyle=\color{codestr},
+  morekeywords={uint,uint8,uint16,uint32,uint64,uchar,pte_t,pagetable_t,
+    asm,volatile,static,inline,__attribute__}}
+\lstdefinestyle{xasm}{style=xbase, language=armasm,
+  keywordstyle=\color{codekw}\bfseries,
+  keywordstyle=[2]\color{structurecolor},
+  commentstyle=\color{codecm},
+  stringstyle=\color{codestr}}
+\lstdefinestyle{xsh}{style=xbase, language=bash,
+  keywordstyle=\color{codekw},
+  commentstyle=\color{codecm},
+  stringstyle=\color{codestr}}
+\lstdefinestyle{xtxt}{style=xbase, language={},
+  basicstyle=\ttfamily\footnotesize, columns=fixed, basewidth=0.5em}
+\lstdefinestyle{xmake}{style=xbase, language=make,
+  keywordstyle=\color{codekw},
+  commentstyle=\color{codecm}}
+
+\lstnewenvironment{ccode}[1][]{\lstset{style=xc,#1}}{}
+\lstnewenvironment{asmcode}[1][]{\lstset{style=xasm,#1}}{}
+\lstnewenvironment{shcode}[1][]{\lstset{style=xsh,#1}}{}
+\lstnewenvironment{txtcode}[1][]{\lstset{style=xtxt,#1}}{}
+\lstnewenvironment{makecode}[1][]{\lstset{style=xmake,#1}}{}
+
+% 行内代码：\code{...}，下划线等特殊字符请自行转义
+\newcommand{\code}[1]{\texttt{\hyphenchar\font=-1 #1}}
+\setlength{\emergencystretch}{4em}
+\tolerance=2000
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt
+% 制表符/几何符号/箭头/关系符号（拉丁等宽字体缺字形）交给中文字体渲染
+\xeCJKDeclareCharClass{CJK}{"2500 -> "25FF, "2190 -> "2199, "2260 -> "2267}
+\newcommand{\file}[1]{\texttt{\color{structurecolor!80!black}#1}}
+
+\begin{document}
+
+\maketitle
+\frontmatter
+\tableofcontents
+
+\mainmatter
+
+\include{chapters/01-process}
+\include{chapters/02-rootfs-devfs}
+\include{chapters/03-boot-fat32}
+\include{chapters/04-uart-console}
+\include{chapters/05-wifi-xr829}
+\include{chapters/06-net-stack}
+\include{chapters/07-drivers}
+\include{chapters/08-smhc-sdio}
+\include{chapters/09-vfs}
+
+\end{document}
