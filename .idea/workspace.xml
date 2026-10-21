@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="BackendCodeEditorMiscSettings">
+    <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
+  </component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="62d2c1b5-4187-4d49-9410-8144ea5ea4c0" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/rpi_bm/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniBoot/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniBoot/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/early_uart.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/early_uart.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/platform.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/platform.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/spl.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniBoot/src/boards/100ask_t113/spl.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/readme/ROOTFS_DEVFS.md" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/readme/ROOTFS_DEVFS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/drivers/net/wireless/xradio/sta.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/drivers/net/wireless/xradio/sta.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/drivers/net/wireless/xradio/wsm.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/drivers/net/wireless/xradio/wsm.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/fs/vfs.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/fs/vfs.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/tftp.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/tftp.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/xradio/sta.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/xradio/sta.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/xradio/wsm.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/net/xradio/wsm.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/t113/syscall.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/include/t113/syscall.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/fs/vfs.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/fs/vfs.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/init/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/init/main.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/syscall.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/src/kernel/syscall.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/errno.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/errno.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/fcntl.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/fcntl.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/unistd.h" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/include/unistd.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/libc/libc.c" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/libc/libc.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/usys.S" beforeDir="false" afterPath="$PROJECT_DIR$/rpi_bm/miniOS/user-t113/usys.S" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="1153" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="TwmMqi50" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3Kmo3wbbOMPfidBRngZKS98AO43" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.RadMigrateCodeStyle": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "100ask__t113",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/Users/jimingkang/LLD",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.first.attach.projects": "true",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="62d2c1b5-4187-4d49-9410-8144ea5ea4c0" name="Changes" comment="" />
+      <created>1792171908528</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792171908528</updated>
+      <workItem from="1792171909578" duration="1958000" />
+      <workItem from="1792462647390" duration="103000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

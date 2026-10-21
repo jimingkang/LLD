@@ -1,0 +1,285 @@
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .comment       0x00000000       0x13 build-t113/head.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/head.o
+ .ARM.attributes
+                0x00000000       0x2d build-t113/start.o
+ .comment       0x00000000       0x13 build-t113/early_uart.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/early_uart.o
+ .comment       0x00000000       0x13 build-t113/dram_syterkit.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/dram_syterkit.o
+ .comment       0x00000000       0x13 build-t113/dram.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/dram.o
+ .comment       0x00000000       0x13 build-t113/sd.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/sd.o
+ .comment       0x00000000       0x13 build-t113/fat32.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/fat32.o
+ .comment       0x00000000       0x13 build-t113/spl.o
+ .ARM.attributes
+                0x00000000       0x33 build-t113/spl.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+sram             0x00020000         0x00020000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+
+.text           0x00020000     0x35a8
+                0x00020000                        __spl_start = .
+ *head.o(.boot0_head)
+ .boot0_head    0x00020000       0x30 build-t113/head.o
+                0x00020000                t113_boot_header
+ *start.o(.text.start)
+ *fill*         0x00020030       0x10 
+ .text.start    0x00020040       0xdc build-t113/start.o
+                0x00020040                _start
+ *(.text .text.* .rodata .rodata.*)
+ .text          0x0002011c        0x0 build-t113/head.o
+ .text          0x0002011c        0x0 build-t113/start.o
+ .text          0x0002011c      0x1d4 build-t113/early_uart.o
+                0x0002011c                t113_early_uart_init
+                0x000201b8                t113_early_uart_putc
+                0x000201f0                t113_early_uart_try_putc
+                0x0002020c                t113_early_uart_puts
+                0x00020234                t113_early_uart_puthex
+                0x00020274                t113_early_uart_getc_nonblock
+                0x00020298                t113_early_uart_getc
+                0x000202b0                t113_early_uart_drain_rx
+                0x000202dc                t113_counter_ticks
+ .rodata.str1.1
+                0x000202f0      0x3bf build-t113/early_uart.o
+                                  0x3 (size before relaxing)
+ .rodata        0x000206af       0x11 build-t113/early_uart.o
+ .text          0x000206c0     0x19f0 build-t113/dram_syterkit.o
+                0x00021a34                sunxi_dram_init
+ .rodata        0x000220b0      0x100 build-t113/dram_syterkit.o
+ .text          0x000221b0       0xdc build-t113/dram.o
+                0x000221b0                t113_dram_init
+ .rodata.str1.1
+                0x0002228c        0x0 build-t113/dram.o
+                                 0xa8 (size before relaxing)
+ .text          0x0002228c      0x6ac build-t113/sd.o
+                0x000223e8                t113_sd_init
+                0x0002269c                t113_sd_read
+                0x000227e4                t113_sd_write
+ .text          0x00022938      0x620 build-t113/fat32.o
+                0x00022cfc                fat32_mount
+                0x00022e5c                fat32_load_root
+ .rodata        0x00022f58        0xd build-t113/fat32.o
+ *fill*         0x00022f65        0x3 
+ .text          0x00022f68      0x608 build-t113/spl.o
+                0x00023028                spl_main
+ .text.__stub   0x00023570        0x8 linker stubs
+ .rodata.str1.1
+                0x00023578        0x0 build-t113/spl.o
+                                0x31c (size before relaxing)
+ .rodata        0x00023578       0x30 build-t113/spl.o
+
+.glue_7         0x000235a8        0x0
+ .glue_7        0x000235a8        0x0 linker stubs
+
+.glue_7t        0x000235a8        0x0
+ .glue_7t       0x000235a8        0x0 linker stubs
+
+.vfp11_veneer   0x000235a8        0x0
+ .vfp11_veneer  0x000235a8        0x0 linker stubs
+
+.v4_bx          0x000235a8        0x0
+ .v4_bx         0x000235a8        0x0 linker stubs
+
+.iplt           0x000235a8        0x0
+ .iplt          0x000235a8        0x0 build-t113/head.o
+
+.rel.dyn        0x000235a8        0x0
+ .rel.iplt      0x000235a8        0x0 build-t113/head.o
+
+.data           0x000235a8       0x60
+ *(EXCLUDE_FILE(*kernel_payload.o) .data .data.*)
+ .data          0x000235a8        0x0 build-t113/head.o
+ .data          0x000235a8        0x0 build-t113/start.o
+ .data          0x000235a8        0x0 build-t113/early_uart.o
+ .data          0x000235a8        0x0 build-t113/dram_syterkit.o
+ .data          0x000235a8       0x60 build-t113/dram.o
+ .data          0x00023608        0x0 build-t113/sd.o
+ .data          0x00023608        0x0 build-t113/fat32.o
+ .data          0x00023608        0x0 build-t113/spl.o
+
+.igot.plt       0x00023608        0x0
+ .igot.plt      0x00023608        0x0 build-t113/head.o
+
+.kernel_payload
+                0x00023610        0x4
+                0x00023610                        __kernel_load_start = .
+ *kernel_payload.o(.data)
+ .data          0x00023610        0x4 build-t113/kernel_payload.o
+                0x00023610                _binary_build_t113_payload_bin_start
+                0x00023614                _binary_build_t113_payload_bin_end
+                0x00023614                        __kernel_load_end = .
+
+.bss            0x00023614      0x40c
+                0x00023618                        . = ALIGN (0x8)
+ *fill*         0x00023614        0x4 
+                0x00023618                        __spl_bss_start = .
+ *(.bss .bss.* COMMON)
+ .bss           0x00023618        0x0 build-t113/head.o
+ .bss           0x00023618        0x0 build-t113/start.o
+ .bss           0x00023618        0x0 build-t113/early_uart.o
+ .bss           0x00023618        0x0 build-t113/dram_syterkit.o
+ .bss           0x00023618        0x0 build-t113/dram.o
+ .bss           0x00023618        0x8 build-t113/sd.o
+ .bss           0x00023620      0x200 build-t113/fat32.o
+ .bss           0x00023820      0x200 build-t113/spl.o
+                0x00023a20                        __spl_bss_end = .
+
+.stack          0x00023a20     0x2400
+                0x00023a20                        . = ALIGN (0x8)
+                0x00025a20                        . = (. + 0x2000)
+ *fill*         0x00023a20     0x2000 
+                0x00025a20                        __spl_stack_svc_end = .
+                0x00025e20                        . = (. + 0x400)
+ *fill*         0x00025a20      0x400 
+                0x00025e20                        __spl_stack_irq_end = .
+                0x00025e20                        __spl_reserved_end = .
+                0x40200000                        __kernel_start = 0x40200000
+                0x00003614                        __spl_size = (__kernel_load_end - __spl_start)
+                0x00023614                        __spl_end = __kernel_load_end
+                0x00020000                        __code_start_address = ORIGIN (sram)
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.ARM.attributes)
+                0x00000001                        ASSERT ((__spl_reserved_end <= (ORIGIN (sram) + LENGTH (sram))), miniBoot SPL + miniOS payload exceeds T113 SRAM)
+LOAD build-t113/head.o
+LOAD build-t113/start.o
+LOAD build-t113/early_uart.o
+LOAD build-t113/dram_syterkit.o
+LOAD build-t113/dram.o
+LOAD build-t113/sd.o
+LOAD build-t113/fat32.o
+LOAD build-t113/spl.o
+LOAD build-t113/kernel_payload.o
+OUTPUT(build-t113/miniboot-t113.elf elf32-littlearm)
+LOAD linker stubs
+
+.debug_info     0x00000000     0x8429
+ .debug_info    0x00000000      0x166 build-t113/head.o
+ .debug_info    0x00000166       0x33 build-t113/start.o
+ .debug_info    0x00000199      0x47e build-t113/early_uart.o
+ .debug_info    0x00000617     0x446d build-t113/dram_syterkit.o
+ .debug_info    0x00004a84      0x419 build-t113/dram.o
+ .debug_info    0x00004e9d     0x1e5f build-t113/sd.o
+ .debug_info    0x00006cfc      0x97f build-t113/fat32.o
+ .debug_info    0x0000767b      0xdae build-t113/spl.o
+
+.debug_abbrev   0x00000000     0x134d
+ .debug_abbrev  0x00000000       0xa2 build-t113/head.o
+ .debug_abbrev  0x000000a2       0x28 build-t113/start.o
+ .debug_abbrev  0x000000ca      0x23d build-t113/early_uart.o
+ .debug_abbrev  0x00000307      0x3f2 build-t113/dram_syterkit.o
+ .debug_abbrev  0x000006f9      0x1b2 build-t113/dram.o
+ .debug_abbrev  0x000008ab      0x44a build-t113/sd.o
+ .debug_abbrev  0x00000cf5      0x319 build-t113/fat32.o
+ .debug_abbrev  0x0000100e      0x33f build-t113/spl.o
+
+.debug_aranges  0x00000000       0xf8
+ .debug_aranges
+                0x00000000       0x18 build-t113/head.o
+ .debug_aranges
+                0x00000018       0x20 build-t113/start.o
+ .debug_aranges
+                0x00000038       0x20 build-t113/early_uart.o
+ .debug_aranges
+                0x00000058       0x20 build-t113/dram_syterkit.o
+ .debug_aranges
+                0x00000078       0x20 build-t113/dram.o
+ .debug_aranges
+                0x00000098       0x20 build-t113/sd.o
+ .debug_aranges
+                0x000000b8       0x20 build-t113/fat32.o
+ .debug_aranges
+                0x000000d8       0x20 build-t113/spl.o
+
+.debug_line     0x00000000     0x5326
+ .debug_line    0x00000000       0xa1 build-t113/head.o
+ .debug_line    0x000000a1       0x7a build-t113/start.o
+ .debug_line    0x0000011b      0x32f build-t113/early_uart.o
+ .debug_line    0x0000044a     0x301a build-t113/dram_syterkit.o
+ .debug_line    0x00003464      0x196 build-t113/dram.o
+ .debug_line    0x000035fa      0xfc2 build-t113/sd.o
+ .debug_line    0x000045bc      0x776 build-t113/fat32.o
+ .debug_line    0x00004d32      0x5f4 build-t113/spl.o
+
+.debug_str      0x00000000      0xc43
+ .debug_str     0x00000000      0xc43 build-t113/head.o
+                                0x25e (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/start.o
+                                 0x58 (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/early_uart.o
+                                0x2ea (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/dram_syterkit.o
+                                0x6c6 (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/dram.o
+                                0x3ca (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/sd.o
+                                0x2ac (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/fat32.o
+                                0x2ff (size before relaxing)
+ .debug_str     0x00000c43        0x0 build-t113/spl.o
+                                0x43d (size before relaxing)
+
+.debug_line_str
+                0x00000000       0x45
+ .debug_line_str
+                0x00000000       0x45 build-t113/start.o
+
+.debug_loclists
+                0x00000000     0x4502
+ .debug_loclists
+                0x00000000      0x189 build-t113/early_uart.o
+ .debug_loclists
+                0x00000189     0x2557 build-t113/dram_syterkit.o
+ .debug_loclists
+                0x000026e0       0x9f build-t113/dram.o
+ .debug_loclists
+                0x0000277f     0x1424 build-t113/sd.o
+ .debug_loclists
+                0x00003ba3      0x511 build-t113/fat32.o
+ .debug_loclists
+                0x000040b4      0x44e build-t113/spl.o
+
+.debug_rnglists
+                0x00000000      0x6ff
+ .debug_rnglists
+                0x00000000       0x3c build-t113/early_uart.o
+ .debug_rnglists
+                0x0000003c      0x2df build-t113/dram_syterkit.o
+ .debug_rnglists
+                0x0000031b       0x1b build-t113/dram.o
+ .debug_rnglists
+                0x00000336      0x1ff build-t113/sd.o
+ .debug_rnglists
+                0x00000535       0xee build-t113/fat32.o
+ .debug_rnglists
+                0x00000623       0xdc build-t113/spl.o
+
+.debug_frame    0x00000000      0x3d8
+ .debug_frame   0x00000000       0xd0 build-t113/early_uart.o
+ .debug_frame   0x000000d0       0xb0 build-t113/dram_syterkit.o
+ .debug_frame   0x00000180       0x2c build-t113/dram.o
+ .debug_frame   0x000001ac       0xdc build-t113/sd.o
+ .debug_frame   0x00000288       0xd8 build-t113/fat32.o
+ .debug_frame   0x00000360       0x78 build-t113/spl.o
