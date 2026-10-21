@@ -71,6 +71,8 @@ static int really_probe(struct device *dev, struct device_driver *drv)
     if (ret < 0) {
         dev->driver = 0;
         dev->driver_data = 0;
+        dev->attributes = 0;
+        dev->num_attributes = 0;
         t113_uart_puts("driver core: probe of ");
         t113_uart_puts(dev_name(dev));
         t113_uart_puts(" by ");
@@ -129,6 +131,8 @@ static void device_release_driver_locked(struct device *dev)
     list_del_init(&dev->driver_node);
     dev->driver = 0;
     dev->driver_data = 0;
+    dev->attributes = 0;
+    dev->num_attributes = 0;
 }
 
 /* -------------------------------------------------------------------- bus */
@@ -258,6 +262,8 @@ void device_initialize(struct device *dev)
     INIT_LIST_HEAD(&dev->driver_node);
     dev->driver = 0;
     dev->driver_data = 0;
+    dev->attributes = 0;
+    dev->num_attributes = 0;
 }
 
 struct device *get_device(struct device *dev)

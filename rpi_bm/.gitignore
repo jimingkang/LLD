@@ -1,0 +1,32 @@
+# Proprietary XR829 firmware blobs (from the Tina SDK), never commit
+/firmware/
+
+# WiFi credentials
+wifi_secrets.h
+
+# Host/editor metadata
+.DS_Store
+
+# Compiler, assembler and linker intermediates
+*.o
+*.d
+*.a
+*.elf
+*.map
+*.lst
+*.dis
+
+# Build directories used by the Raspberry Pi and T113 targets
+build/
+build-*/
+**/build/
+**/build-*/
+
+# Generated OS/boot images (firmware input blobs remain under /firmware/)
+kernel8.img
+kernel_minios.img
+minios-kernel.bin
+minios-t113.bin
+minifs.img
+bootpack.bin
+armstub-new.bin

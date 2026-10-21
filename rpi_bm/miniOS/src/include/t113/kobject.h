@@ -6,7 +6,8 @@
 #include "spinlock.h"
 
 /*
- * Lightweight kobject/kset, modelled after Linux but without sysfs:
+ * Lightweight kobject/kset, modelled after Linux. sysfs projects this
+ * in-memory topology under /sys without making kobject depend on VFS:
  *   - parent    : position in the (virtual) directory tree, used for paths
  *   - kset      : membership list, used for iteration / lookup by name
  * A kobject may have a parent that differs from its kset (e.g. a driver is

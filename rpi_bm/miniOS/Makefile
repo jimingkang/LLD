@@ -202,6 +202,10 @@ T113_OBJS := $(T113_BUILD)/kernel_entry.o $(T113_BUILD)/uart.o \
 	$(T113_BUILD)/fs/rootdev.o $(T113_BUILD)/drivers/mmc/sunxi-sd.o \
 	$(T113_BUILD)/platform_kernel.o
 
+ifeq ($(CONFIG_SYSFS),y)
+T113_OBJS += $(T113_BUILD)/fs/sysfs.o
+endif
+
 ifeq ($(CONFIG_INPUT_GPIO_KEYS),y)
 T113_OBJS += $(T113_BUILD)/drivers/input/gpio_keys.o
 endif

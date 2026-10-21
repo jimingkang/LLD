@@ -6,7 +6,7 @@
 /*
  * Lightweight Linux-style driver model.
  *
- * Virtual tree (no sysfs, just kobject parents):
+ * In-memory tree (projected by sysfs under /sys):
  *   /devices/<parent...>/<dev>          dev->kobj    in kset "devices"
  *   /bus/<bus>                          bus->kobj    in kset "bus"
  *   /bus/<bus>/devices                  bus->devices_dir   (dir, list in bus)
@@ -41,6 +41,12 @@ const struct of_device_id *of_match_compatible(const struct of_device_id *table,
 struct device;
 struct device_driver;
 
+/* Read-only per-device sysfs attribute supplied by a device driver. */
+struct device_attribute {
+    const char *name;
+    int (*show)(struct device *dev, char *buffer, uint32_t capacity);
+};
+
 struct bus_type {
     const char *name;
     int (*match)(struct device *dev, struct device_driver *drv);
@@ -62,6 +68,8 @@ struct device {
     struct bus_type *bus;
     void *platform_data;
     void (*release)(struct device *dev);
+    const struct device_attribute *attributes;
+    uint32_t num_attributes;
 
     /* private */
     struct kobject kobj;

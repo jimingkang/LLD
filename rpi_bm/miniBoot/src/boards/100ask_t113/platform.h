@@ -24,8 +24,13 @@ static inline void mmio_write32(uint32_t addr, uint32_t value)
 
 void t113_early_uart_init(void);
 void t113_early_uart_putc(char c);
+void t113_early_uart_try_putc(char c);
 void t113_early_uart_puts(const char *s);
 void t113_early_uart_puthex(uint32_t value);
+int t113_early_uart_getc_nonblock(void);
+char t113_early_uart_getc(void);
+void t113_early_uart_drain_rx(void);
+uint64_t t113_counter_ticks(void); /* architectural counter, 24 MHz */
 uint32_t t113_dram_init(void);
 
 #endif

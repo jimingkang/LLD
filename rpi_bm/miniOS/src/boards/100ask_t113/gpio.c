@@ -6,7 +6,13 @@
 #define GPIO_DAT(port)       (T113_PIO_BASE + (port) * T113_GPIO_BANK_STRIDE + 0x10u)
 #define GPIO_PULL(port, pin) (T113_PIO_BASE + (port) * T113_GPIO_BANK_STRIDE + \
                               0x24u + ((pin) / 16u) * 4u)
-#define GPIO_IRQ_BASE(port)  (T113_PIO_BASE + 0x200u + ((port) - T113_PB) * 0x20u)
+/*
+ * The D1/T113 EINT register window keeps the hardware GPIO port number in
+ * its bank index.  Port A has no pins on this SoC, but its 0x200 slot is
+ * still reserved; consequently PB starts at 0x220, not 0x200.  This is the
+ * same mapping represented by Linux d1_irq_bank_map[] = { 1, 2, ... 6 }.
+ */
+#define GPIO_IRQ_BASE(port)  (T113_PIO_BASE + 0x200u + (port) * 0x20u)
 #define GPIO_IRQ_CFG(port, pin) (GPIO_IRQ_BASE(port) + ((pin) / 8u) * 4u)
 #define GPIO_IRQ_CTRL(port)  (GPIO_IRQ_BASE(port) + 0x10u)
 #define GPIO_IRQ_STATUS(port) (GPIO_IRQ_BASE(port) + 0x14u)
@@ -79,7 +85,7 @@ int t113_gpio_irq_config(int gpio, uint32_t mode)
     uint32_t shift = (pin % 8u) * 4u;
     t113_gpio_irq_disable(gpio);
     rmw(GPIO_IRQ_CFG(port, pin), 0xfu << shift, mode << shift);
-    /* 32 kHz debounce clock, maximum /128 prescale (~3.9 ms). */
+    /* 24 MHz debounce sampling clock, /128; software adds a 20 ms window. */
     mmio_write32(GPIO_IRQ_DEBOUNCE(port), 0x71u);
     t113_gpio_set_function(port, pin, T113_GPIO_IRQ);
     t113_gpio_irq_ack(gpio);

@@ -22,16 +22,16 @@ XR829 挂在 SDIO 总线上（第~\ref{chap:wifi}~章），UART 作为最早的�
 
 \section{驱动架构：总线、设备与绑定}
 
-\subsection{kobject/kset：没有 sysfs 的目录树}
+\subsection{kobject/kset：内存里的目录树}
 
 驱动核心建立在轻量 \code{kobject}/\code{kset} 之上（\file{kobject.c}）：kobject 有
 \code{parent}（虚拟目录树中的位置）和 \code{kset}（成员列表），\code{kobject\_get\_path()}
-沿 parent 链拼出 ``\code{/a/b/c}'' 风格路径。没有 sysfs，但启动时
-\code{t113\_driver\_core\_dump()} 会把整棵树打印到串口，相当于一次
-``\code{ls -lR /sys}''：
+沿 parent 链拼出 ``\code{/a/b/c}'' 风格路径。启动时
+\code{t113\_driver\_core\_dump()} 会把整棵树打印到串口；\code{CONFIG\_SYSFS=y} 时这棵树还会被投影到 \file{/sys}，用户态可以直接 \code{ls}、\code{cat}，详见第~\ref{chap:sysfs} 章：
+
 
 \begin{txtcode}
-/devices/gic  /devices/uart3  /devices/sdc1  ...     kset "devices"
+/devices/platform/gic  /devices/platform/uart3  ...  kset "devices"
 /bus/platform  /bus/i2c  /bus/sdio                      kset "bus"
 /bus/platform/devices  /bus/platform/drivers/...        总线下的两个目录
 /drivers/t113-uart  /drivers/xradio_wlan ...            kset "drivers"
@@ -43,7 +43,7 @@ XR829 挂在 SDIO 总线上（第~\ref{chap:wifi}~章），UART 作为最早的�
 \toprule
 miniOS & Linux & 说明 \\
 \midrule
-\code{struct kobject/kset} & \code{kobject/kset} & 无 sysfs：只有 parent/kset 与引用计数 \\
+\code{struct kobject/kset} & \code{kobject/kset} & parent/kset 与引用计数；由 sysfs 投影到 \file{/sys} \\
 \code{struct bus\_type} & \code{struct bus\_type} & \code{match/probe/remove}，devices/drivers 两个链表 \\
 \code{struct device} & \code{struct device} & \code{platform\_data}、\code{driver\_data} \\
 \code{struct device\_driver} & \code{struct device\_driver} & \code{probe/remove}、已绑定设备链表 \\
@@ -627,7 +627,7 @@ t113_devfs_register_chrdev("ttyS0",   3u, 0u, &console_fops);
 \toprule
 话题 & miniOS & Linux \\
 \midrule
-kobject/kset & 有树与路径，无 sysfs & 绑定 sysfs，用户态可见 \\
+kobject/kset & 有树与路径，sysfs 按路径实时投影（只读） & kernfs 节点，属性可读写 \\
 总线 & platform + i2c + sdio 三条 & 同名总线 + 更多（usb/spi\ldots） \\
 匹配 & compatible/id\_table 字符串比较 & device tree / ACPI / id 表 \\
 probe 串行化 & 一把核心锁，跨 probe 持有 & per-device 锁，可并发 probe \\

@@ -5,6 +5,9 @@
 #include "fs/minifs.h"
 #include "fs/devfs.h"
 #include "fs/chrdev.h"
+#ifdef CONFIG_SYSFS
+#include "fs/sysfs.h"
+#endif
 #include "fs/bootfs.h"
 #include "fs/fat32.h"
 #include "driver_model.h"
@@ -58,6 +61,10 @@ void kernel_boot(uint32_t page_pool_base, uint32_t physical_memory_end)
     t113_irq_init();
     kernel_platform_interrupt_init();
     t113_driver_core_init();
+#ifdef CONFIG_SYSFS
+    if (t113_sysfs_init() < 0)
+        kernel_platform_panic("cannot mount sysfs at /sys");
+#endif
     kernel_platform_console_irq_init();
 
     if (start_init_process() < 0)

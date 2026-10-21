@@ -238,7 +238,7 @@ sys_exec → t113_vfs_read(file, image, size)
                   +-- t113_rootdev_read(2b, 2, block_cache)
 \end{txtcode}
 
-和 xv6 的 \code{namex()} 相比，minifs 只读，所以不需要 inode 缓存、\code{ilock}、引用计数，也不需要日志。每次查找都从根目录开始，因为 T113 没有每进程的当前目录 inode（\code{getcwd} 返回的是固定的 \file{/}）。
+和 xv6 的 \code{namex()} 相比，minifs 只读，所以不需要写日志；VFS 层仍然提供inode/dentry 缓存与引用计数。minifs 内部现有解析器仍从根目录解析累计路径，因为 T113 还没有每进程的当前目录 inode（\code{getcwd} 返回固定的 \file{/}）。
 
 \subsection{devfs：\file{/dev} 下的字符设备}
 
@@ -246,15 +246,15 @@ sys_exec → t113_vfs_read(file, image, size)
 驱动 probe 时                           用户或内核 open("/dev/console")
 t113_chrdev_register(1, 0,              t113_vfs_open("/dev/console", RDWR)
                      &console_fops)     +-- lookup_path：find_mount → "/dev" 挂载根 dentry
-+-- chrdev_table[i] = { dev, ops }      |   +-- 分量 "console" → devfs_lookup("/dev/console")
-t113_devfs_create_chrdev(               |       +-- devfs_basename() → "console"
-   "console", 1, 0)                     |       +-- 遍历 nodes[]，id = MINIOS_MKDEV(1, 0)
-+-- nodes[i] = { name, major, minor }   |           type = CHAR，private_data = &nodes[i]
-                                        +-- devfs_open()：只接受 RDONLY / RDWR
++-- chrdev_table[i] = { dev, fops }     |   +-- 分量 "console" → devfs_iops.lookup(dir, child)
+t113_devfs_create_chrdev(               |       +-- inode: i_rdev=MINIOS_MKDEV(1,0)
+   "console", 1, 0)                     |           i_fop=def_chr_fops
++-- nodes[i] = { name, major, minor }   +-- file->f_op = inode->i_fop
+                                        +-- chrdev_open()：按 i_rdev 找 console_fops
+                                            +-- file->f_op = console_fops
                                         t113_vfs_write(f, "hi", 2)
-                                        +-- devfs_write() → t113_chrdev_write(0x10000)
-                                            +-- chrdev_table 按设备号 → console_fops.write()
-                                                → UART3 发送
+                                        +-- file->f_op->write() → console_write()
+                                            +-- UART3 发送
 \end{txtcode}
 
 devfs 的节点不在任何磁盘上，是驱动在内存里登记的表。这和 Linux 的 devtmpfs同一个思路：驱动注册设备时，内核自动在 \file{/dev} 下建节点。xv6 的做法不同：设备节点是磁盘上的 inode（\code{T\_DEVICE}，\code{mknod("console", CONSOLE, 0)} 由\code{init} 创建），\code{read/write} 时按 \code{ip->major} 查 \code{devsw[]} 分派。
@@ -285,7 +285,7 @@ devfs 的节点不在任何磁盘上，是驱动在内存里登记的表。这�
 
 \begin{itemize}
   \item 两个文件系统共用一个 SD 控制器（SMHC0）和一张卡。\code{rootdev.c} 不经\code{bio.c}；\code{fat32.c} 经 \code{bio.c}。两条路径都在 \code{t113\_sd\_read/write} 里的\code{sd\_lock} 汇合。
-  \item VFS 已建立 \code{super\_block → dentry → inode → file} 对象链、引用计数和 inode/ dentry 缓存，并让子 mount 保存父 mount 与 mountpoint。minifs/FAT32/devfs仍通过兼容适配层接收累计的绝对路径；下一阶段可逐个改成真正的“父 inode + 单个分量” lookup，之后再完整处理 \code{.}、\code{..} 和跨 mount 回退。
+  \item VFS 已建立 \code{super\_block → dentry → inode → file} 对象链、引用计数和 inode/ dentry 缓存，并让子 mount 保存父 mount 与 mountpoint。minifs/FAT32/devfs已直接提供各自的 \code{inode\_operations/file\_operations}；普通文件和设备文件最终都由 \code{file->f\_op} 分派。
   \item 卡上的 SPL、bootpack、两个分区由同一个 \code{make install} 写入；分区 2 必须足够放下 \code{minifs.img}（≥ 32 MiB）。
 \end{itemize}
 
@@ -301,7 +301,7 @@ VFS 已改成 Linux 式的对象模型，完整说明见 第~\ref{chap:vfs} 章�
 miniOS & Linux \\
 \midrule
 \code{vfs\_mount} + \code{parent/mountpoint/mnt\_root} & \code{struct mount} / \code{vfsmount} \\
-\code{super\_block} + \code{super\_operations}，\code{s\_backend} 指向旧后端 & \code{struct super\_block} \\
+\code{super\_block} + \code{super\_operations} & \code{struct super\_block} \\
 \code{dentry\_cache[128]}、\code{inode\_cache[128]} 与引用计数 & dcache / icache \\
 \code{file} + \code{file\_operations} + \code{f\_pos\_lock} & \code{struct file} + \code{f\_count} \\
 全局 \code{vfs\_lock} 一把互斥 & per-inode 锁 + RCU \\
@@ -310,12 +310,12 @@ miniOS & Linux \\
 \end{table}
 
 \begin{itemize}
-  \item \textbf{挂载}：\code{t113\_vfs\_mount\_fs(path, magic, fs\_info, ops)} 为每个文件系统建一个\code{super\_block}、一个根 inode 和一个根 dentry；不是 \file{/} 时还要先在父文件系统里 \code{lookup\_path(path)} 找到挂载点目录，所以 minifs 镜像里必须有 \file{/boot}、\file{/dev} 两个空目录（\code{mkfs\_minifs} 已经建好）。
+  \item \textbf{挂载}：\code{t113\_vfs\_mount\_fs(path, magic, fs\_info, s\_op, root\_iop, root\_fop)} 为每个文件系统建一个\code{super\_block}、一个根 inode 和一个根 dentry；不是 \file{/} 时还要先在父文件系统里 \code{lookup\_path(path)} 找到挂载点目录，所以 minifs 镜像里必须有 \file{/boot}、\file{/dev} 两个空目录（\code{mkfs\_minifs} 已经建好）。
   \item \textbf{选文件系统}：仍按最长前缀匹配（\file{/bootx} 不会落到 \file{/boot}），然后从那个挂载的根 dentry 开始逐级建 dentry。
-  \item \textbf{后端接口没变}：\code{vfs\_backend\_ops.lookup} 仍收到累计的绝对路径，由 \code{vfs.c}里的 \code{backend\_iops/backend\_fops} 把 inode/file 操作转成后端调用。
+  \item \textbf{原生操作表}：路径和元数据操作走 \code{inode->i\_op}；打开后先从\code{inode->i\_fop} 初始化 \code{file->f\_op}。字符设备的 \code{chrdev\_open()} 再把\code{file->f\_op} 换成 UART、GPIO key 等驱动的操作表。
   \item \textbf{身份}：minifs 的 inode 号、FAT32 的 \code{fat\_inode} 槽位地址、bootfs 的 DDR地址、devfs 的设备号成为 \code{inode->i\_ino}；同一文件多次打开共享一个 inode。
   \item 读写带 \code{f\_pos} 语义，但\textbf{没有 lseek}；标志支持 \code{VFS\_O\_RDONLY} / \code{VFS\_O\_RDWR}，外加 FAT32 用的 \code{VFS\_O\_CREATE} / \code{VFS\_O\_TRUNC}（值取自 xv6 \code{fcntl.h}）。\code{write} 由 devfs 和 FAT32 实现；minifs 和 bootfs 只读。
-  \item \textbf{注意}：\code{minifs\_vfs\_lookup()} 目前只接受普通文件，逐级查找要它返回目录\file{/boot}、\file{/dev}、\file{/bin}，所以挂载 \file{/boot} 会失败，详见第~\ref{chap:vfs} 章。
+  \item \code{minifs\_vfs\_lookup()} 同时返回目录和普通文件，因此 \file{/boot}、\file{/dev}、\file{/bin} 可以参与逐级查找和挂载点验证。
 \end{itemize}
 
 \section{rootdev：MBR 分区 2 块设备}
@@ -439,8 +439,8 @@ XR829 驱动的 \code{need\_image()} 因此从硬编码 bootpack 查询改成了
 \begin{itemize}
   \item \code{t113\_devfs\_init()}：挂到 \file{/dev}，16 个节点槽，设备名 ≤ 30 字节且不含 \file{/}；
   \item 驱动 probe 时做两件事：\code{t113\_chrdev\_register(major, minor, ops)} 把设备号和驱动操作登记进 \code{chrdev.c} 的 \code{chrdev\_table[32]}（\code{ops} 至少要有read 或 write，设备号去重）；\code{t113\_devfs\_create\_chrdev(name, major, minor)}在 \file{/dev} 下建名字（名字去重）。这和 Linux 的 \code{register\_chrdev\_region} + \code{cdev\_add}、再由 devtmpfs 建节点是同一个分工；
-  \item \code{lookup("/dev/console")}：\code{node.id = (major<<16)|minor}、\code{type = DEVFS\_T\_CHAR}、\code{private\_data} 指向节点；\file{/dev} 本身作为目录节点（type 1）返回，\code{readdir("/dev", i)} 枚举已注册设备；
-  \item \code{read}/\code{write} 按 \code{node.id} 调 \code{t113\_chrdev\_read/write()}，再由\code{chrdev\_table} 找到驱动的 \code{ops}，\textbf{忽略 offset}——字符设备没有seek 语义，这和 Linux \code{struct file\_operations} 里 \code{.llseek = no\_llseek} 的约定一致。
+  \item \code{lookup("/dev/console")} 建立字符设备 inode：\code{i\_rdev = (major<<16)|minor}，\code{i\_fop = def\_chr\_fops}；\code{readdir("/dev", i)} 枚举已注册设备；
+  \item \code{def\_chr\_fops.open()} 按 \code{i\_rdev} 查 \code{chrdev\_table}，把本次打开的\code{file->f\_op} 换成驱动 \code{file\_operations}。之后 read/write 直接进入驱动，VFS 对字符设备不推进 \code{f\_pos}。
 \end{itemize}
 
 当前唯一注册者是 UART 平台驱动（\code{uart.c} probe）：\code{console}（major 1, minor 0）和 \code{ttyS0}（major 3, minor 0），major 取值沿 Linux 惯例（1 = 内存/终端类，3 = 第一个 8250 串口）。注册时序有要求：\code{kernel\_boot()} 里的 \code{t113\_devfs\_init()} 必须早于驱动绑定 \code{t113\_driver\_core\_init()}，否则 probe 里的注册会失败。
@@ -483,7 +483,7 @@ miniOS & xv6 & Linux \\
 \midrule
 \code{vfs\_mount} 树 + 前缀匹配 & 无（只有一个 fs） & 挂载树 + namespace \\
 \code{super\_block} / \code{inode} / \code{dentry} 对象池 & \code{itable} inode 缓存，无 dentry & super\_block、icache、dcache \\
-\code{inode\_operations} / \code{file\_operations}（经 \code{vfs\_backend\_ops} 适配） & 无，直接调 fs 函数 & \code{inode\_operations} + \code{file\_operations} + \code{super\_operations} \\
+原生 \code{inode\_operations} / \code{file\_operations} & 无，直接调 fs 函数 & \code{inode\_operations} + \code{file\_operations} + \code{super\_operations} \\
 \code{rootdev}（MBR 分区） & \code{ide} 驱动 & 块设备层 + 分区扫描（\code{read\_partition}） \\
 minifs 只读 & xv6 fs（含 log 写入） & ext4 等 \\
 单块缓存 & 30 块 buffer cache & page cache \\

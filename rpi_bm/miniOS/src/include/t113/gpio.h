@@ -18,7 +18,11 @@ enum t113_gpio_port {
 #define T113_GPIO_IN        0u
 #define T113_GPIO_OUT       1u
 #define T113_GPIO_DISABLED  0xfu
-#define T113_GPIO_IRQ       6u
+/*
+ * sun20i-D1/T113 uses mux value 0xe for the per-pin EINT function.
+ * This differs from older sunxi parts, where the EINT mux is commonly 6.
+ */
+#define T113_GPIO_IRQ       0xeu
 
 #define T113_GPIO_IRQ_RISING  0u
 #define T113_GPIO_IRQ_FALLING 1u

@@ -1,440 +1,505 @@
 \chapter{VFS：super\_block、inode 与 dentry}
 \label{chap:vfs}
-T113 版 miniOS 的 VFS 已经从“挂载表 + 整条路径交给后端”改成 Linux 式的对象模型：每次挂载生成一个 \code{super\_block}，路径按分量逐级建立 \code{dentry}，每个\code{dentry} 指向一个 \code{inode}，打开的文件是 \code{struct file}，挂载点之间用\code{vfs\_mount} 连成树。本章按当前代码说明这几个对象怎么来、谁持有谁、一次\code{open/read/write} 怎样穿过它们，以及和 Linux、xv6 的差别。
+miniOS 的 T113 VFS 使用 \code{super\_block}、\code{dentry}、\code{inode}、\code{file} 和\code{vfs\_mount} 组织挂载与打开文件。当前版本已经删除旧的\code{vfs\_backend\_ops} 和通用适配器 \code{backend\_fops}：每个文件系统直接提供自己的 \code{inode\_operations} 与 \code{file\_operations}，字符设备在打开时把\code{file->f\_op} 切换成驱动的操作表。
 
-源码：
+\section{核心对象}
 
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
-\toprule
-文件 & 内容 \\
-\midrule
-\code{src/include/fs/vfs.h} & 对象定义、三张操作表、后端接口 \code{vfs\_backend\_ops} \\
-\code{src/kernel/fs/vfs.c} & 对象池、\code{lookup\_path()}、挂载、open/read/write/close/readdir \\
-\code{src/kernel/fs/minifs.c} & \file{/} 根文件系统（SD 卡分区 2，只读） \\
-\code{src/kernel/fs/fat32.c} & \file{/boot}（SD 卡分区 1，读写，带 create/truncate/close） \\
-\code{src/kernel/fs/bootfs.c} & \file{/boot} 的备用后端（SPL 预加载镜像，只读） \\
-\code{src/kernel/fs/devfs.c} + \code{chrdev.c} & \file{/dev}，名字 → 设备号 → 驱动 \\
-\code{src/kernel/syscall.c} & \code{open/read/write/close/dup/readdir/exec} 进入 VFS \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\begin{ccode}
+struct super_block {
+    uint32_t s_magic;
+    const struct super_operations *s_op;
+    struct dentry *s_root;
+    void *s_fs_info;
+};
 
-\section{改了什么}
+struct inode {
+    uint32_t i_ino;
+    uint32_t i_size;
+    uint32_t i_type;
+    uint32_t i_rdev;
+    struct super_block *i_sb;
+    const struct inode_operations *i_op;
+    const struct file_operations *i_fop;
+    void *i_private;
+};
+
+struct file {
+    uint32_t f_flags;
+    uint32_t f_pos;
+    struct dentry *f_dentry;
+    struct inode *f_inode;
+    const struct file_operations *f_op;
+    void *private_data;
+    struct mutex f_pos_lock;
+};
+\end{ccode}
+
+\begin{itemize}
+  \item \code{super\_block} 表示一次文件系统挂载。
+  \item \code{dentry} 表示路径中的名字，并指向 inode。
+  \item \code{inode} 表示文件、目录或设备节点本身。
+  \item \code{file} 表示一次 \code{open()}；\code{dup()} 和 \code{fork()} 可以共享它。
+  \item \code{i\_rdev} 仅对字符设备有意义，保存 major/minor 合成的设备号。
+  \item \code{private\_data} 给设备驱动保存每次打开的私有状态。
+\end{itemize}
+
+\section{三张操作表}
+
+\begin{ccode}
+struct super_operations {
+    void (*put_super)(struct super_block *sb);
+    void (*evict_inode)(struct inode *inode);
+};
+
+struct inode_operations {
+    int (*lookup)(struct inode *dir, struct dentry *child);
+    int (*create)(struct inode *dir, struct dentry *child);
+    int (*truncate)(struct inode *inode);
+};
+
+struct file_operations {
+    int (*open)(struct inode *inode, struct file *file);
+    int (*read)(struct file *file, void *buf, uint32_t count);
+    int (*write)(struct file *file, const void *buf, uint32_t count);
+    int (*readdir)(struct inode *inode, const char *path,
+                   uint32_t index, struct vfs_dirent *entry);
+    void (*release)(struct inode *inode, struct file *file);
+};
+\end{ccode}
+
+职责划分：
+
+\begin{txtcode}
+inode->i_op   路径和元数据：lookup/create/truncate
+inode->i_fop  此 inode 默认的打开后操作
+file->f_op    本次 open 实际使用的操作，可在 open 中替换
+\end{txtcode}
+
+\section{普通文件}
+
+minifs、FAT32 和 bootfs 都直接提供自己的操作表：
+
+\begin{txtcode}
+minifs inode
++-- i_op  = minifs_iops
++-- i_fop = minifs_file_fops 或 minifs_dir_fops
+
+FAT32 inode
++-- i_op  = fat32_iops
++-- i_fop = fat32_file_fops 或 fat32_dir_fops
+\end{txtcode}
+
+读取 \file{/bin/ls}：
+
+\begin{txtcode}
+sys_read(fd)
+  → current->files[fd]
+  → file->f_op->read(file, ...)
+  → minifs_vfs_read()
+  → 根据 file->f_inode->i_ino 读取 SD 卡 minifs 数据块
+\end{txtcode}
+
+读取 \file{/boot/kernel\_minios.img}：
+
+\begin{txtcode}
+sys_read(fd)
+  → file->f_op->read
+  → fat32_read()
+  → file->f_inode->i_private（fat_inode）
+  → FAT 簇链与 SD 块设备
+\end{txtcode}
+
+不再经过 \code{backend\_read()} 或 \code{super\_block->s\_backend}。
+
+\section{字符设备}
+
+devfs 只维护“名字到设备号”的关系：
+
+\begin{txtcode}
+"console" → inode(type=CHAR, i_rdev=1:0)
+"ttyS0"   → inode(type=CHAR, i_rdev=3:0)
+"key0"    → inode(type=CHAR, i_rdev=13:0)
+\end{txtcode}
+
+字符设备 inode 的默认操作是 \code{def\_chr\_fops}：
+
+\begin{txtcode}
+inode->i_fop = def_chr_fops
+                   |
+                   +-- open = chrdev_open
+\end{txtcode}
+
+\code{chrdev\_open()} 根据 \code{inode->i\_rdev} 查询全局字符设备表，然后替换本次打开文件的操作表：
+
+\begin{ccode}
+file->f_op = driver_fops;
+\end{ccode}
+
+因此 \file{/dev/console} 的完整路径是：
+
+\begin{txtcode}
+open("/dev/console")
+  → devfs_iops.lookup
+  → inode(i_rdev=1:0, i_fop=def_chr_fops)
+  → file->f_op = inode->i_fop
+  → def_chr_fops.open
+  → chrdev_find(1:0)
+  → file->f_op = console_fops
+
+read(fd)
+  → file->f_op->read
+  → console_read
+  → t113_uart_read
+\end{txtcode}
+
+GPIO 按键同样执行：
+
+\begin{txtcode}
+/dev/key0 → 13:0 → gpio_keys_fops → gpio_keys_read
+\end{txtcode}
+
+devfs 不再提供 \code{devfs\_read()} 或 \code{devfs\_write()}，也不接触 UART/GPIO寄存器。
+
+\section{路径查找}
+
+\code{lookup\_path()} 先以最长前缀选择挂载，再从该挂载的根 dentry 开始逐分量查找：
+
+\begin{txtcode}
+/bin/ls
+  → minifs root inode
+  → i_op->lookup(parent inode, child dentry "bin")
+  → bin inode
+  → i_op->lookup(bin inode, child dentry "ls")
+  → ls inode
+\end{txtcode}
+
+文件系统的 \code{lookup()} 调用 \code{t113\_vfs\_bind\_inode()}，把查找结果绑定到dentry，并设置该 inode 的 \code{i\_op/i\_fop/i\_private}。inode cache 使用\code{(super\_block, i\_ino)} 作为键。
+
+目前 devfs 直接使用 \code{child->d\_name}；minifs 和 FAT32 虽然已经原生实现\code{i\_op->lookup}，内部仍利用 \code{child->d\_path} 复用现有的完整路径解析器。后续可以把这两个解析器继续收窄为“父 inode + 单个分量”。
+
+\section{挂载}
+
+\begin{ccode}
+int t113_vfs_mount_fs(const char *path,
+                      uint32_t magic,
+                      void *fs_info,
+                      const struct super_operations *s_op,
+                      const struct inode_operations *root_iop,
+                      const struct file_operations *root_fop);
+\end{ccode}
+
+当前挂载：
+
+\begin{txtcode}
+/       minifs，SD 第二分区，只读
+/boot   FAT32，SD 第一分区，读写；失败时可退回 bootfs
+/dev    devfs，动态字符设备节点
+/sys    sysfs，只读投影 driver core 的 kobject/device/bus/driver
+\end{txtcode}
+
+挂载根 inode 直接使用文件系统传入的 \code{root\_iop/root\_fop}。FAT32 通过\code{super\_operations.evict\_inode} 在最后一个 VFS inode 引用释放时写回目录项并释放 \code{fat\_inode} 引用。
+
+\section{与 Linux 的关系}
+
+当前主要派发方式已经与 Linux 一致：
+
+\begin{txtcode}
+路径操作       inode->i_op
+普通文件 I/O   file->f_op → 文件系统 fops
+字符设备 I/O   file->f_op → 驱动 fops
+设备选择       inode->i_rdev → chrdev table
+\end{txtcode}
+
+miniOS 仍然比 Linux 简化：对象来自静态池，没有 RCU、页缓存、完整权限模型、负 dentry、umount 和并发 rename；挂载切换仍先用最长字符串前缀选挂载，而不是在逐级 path walk 中穿越 mountpoint。
+
+\section{\code{vfs.h} 当前保留的重要结构体}
+
+\code{vfs.h} 是文件系统、devfs 和设备驱动共同依赖的公开接口。当前重要结构体可以分成“操作表”“VFS 对象”和“目录项输出”三组。
+
+\subsection{操作表}
+
+\begin{txtcode}
+super_operations
++-- put_super(sb)       卸载或释放文件系统实例（目前尚未实现 umount）
++-- evict_inode(inode)  VFS inode 最后一个引用消失时释放文件系统私有对象
+
+inode_operations
++-- lookup(dir, child)  在目录中查找一个名字，并给 child 绑定 inode
++-- create(dir, child)  创建普通文件并绑定 inode
++-- truncate(inode)     截断文件
+
+file_operations
++-- open(inode, file)   初始化本次打开；也可以替换 file->f_op
++-- read(file, ...)
++-- write(file, ...)
++-- readdir(inode, path, index, entry)
++-- release(inode, file)
+\end{txtcode}
+
+\code{inode\_operations} 操作的是文件系统名字空间和文件元数据；\code{file\_operations} 操作的是一次已经打开的文件。当前 \code{readdir()} 仍以 inode而不是打开的目录 file 为参数，这是 miniOS 的简化，并非完整 Linux 接口。
+
+\subsection{VFS 对象}
+
+\begin{txtcode}
+vfs_mount
++-- path                 挂载路径，例如 /、/boot、/dev
++-- sb -------------------------------+
++-- mnt_root ----------------+        |
++-- parent                   |        |
++-- mountpoint               |        |
+                             v        v
+                         dentry    super_block
+                         +-- d_name   +-- s_magic
+                         +-- d_path   +-- s_op
+                         +-- d_parent +-- s_root --> 根 dentry
+                         +-- d_sb ----+
+                         +-- d_inode  +-- s_fs_info
+                                |
+                                v
+                              inode
+                              +-- i_ino / i_size / i_type
+                              +-- i_rdev
+                              +-- i_sb
+                              +-- i_op
+                              +-- i_fop
+                              +-- i_private
+
+进程 fd 表 --> file
+               +-- f_dentry --> dentry
+               +-- f_inode  --> inode
+               +-- f_op
+               +-- f_pos / f_pos_lock
+               +-- private_data
+\end{txtcode}
+
+各对象分别回答不同问题：
 
 \begin{table}[H]
 \centering
 \small
 \begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
 \toprule
-方面 & 旧实现（d8a6613） & 现在 \\
+对象 & 表示什么 & 关键关系 \\
 \midrule
-挂载 & \code{mounts[4]}，每项只有路径和 \code{ops} & \code{vfs\_mount} + \code{super\_block}，子挂载记下父挂载和挂载点 dentry \\
-名字解析 & \code{ops->lookup("/boot/fw\_xr829.bin")} 一次解析整条路径 & \code{lookup\_path()} 按分量走，每一级一个 \code{dentry} \\
-文件身份 & \code{open\_files[]} 里复制一份 \code{vfs\_node} & 共享的 \code{inode}，同一文件多次打开指向同一个 inode \\
-操作分派 & 直接调后端函数 & \code{inode->i\_op} / \code{file->f\_op}，再经适配层到后端 \\
-文件位置 & 全局 \code{vfs\_lock} 下更新 offset & 每个 \code{file} 一把 \code{f\_pos\_lock}，字符设备不加锁 \\
-控制台 & fd 0/1/2 在系统调用里特判 UART & \file{/init} 打开 \file{/dev/console} 再 \code{dup}，全走 VFS \\
+\code{super\_block} & 一次文件系统实例 & \code{s\_root} 指向根 dentry；\code{s\_fs\_info} 保存 minifs/FAT32/devfs 的实例数据 \\
+\code{dentry} & 路径中的一个名字 & \code{d\_parent} 构成目录层次，\code{d\_inode} 指向名字对应的 inode \\
+\code{inode} & 文件、目录或设备节点本身 & \code{i\_op} 管路径/元数据，\code{i\_fop} 是默认打开操作 \\
+\code{file} & 一次 \code{open()} 形成的打开文件描述 & \code{f\_op} 是本次打开最终使用的操作表；\code{f\_pos} 是共享偏移 \\
+\code{vfs\_mount} & 把一个 super block 接到路径树上 & 保存挂载路径、父挂载和挂载点 \\
+\code{vfs\_dirent} & \code{readdir()} 返回给调用者的一项 & 只是结果结构，不参与缓存和引用关系 \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-后端接口 \code{struct vfs\_backend\_ops} 还保留着，每个文件系统仍然接收\textbf{累计的绝对路径}。新对象层和旧后端之间由 \code{vfs.c} 里的一组通用 \code{backend\_*} 函数衔接，后面第~\ref{sec:vfs-ops} 节专门讲。
+三个私有指针不要混淆：
 
-\section{五种对象和它们的池}
+\begin{txtcode}
+super_block.s_fs_info  每次挂载/文件系统实例的私有数据
+inode.i_private       某个 inode 的文件系统私有数据，例如 FAT inode
+file.private_data     某次 open 的私有数据，例如设备会话状态
+\end{txtcode}
 
-所有对象都是 \code{vfs.c} 里的静态数组，没有动态分配。\code{used} 表示槽位占用，\code{references} 是引用计数。
+\subsection{引用和共享关系}
 
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}Xl>{\raggedright\arraybackslash}X}
-\toprule
-对象 & 池 & 查找键 & 谁持有引用 \\
-\midrule
-\code{struct vfs\_mount} & \code{mounts[8]} & 挂载路径字符串 & 永不释放（没有 umount） \\
-\code{struct super\_block} & \code{super\_blocks[8]} & — & 挂载 1 个，加上它名下每个 inode 各 1 个 \\
-\code{struct dentry} & \code{dentry\_cache[128]} & \code{(d\_sb, d\_path)} & 子 dentry、\code{file}、\code{vfs\_mount}、正在进行的 lookup \\
-\code{struct inode} & \code{inode\_cache[128]} & \code{(i\_sb, i\_ino)} & 指向它的 dentry \\
-\code{struct file} & \code{open\_files[32]} & — & 进程的 fd 表（\code{dup}、\code{fork} 会加）和进行中的 read/write \\
-\bottomrule
-\end{tabularx}
-\end{table}
+当前对象来自 \code{vfs.c} 的固定大小静态池：8 个 mount、8 个 super block、128 个inode、128 个 dentry 和 32 个 file。它们不是动态分配的。
 
-全部对象都由一把全局 \code{struct mutex vfs\_lock} 保护。真正的 I/O 不在这把锁里做（见第~\ref{sec:vfs-io} 节）。
+\begin{txtcode}
+mount 持有 super_block 和根 dentry
+dentry 持有 inode，并持有父 dentry
+file 持有 dentry；通过 dentry 间接保持 inode 有效
+进程 files[fd] 持有 file
+dup()/fork() 增加同一个 file->references
+\end{txtcode}
 
-\subsection{字段}
+因此 \code{dup()} 或 \code{fork()} 后多个 fd/进程共享同一个 \code{struct file}，也共享\code{f\_pos}；普通文件用 \code{f\_pos\_lock} 串行化 I/O 和偏移更新。字符设备不使用文件位置，所以 \code{t113\_vfs\_read/write()} 不为字符设备获取 \code{f\_pos\_lock}。
+
+\code{vfs\_lock} 只保护对象池、引用计数和 file 有效性检查。读写时 VFS 先在锁内临时增加 \code{file->references}，随后释放全局锁，再调用 \code{file->f\_op->read/write()}；这样 UART 阻塞读取时不会长期占用全局 VFS 锁。
+
+\section{\code{chrdev.h} 当前保留的内容}
+
+\code{chrdev.h} 刻意保持很薄，目前没有公开 \code{struct cdev} 或\code{struct chrdev\_entry}。它只包含：
 
 \begin{ccode}
-struct super_block {               /* 一次挂载的文件系统实例 */
-    uint32_t s_magic;              /* minifs 0x10203040, fat32 0x4d44,
-                                      devfs 0x1373, bootfs 0x424f4f54 */
-    const struct super_operations *s_op;
-    struct dentry *s_root;         /* 本章件系统的根 dentry */
-    void *s_fs_info;               /* minifs &fs_sb, fat32 &fs, devfs nodes */
-    const struct vfs_backend_ops *s_backend;   /* 旧后端接口 */
-};
+MINIOS_MKDEV(major, minor)  /* 组合 16 位 major 和 16 位 minor */
+MINIOS_MAJOR(dev)
+MINIOS_MINOR(dev)
 
-struct inode {                     /* 一个文件或目录本身 */
-    uint32_t i_ino, i_size, i_type;           /* DIR=1 FILE=2 CHAR=3 */
-    struct super_block *i_sb;
-    const struct inode_operations *i_op;      /* lookup/create/truncate */
-    const struct file_operations *i_fop;      /* 打开后用的操作表 */
-    void *i_private;               /* 后端私有（fat32: fat_inode 槽位） */
-    struct vfs_node i_backend_node;           /* 交给后端的句柄 */
-};
-
-struct dentry {                    /* 路径中的一个名字 */
-    char d_name[31];               /* 本级名字，如 "fw_xr829.bin" */
-    char d_path[128];              /* 累计绝对路径，如 "/boot/fw_xr829.bin" */
-    struct dentry *d_parent;       /* 持有父 dentry 的一个引用 */
-    struct inode *d_inode;         /* 持有 inode 的一个引用 */
-    struct super_block *d_sb;
-};
-
-struct file {                      /* 一次 open 的结果 */
-    uint32_t f_flags, f_pos;
-    struct dentry *f_dentry;       /* 持有 dentry 的一个引用 */
-    struct inode *f_inode;
-    const struct file_operations *f_op;
-    struct mutex f_pos_lock;
-};
-
-struct vfs_mount {                 /* 挂载树的一条边 */
-    char path[128];
-    struct super_block *sb;
-    struct dentry *mnt_root;       /* == sb->s_root */
-    struct vfs_mount *parent;      /* 被挂在哪个挂载下面 */
-    struct dentry *mountpoint;     /* 父文件系统里的那个目录 dentry */
-};
+void t113_chrdev_init(void);
+int t113_chrdev_register(uint16_t major, uint16_t minor,
+                         const struct file_operations *fops);
+const struct file_operations *t113_chrdev_inode_fops(void);
 \end{ccode}
 
-\section{启动后的对象图}
-
-\code{kernel\_boot()} 依次挂 \file{/}（minifs）、\file{/boot}（FAT32，失败退回 bootfs）、\file{/dev}（devfs）。\file{/init} 打开 \file{/dev/console} 并 \code{dup} 两次之后，对象之间是这样连的（括号里是引用计数；这是设计上的结果，前提是第~\ref{sec:vfs-issues} 节第 1 条的minifs 目录查找问题已经修好）：
-
-\begin{txtcode}
-mounts[0] "/"          mounts[1] "/boot"                mounts[2] "/dev"
-  | parent=0             | parent=mounts[0]               | parent=mounts[0]
-  |                      | mountpoint ---------+          | mountpoint -------------+
-  v                      v                     |          v                         |
-sb0 minifs (4)         sb1 fat32 (2)           |        sb2 devfs (3)               |
-  | s_root               | s_root              |          | s_root                  |
-  v                      v                     |          v                         |
-dentry "/" sb0 (3) <-+  dentry "/boot" sb1 (1) |        dentry "/dev" sb2 (2) <-+   |
-  | d_inode          |    | d_inode            |          | d_inode             |   |
-  v                  |    v                    |          v                     |   |
-inode ino=0 DIR      |  inode ino=0 DIR        |        inode ino=0 DIR         |   |
-                     |                         |                                |   |
-     d_parent -------+                         |      d_parent -----------------+   |
-                     |                         |                                |   |
-dentry "/boot" sb0 (1) <-----------------------+      dentry "/dev/console" sb2 (1)  |
-  +> inode ino=4 DIR (minifs)                           +> inode ino=0x10000 CHAR    |
-dentry "/dev" sb0 (1) <--------------------------------------------------------------+
-  +> inode ino=3 DIR (minifs)                                     ^ f_dentry
-                                                                  |
-                                    open_files[k] (3) ------------+
-                                    ^     ^     ^
-                         init: fd 0  fd 1  fd 2         (fork 后子进程再各加 1)
-\end{txtcode}
-
-几个要点：
-
-\begin{itemize}
-  \item 同一个路径字符串可以对应两个 dentry：\code{"/boot"} 在 sb0（minifs 里的空目录，也就是挂载点）和 sb1（FAT32 的根）各有一个。dentry 的键是\code{(d\_sb, d\_path)}，所以两者不会撞。
-  \item 挂载根的 inode 号统一是 0，类型是目录，不是后端里的真实根 inode（minifs 的根是 1）。后端靠路径而不是 inode 号处理根目录，所以没影响。
-  \item sb0 的计数 4 = 挂载本身 1 + 根 inode 1 + 两个挂载点 inode 各 1。sb0 根dentry 的计数 3 = 挂载 1 + 两个挂载点子 dentry 各 1。
-  \item 设备文件的 inode 号就是设备号 \code{MINIOS\_MKDEV(1, 0) = 0x10000}。
-\end{itemize}
-
-\section{路径查找：\code{lookup\_path()}}
+真正的注册表结构是 \code{chrdev.c} 的私有实现：
 
 \begin{ccode}
-static struct dentry *lookup_path(const char *path);
-\end{ccode}
-
-返回的 dentry 带一个调用者的引用，用完要 \code{dput()}。过程：
-
-\begin{enumerate}
-  \item \code{find\_mount(path)}：在 \code{mounts[]} 里取最长的匹配前缀，并要求前缀后面是\file{/} 或字符串结束，所以 \file{/bootx} 只匹配 \file{/}。
-  \item 从这个挂载的 \code{mnt\_root} 出发，引用加一。
-  \item 跳过挂载路径，剩下的部分逐个分量处理：- 名字长度为 0 或超过 \code{VFS\_NAME\_MAX}（30）就失败；- \code{append\_component()} 把分量接到累计路径 \code{absolute} 上；- \code{alloc\_dentry(sb, current, name, absolute)}：先按 \code{(sb, absolute)} 找已有的 dentry，找到就加引用；没有就占一个空槽，\code{d\_parent = current} 并给父dentry 加引用；- 新 dentry 还没有 inode 时，调用 \code{current->d\_inode->i\_op->lookup(dir, child)}，失败就把这个 dentry 放掉，整次查找失败；- \code{dput(current)}，\code{current = child}。
-  \item 返回最后一级。
-\end{enumerate}
-
-以 \code{t113\_vfs\_open("/boot/fw\_xr829.bin")} 为例：
-
-\begin{txtcode}
-find_mount("/boot/fw_xr829.bin")             "/" 和 "/boot" 都匹配，取 "/boot"
-current = mounts[1].mnt_root                 dentry "/boot" (sb1)
-absolute = "/boot"
-分量 "fw_xr829.bin"
-+-- absolute = "/boot/fw_xr829.bin"
-+-- alloc_dentry(sb1, "/boot", ...)          dcache 未命中，新建，父 dentry 引用 +1
-+-- i_op->lookup = backend_lookup()
-|   +-- fat32_ops.lookup("/boot/fw_xr829.bin", &node)
-|       +-- resolve() → iget()               fat_inode 槽位 ref +1
-|           node = { id = 槽位地址, size, FILE, private_data = 槽位 }
-|   +-- alloc_inode(sb1, &node)              按 (sb1, id) 查 icache，未命中则新建
-+-- dput("/boot")
-返回 dentry "/boot/fw_xr829.bin"
-\end{txtcode}
-
-\file{/bin/sh} 这类根文件系统里的多级路径会走两步：先为 \code{"/bin"} 建 dentry，由 minifs 查出目录 inode，再为 \code{"/bin/sh"} 建 dentry。（minifs 当前在第一步会失败，见第~\ref{sec:vfs-issues} 节。）
-
-\textbf{跨挂载点的方式。} 查找从不“走过”挂载点：选哪个文件系统完全由第 1 步的字符串前缀决定，挂载点 dentry 只在挂载时用来确认父文件系统里确实有这个目录。Linux 是在逐级走的过程中，看到 dentry 被挂载过（\code{d\_mounted}）就切到被挂载文件系统的根（\code{traverse\_mounts()}），\code{..} 走到挂载根时再沿\code{mnt\_parent} 回到挂载点。miniOS 现在不处理 \code{.} 和 \code{..}：它们作为普通分量交给后端，\file{/boot/..} 回不到 minifs 的 \file{/}。
-
-\section{三张操作表和适配层}\label{sec:vfs-ops}
-
-\code{vfs.h} 定义了 Linux 形状的三张表：
-
-\begin{ccode}
-struct super_operations { void (*put_super)(struct super_block *); };
-struct inode_operations {
-    int (*lookup)(struct inode *dir, struct dentry *child);
-    int (*create)(struct inode *dir, struct dentry *child);
-    int (*truncate)(struct inode *inode);
+struct chrdev_entry {
+    uint32_t dev;                         /* 完整 major:minor */
+    const struct file_operations *fops;  /* 具体设备驱动操作 */
+    uint32_t used;
 };
-struct file_operations {
-    int  (*open)(struct inode *, struct file *);
-    int  (*read)(struct file *, void *, uint32_t);
-    int  (*write)(struct file *, const void *, uint32_t);
-    int  (*readdir)(struct inode *, const char *path, uint32_t index,
-                    struct vfs_dirent *);
-    void (*release)(struct inode *, struct file *);
-};
+
+static struct chrdev_entry chrdev_table[32];
 \end{ccode}
 
-各文件系统还没有自己的这三张表。\code{vfs.c} 给每个 inode 装的都是同一组\code{backend\_iops / backend\_fops / backend\_sops}，它们再通过 \code{i\_sb->s\_backend}调用旧接口：
+这种封装意味着 VFS、devfs 和驱动都不能直接遍历或修改全局字符设备表，只能调用注册接口。\code{chrdev\_lock} 保护注册和查找。当前没有注销接口、设备号范围、动态major、\code{struct cdev}、引用计数或驱动卸载，因此它更接近 Linux 2.4 的简单注册表，而不是 Linux 2.6 以后的 \code{cdev\_map}。
 
-\begin{txtcode}[basicstyle=\ttfamily\scriptsize]
-VFS 对象层                         适配层（vfs.c）              后端（每个文件系统）
-inode->i_op->lookup(dir, child) -> backend_lookup()  ---------> ops->lookup(child->d_path, &node)
-inode->i_op->create(dir, child) -> backend_create()  ---------> ops->create(child->d_path, &node)
-inode->i_op->truncate(inode)    -> backend_truncate() --------> ops->truncate(&i_backend_node)
-file->f_op->open(inode, file)   -> backend_open()    ---------> ops->open(&i_backend_node, flags)
-file->f_op->read(file, buf, n)  -> backend_read()    ---------> ops->read(&i_backend_node, f_pos, buf, n)
-file->f_op->write(file, buf, n) -> backend_write()   ---------> ops->write(&i_backend_node, f_pos, buf, n)
-inode->i_fop->readdir(...)      -> backend_readdir() ---------> ops->readdir(path, index, entry)
-iput() 最后一个引用              -----------------------------> ops->close(&i_backend_node)
-\end{txtcode}
+\section{\code{vfs.h} 与 \code{chrdev.h} 的关系}
 
-\code{lookup} 的参数已经是 Linux 的 \code{(父 inode, 子 dentry)}，但适配层只用了\code{child->d\_path}，后端还是从文件系统的根把整条路径重新解析一遍。把某个文件系统改成真正的逐级查找，只需要给它写自己的 \code{inode\_operations.lookup}：用\code{dir->i\_ino} 和 \code{child->d\_name} 在一个目录里找一项，然后在 \code{alloc\_inode} 时装上它自己的表。
-
-\subsection{各后端填的 \code{vfs\_node}}
-
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}Xl>{\raggedright\arraybackslash}X}
-\toprule
-后端 & \code{id}（成为 \code{i\_ino}） & \code{private\_data} & 实现的可选操作 \\
-\midrule
-minifs & 磁盘 inode 号 & 0 & 只有 lookup/read/readdir \\
-fat32 & \code{fat\_inode} 槽位地址 & 同一槽位 & create、truncate、write、close \\
-bootfs & 镜像在 DDR 中的地址 & 0 & 只有 lookup/read \\
-devfs & \code{MINIOS\_MKDEV(major, minor)} & \code{\&nodes[i]} & open、write \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-FAT32 用槽位地址当 inode 号，因为空文件的首簇都是 0，不能当身份。\code{fat32\_lookup()} 每次都会对 \code{fat\_inode} 加一次引用；如果 VFS 的 icache 里已经有这个 inode，\code{alloc\_inode()} 立刻用 \code{ops->close()} 把这次多出来的引用还回去，保证“一个 VFS inode 对应 FAT32 的一个引用”。
-
-\section{挂载：\code{t113\_vfs\_mount\_fs()}}
-
-\begin{ccode}
-int t113_vfs_mount_fs(const char *path, uint32_t magic, void *fs_info,
-                      const struct vfs_backend_ops *ops);
-\end{ccode}
-
-旧的 \code{t113\_vfs\_mount(path, ops)} 仍在，等于 \code{magic = 0, fs\_info = 0}。步骤：
+\code{chrdev.h} 依赖 \code{vfs.h}，因为字符设备最终注册的是 VFS 定义的\code{struct file\_operations}：
 
 \begin{txtcode}
-t113_vfs_mount_fs("/boot", 0x4d44, &fs, &fat32_ops)
-+-- 检查 path 以 '/' 开头，ops->lookup 必须有
-+-- lock vfs_lock
-+-- 不是 "/" 时：
-|   +-- parent_mount = find_mount("/boot")         → mounts[0] "/"
-|   +-- mountpoint   = lookup_path("/boot")        → minifs 里的 dentry，必须是目录
-+-- 路径已挂载过 → 失败
-+-- alloc_super()                                   sb 引用 = 1（归挂载）
-|   s_backend = ops, s_magic = magic, s_fs_info = fs_info
-+-- alloc_inode(sb, {id 0, size 0, DIR})            根 inode，sb 引用 +1
-+-- alloc_dentry(sb, NULL, "boot", "/boot")         根 dentry，没有父
-+-- root->d_inode = 根 inode；sb->s_root = root
-+-- mounts[i] = { path, sb, mnt_root = root, parent = parent_mount,
-                  mountpoint = mountpoint }         挂载点 dentry 的引用一直留着
+具体驱动
+  +-- console_fops / gpio_keys_fops
+          |
+          | t113_chrdev_register(major, minor, fops)
+          v
+chrdev_table：dev_t -> driver fops
+
+devfs
+  +-- 名字 -> dev_t
+      例如 "console" -> 1:0
+
+VFS inode
+  +-- i_type = VFS_NODE_CHAR
+  +-- i_rdev = 1:0
+  +-- i_fop = def_chr_fops
+                    | open
+                    v
+              chrdev_open()
+                    | 根据 i_rdev 查 chrdev_table
+                    v
+              file->f_op = console_fops
 \end{txtcode}
 
-所以挂载顺序有硬性要求：子挂载点必须是父文件系统里已经存在的目录。\code{tools/mkfs\_minifs.c} 因此在镜像里建了 \file{/bin}、\file{/dev}，现在又加了 \file{/boot}。\file{/dev} 的 devfs 也要求 minifs 里先有 \file{/dev} 目录。
-
-\section{open / read / write / close}\label{sec:vfs-io}
-
-\subsection{系统调用入口}
-
-\begin{txtcode}
-用户 open(path, flags)
-+-- sys_open()                                      kernel/syscall.c
-    +-- flags 只能是 RDONLY/RDWR，加 O_CREATE(0x200)、O_TRUNC(0x400)
-    +-- copy_user_string(path)
-    +-- t113_vfs_open(path, flags)
-    +-- 放进 t113_current->files[] 第一个空位（16 个 fd）
-\end{txtcode}
-
-\code{read/write} 先检查 fd 和用户缓冲区（\code{t113\_user\_vm\_range\_writable}、\code{user\_range\_ok}），然后直接调 \code{t113\_vfs\_read/write}。fd 0/1/2 不再特判：\file{/init} 一开始 \code{open("/dev/console", O\_RDWR)} 得到 fd 0，再 \code{dup(0)} 两次得到1 和 2。\code{dup} 调 \code{t113\_vfs\_file\_get()}，\code{fork} 时 \code{t113\_kernel\_clone()} 复制 fd 表，也对每个 fd 调一次。
-
-\subsection{\code{t113\_vfs\_open()}}
-
-\begin{txtcode}
-t113_vfs_open(path, flags)
-+-- 参数检查：O_TRUNC 只能和 RDWR 一起用
-+-- lock vfs_lock
-+-- dentry = lookup_path(path)
-+-- 找不到且有 O_CREATE → create_path(path)
-|   +-- split_parent()：  "/boot/a.txt" → "/boot" + "a.txt"
-|   +-- parent = lookup_path("/boot")，必须是目录
-|   +-- child = alloc_dentry(sb, parent, "a.txt", path)
-|   +-- parent->d_inode->i_op->create(dir, child)    → fat32_create()
-+-- dentry 不存在或是目录 → 失败
-+-- O_TRUNC → inode->i_op->truncate(inode)           → fat32_truncate()
-+-- 在 open_files[] 占一个槽：
-|   f_flags = mode, f_pos = 0, f_dentry = dentry（接过 lookup 的那个引用）
-|   f_inode = inode, f_op = inode->i_fop, 初始化 f_pos_lock
-+-- 以 RDWR 打开但后端没有 write → 失败（minifs、bootfs 都是只读）
-+-- f_op->open(inode, file)                          devfs 只检查 flags
-+-- unlock vfs_lock，返回 file
-\end{txtcode}
-
-\subsection{\code{t113\_vfs\_read()} / \code{t113\_vfs\_write()}}
-
-\begin{txtcode}
-t113_vfs_read(file, buf, n)
-+-- lock vfs_lock
-|   +-- 检查 file 有效、后端有 read
-|   +-- file->references++                ← 临时引用
-|   +-- positional = (i_type != CHAR)
-+-- unlock vfs_lock
-+-- positional ? lock f_pos_lock
-+-- result = f_op->read(file, buf, n)     → backend_read → ops->read(node, f_pos, ...)
-+-- result > 0 且 positional → f_pos += result
-+-- positional ? unlock f_pos_lock
-+-- t113_vfs_close(file)                  ← 放掉临时引用
-\end{txtcode}
-
-\code{write} 相同，另外在 \code{f\_pos} 超过 \code{i\_size} 时同时更新 \code{i\_size} 和\code{i\_backend\_node.size}。
-
-这里有两处设计：
-
-\begin{itemize}
-  \item \textbf{I/O 不持有 \code{vfs\_lock}。} 控制台读会睡眠等按键，SD 读要等卡，如果在全局锁里做，一个进程读控制台就会卡住所有进程的 open。代价是 I/O 期间别的线程可能 \code{close} 这个 fd，所以读写前先拿一个临时引用，保证 \code{file} 槽位在 I/O结束前不被回收。
-  \item \textbf{字符设备不加 \code{f\_pos\_lock}。} 设备没有位置，后端也忽略 offset；共享同一个控制台 \code{file} 的父子进程不应该因为一个在等输入，另一个就不能输出。Linux 的做法一样：只有带 \code{FMODE\_ATOMIC\_POS} 的普通文件才在 \code{fdget\_pos()} 里锁\code{f\_pos\_lock}。
-\end{itemize}
-
-\subsection{\code{t113\_vfs\_close()} 与释放链}
-
-\begin{txtcode}
-t113_vfs_close(file)
-+-- --file->references == 0
-    +-- f_op->release（适配层为空）
-    +-- dput(f_dentry)
-    |   +-- --references == 0
-    |       +-- iput(d_inode)
-    |       |   +-- --references == 0
-    |       |       +-- i_private 非空且后端有 close → ops->close()
-    |       |       |   （fat32：dirty 时回写目录项，fat_inode ref--）
-    |       |       +-- sb->references--，槽位释放
-    |       +-- 槽位释放
-    |       +-- dput(d_parent)       一路向上，直到遇到还有别人引用的 dentry
-    +-- 槽位释放
-\end{txtcode}
-
-dentry 的引用归零就立即释放，没有保留在 LRU 里，也没有负 dentry。所以“dcache”只在同一对象同时被多人使用时起作用：\file{/dev/console} 被三个 fd 共享时只有一个 dentry；关掉以后再次打开，会重新逐级调用后端 lookup。
-
-\subsection{\code{t113\_vfs\_readdir()}}
-
-\begin{txtcode}
-t113_vfs_readdir(path, index, entry)
-+-- lock vfs_lock
-+-- dentry = lookup_path(path)，必须是目录
-+-- i_fop->readdir(inode, path, index, entry)   → ops->readdir(path, index, entry)
-+-- dput(dentry)
-+-- unlock vfs_lock
-\end{txtcode}
-
-\code{ls} 每读一项就调一次，后端每次从头数到第 \code{index} 项。\code{readdir} 是在\code{vfs\_lock} 里做的，FAT32 读目录簇时会让其他 VFS 调用等待。
-
-\section{引用计数规则一览}
+这里实际存在两张彼此独立的表：
 
 \begin{table}[H]
 \centering
 \small
 \begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
 \toprule
-动作 & 加引用 & 减引用 \\
+表 & 保存的映射 & 负责什么 \\
 \midrule
-\code{alloc\_super()} & sb = 1（挂载） & — \\
-\code{alloc\_inode()} 新建 & inode = 1（dentry），sb +1 & — \\
-\code{alloc\_inode()} 命中 & inode +1 & 后端多拿的那个引用立即 close \\
-\code{alloc\_dentry()} 新建 & dentry = 1，父 dentry +1 & — \\
-\code{alloc\_dentry()} 命中 & dentry +1 & — \\
-\code{lookup\_path()} 每走一步 & child & \code{dput(current)} \\
-\code{t113\_vfs\_open()} & file = 1，接管 dentry 的引用 & 失败时 \code{dput} \\
-\code{dup} / \code{fork} & file +1 & — \\
-read/write 期间 & file +1 & 结束时 −1 \\
-\code{close} / 进程退出 & — & file −1 → \code{dput} → \code{iput} → 后端 close \\
+devfs \code{nodes[]} & \code{"console" -> (1,0)} & 路径名字和设备号的关系 \\
+chrdev \code{chrdev\_table[]} & \code{(1,0) -> console\_fops} & 设备号和驱动操作的关系 \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\section{与 Linux、xv6 对照}
+\code{t113\_devfs\_create\_chrdev("console", 1, 0)} 只创建第一种映射；\code{t113\_chrdev\_register(1, 0, \&console\_fops)} 只创建第二种映射。两步都成功后，\file{/dev/console} 才能正常打开并到达 UART 驱动。
 
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
-\toprule
-方面 & xv6 & Linux & T113 miniOS \\
-\midrule
-有没有 VFS & 没有，只有一种文件系统 & 有 & 有，四种后端 \\
-超级块 & 磁盘结构 \code{struct superblock}，全局一份 & \code{struct super\_block}，\code{s\_op}、\code{s\_root}、\code{s\_fs\_info} & 同名结构，\code{s\_backend} 指向旧后端 \\
-inode 缓存 & \code{itable.inode[NINODE=50]}，键 \code{(dev, inum)} & icache 哈希，键 \code{(sb, ino)} & \code{inode\_cache[128]} 线性扫描，键 \code{(sb, ino)} \\
-名字缓存 & 无，\code{namex()} 每次都调 \code{dirlookup()} & dcache，键 \code{(父 dentry, 名字)}，LRU + 负 dentry，RCU 遍历 & \code{dentry\_cache[128]}，键 \code{(sb, 完整路径)}，引用归零即释放 \\
-逐级查找 & \code{namex()} → \code{dirlookup(dp, name)} & \code{link\_path\_walk()} → \code{i\_op->lookup(dir, dentry)} & \code{lookup\_path()} 逐级建 dentry，后端仍收整条路径 \\
-跨挂载点 & 无挂载 & \code{traverse\_mounts()}，\code{..} 经 \code{mnt\_parent} 回退 & 最长前缀选挂载；\code{..} 不跨挂载 \\
-挂载 & 无 & \code{struct mount}：\code{mnt\_parent}、\code{mnt\_mountpoint}、\code{mnt\_root} & \code{vfs\_mount}：\code{parent}、\code{mountpoint}、\code{mnt\_root} \\
-打开文件 & \code{ftable.file[100]}，\code{ref}、\code{off} & \code{struct file}，\code{f\_count}、\code{f\_pos}、\code{f\_pos\_lock} & \code{open\_files[32]}，\code{references}、\code{f\_pos}、\code{f\_pos\_lock} \\
-设备文件 & 磁盘 \code{T\_DEVICE} inode + \code{devsw[major]} & 字符设备 inode 的 \code{i\_fop} 换成 \code{def\_chr\_fops} → \code{cdev} & devfs 节点 + \code{chrdev\_table[32]} 按设备号分派 \\
-锁 & 每个 inode 一把 sleeplock & \code{i\_rwsem}、\code{d\_lock}、RCU 等细粒度锁 & 全局 \code{vfs\_lock} + 每个 file 的 \code{f\_pos\_lock} \\
-\bottomrule
-\end{tabularx}
-\end{table}
+\section{从系统调用到对象的完整关系}
 
-\section{现状与已知问题}\label{sec:vfs-issues}
-
-以下是读代码得出的结论，还没有上板验证。
-
-\begin{enumerate}
-  \item \textbf{minifs 的 lookup 不接受目录，启动会在挂 \file{/boot} 时停下。} \code{minifs\_vfs\_lookup()} 调的是 \code{t113\_minifs\_open()}，后者要求\code{inode.type == MINIFS\_T\_FILE}。旧 VFS 把整条路径交给后端，不需要单独查目录，所以没出问题。现在 \code{t113\_vfs\_mount\_fs("/boot")} 要先\code{lookup\_path("/boot")} 拿挂载点，minifs 返回失败，FAT32 和 bootfs 都挂不上，\code{kernel\_boot()} 会 panic \code{cannot mount boot filesystem at /boot}。即使绕过这一步，\file{/dev} 的挂载和 \code{exec("/bin/sh")} 也会因为 \file{/dev}、\file{/bin} 查不到而失败。改法：\code{minifs\_vfs\_lookup()} 直接用 \code{namei()} + \code{read\_inode()}，不检查类型。
-  \item \textbf{后端仍按整条路径解析。} 每走一级，minifs 都从根 inode 重新 \code{namei()}，深度为 d 的路径要做大约 d²/2 次目录查找。改成真正的逐级 lookup 后，每级只查一个目录。
-  \item \textbf{dentry 不缓存。} 引用归零就释放；改进方向是保留未使用的 dentry（LRU）并缓存“不存在”的结果。
-  \item \textbf{名字长度上限 30。} \code{VFS\_NAME\_MAX} 取自 minifs 的 \code{DIRSIZ}。FAT32 支持127 字节的长文件名，但超过 30 字节的分量会在 \code{lookup\_path()} 里直接失败。\code{d\_path} 上限 128 字节也限制了路径总长。
-  \item \textbf{不处理 \code{.}、\code{..} 和跨挂载回退}，也没有每进程 cwd（\code{getcwd} 返回\code{"/"}）。
-  \item \textbf{对象池固定，查找是线性扫描。} 128 个 dentry 和 128 个 inode 对现在的用户程序足够。FAT32 自己只有 16 个 \code{fat\_inode} 槽位，打开的文件和它路径上的子目录各占一个。
-  \item \textbf{大小存了三份。} \code{inode->i\_size}、\code{i\_backend\_node.size} 和 FAT32 的\code{fat\_inode.size} 由 write 路径分别更新，以后有了真正的 FAT32 \code{inode\_operations} 可以合成一份。
-\end{enumerate}
-
-\section{下一步可以怎样演进}
+以 \code{read(fd, buffer, count)} 为例：
 
 \begin{txtcode}
-现在                                       目标
-backend_iops（所有 fs 共用）               minifs_iops / fat32_iops / devfs_iops
-  lookup(child->d_path)                      lookup(dir->i_ino, child->d_name)
-vfs_node 句柄                              inode->i_private 直接指向后端 inode
-find_mount() 字符串前缀                     逐级走 dentry，遇挂载点切换到 mnt_root
-dentry 引用归零即释放                       LRU + 负 dentry
-d_path[128] 作为键                          (d_parent, d_name) 哈希
+用户 fd（整数）
+  -> current->files[fd]             struct file *
+  -> t113_vfs_read(file, ...)
+       +-- 临时增加 file 引用
+       +-- 普通文件：锁住 file->f_pos_lock
+       +-- file->f_op->read(file, ...)
+              +-- 普通文件：minifs/FAT32 fops
+              |      -> file->f_inode
+              |      -> inode->i_private / inode->i_sb->s_fs_info
+              |      -> SD 块设备
+              +-- 字符设备：console_fops
+                     -> UART RX 缓冲区/寄存器
 \end{txtcode}
 
-按这个顺序做，每一步都能单独上板测：先修第~\ref{sec:vfs-issues} 节第 1 条让系统能启动，再给minifs 写逐级 lookup（它只读，最简单），然后是 FAT32，最后去掉\code{vfs\_backend\_ops}。
+用户态的 fd 只是当前进程 fd 表的数组下标；内核 \code{struct file} 才是打开文件对象。它既不是磁盘上的文件，也不是 inode。多个 fd 可以指向同一个 file，一个inode 也可以同时对应多个相互独立、偏移不同的 file。
+
+\section{sysfs：把 driver core 投影到 \file{/sys}}
+
+目录如何生成、属性怎样由驱动提供、与 Linux sysfs 的差别，详见第~\ref{chap:sysfs} 章。
+
+\code{CONFIG\_SYSFS=y} 时，\code{kernel\_boot()} 在 driver core 完成设备枚举与驱动绑定后调用 \code{t113\_sysfs\_init()}。根 minifs 只提供空的 \file{/sys} 挂载点，实际目录和属性由 \code{sysfs.c} 根据当前内存对象动态生成，不写入 SD 卡。
+
+\begin{txtcode}
+/sys
++-- devices                         按 device.parent 展开的设备拓扑
+|   +-- platform
+|       +-- gic
+|       +-- uart3
+|       +-- timer0
+|       +-- user-key
+|       +-- twi2
+|       +-- sdc1
+|           +-- mmc1:0001:1
++-- bus                             按 bus_type 分类的视图
+    +-- platform
+    |   +-- devices
+    |   +-- drivers
+    +-- i2c
+    |   +-- devices
+    |   +-- drivers
+    +-- sdio
+        +-- devices
+        +-- drivers
+\end{txtcode}
+
+设备目录公开 \code{name}、\code{bus}、\code{driver}、\code{path} 四个只读属性；驱动目录公开\code{name} 与 \code{bound}。例如：
+
+\begin{shcode}
+ls /sys/devices/platform
+cat /sys/devices/platform/user-key/driver
+cat /sys/devices/platform/user-key/value
+cat /sys/devices/platform/user-key/keycode
+cat /sys/bus/platform/drivers/gpio-keys/bound
+cat /sys/bus/sdio/devices/mmc1:0001:1/path
+\end{shcode}
+
+当前 VFS 没有符号链接 inode，因此 \file{/sys/bus/*/devices/*} 使用可浏览的镜像目录，其 \code{path} 属性指回 \file{/devices/...}；这与 Linux sysfs 使用符号链接表达同一关系在语义上相同，但表示形式更简单。属性在每次 \code{read()} 时实时读取 driver core，后续注册的设备也会出现在目录中。
+
+\section{GPIO 按键}
+
+probe、中断、事件队列、寄存器和已知问题详见 第~\ref{chap:sysfs} 章。
+
+100ASK T113-S3 RESET 旁的 USER KEY 已作为 platform device \code{user-key} 注册：
+
+\begin{txtcode}
+compatible  gpio-keys
+GPIO        PB4
+有效电平    低
+上下拉      内部上拉
+中断        GPIOB，双边沿
+消抖        20 ms
+键值        KEY_ENTER (28)
+\end{txtcode}
+
+\code{gpio\_keys} 驱动在 probe 中申请 GPIOB IRQ，建立 16 项事件环形队列和等待队列，并注册字符设备 \code{(13,0)} 与 devfs 节点 \file{/dev/key0}。按下和释放分别产生\code{value=1}、\code{value=0} 的 \code{input\_event}；队列为空时读取进程睡眠，由 IRQ 入队后唤醒。用户态可运行：
+
+\begin{shcode}
+keytest
+\end{shcode}
+
+驱动模型与设备 I/O 是两条互补路径：
+
+\begin{txtcode}
+/sys/devices/platform/user-key  查看设备、总线和绑定驱动
+/dev/key0                       阻塞读取实际按键事件
+\end{txtcode}
+
+\section{已知限制（主机侧测试结果）}
+
+把 \code{vfs.c}、minifs、FAT32、bio、devfs、chrdev 用主机 gcc（ASan/UBSan）编进一个测试程序，用 \code{make t113} 生成的 \code{minifs.img} 和一个 FAT32 分区拼成 SD 卡镜像，按 \code{kernel\_boot()} 的顺序挂载后测试。下面这些都通过：
+
+\begin{itemize}
+  \item 挂载 \file{/}、\file{/boot}、\file{/dev}；读 \file{/init}、\file{/bin/sh}、\file{/bin/init}（硬链接）、\file{/boot/sub/deep.txt}，内容与主机文件一致；
+  \item \code{readdir} 列出 \file{/}、\file{/bin}、\file{/boot}、\file{/dev}；
+  \item \file{/dev/console} 经 \code{chrdev\_open()} 切到驱动 fops，读写成功，\code{f\_pos} 保持 0；
+  \item FAT32 的 \code{O\_CREATE}、写入、重新打开、\code{O\_TRUNC}；
+  \item 同一文件打开两次共享一个 dentry 和 inode；
+  \item 反复打开/关闭 500 次后 dentry、inode、file 槽位数回到开机时的值，FAT32 的16 个 \code{fat\_inode} 槽位也没有耗尽；没有锁重入。
+\end{itemize}
+
+发现的问题：
+
+\begin{enumerate}
+  \item \textbf{路径中间是非目录时没有拒绝。} \code{lookup\_path()} 不检查 \code{current} 是否为目录，直接调用它的 \code{i\_op->lookup}。minifs 和 FAT32 用完整路径解析，会自己失败；devfs 只比较 \code{child->d\_name}，所以 \file{/dev/console/console} 能打开控制台。在 \code{lookup\_path()} 调 \code{lookup} 之前加一次 \code{i\_type == VFS\_NODE\_DIR} 检查即可，这对应 Linux 的 \code{-ENOTDIR}。
+  \item \textbf{只写的字符设备打不开。} \code{t113\_chrdev\_register()} 允许只有 \code{write} 的fops，但 \code{t113\_vfs\_open()} 总是要求 \code{f\_op->read}。现在只有 \code{RDONLY/RDWR}两种模式，没有 \code{O\_WRONLY}，所以这种设备任何模式都打不开。
+  \item \code{alloc\_inode()} 命中缓存时传给 \code{evict\_inode()} 的临时 \code{struct inode} 只填了部分字段（\code{i\_op}、\code{i\_fop} 未初始化）。FAT32 只读 \code{i\_private}，现在没问题，但新文件系统的 \code{evict\_inode} 不能依赖其他字段。
+  \item bootfs 的目录 fops 没有 \code{readdir}，退回 bootfs 时 \code{ls /boot} 会失败。
+  \item 挂载根 inode 的 \code{i\_ino} 固定为 0，minifs 真正的根是 1；\file{/bin/..} 会得到另一个\code{i\_ino = 1} 的 inode。只读情况下没有影响。
+\end{enumerate}

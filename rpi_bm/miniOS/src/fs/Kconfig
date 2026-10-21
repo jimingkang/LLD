@@ -6,4 +6,8 @@ config MINIFS
     bool "Embedded miniFS"
     depends on VFS
     default y
+config SYSFS
+    bool "sysfs driver-model filesystem"
+    depends on VFS
+    default y if BOARD_100ASK_T113
 endmenu

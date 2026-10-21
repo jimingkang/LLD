@@ -17,5 +17,6 @@
 #define CONFIG_INPUT_GPIO_KEYS 1
 #define CONFIG_VFS 1
 #define CONFIG_MINIFS 1
+#define CONFIG_SYSFS 1
 #define CONFIG_USERSPACE 1
 #endif

@@ -221,6 +221,7 @@ int main(int argc, char **argv)
     uint32_t bin = allocate_inode(T_DIR);
     uint32_t dev = allocate_inode(T_DIR);
     uint32_t boot = allocate_inode(T_DIR);
+    uint32_t sys = allocate_inode(T_DIR);
     uint32_t init = allocate_inode(T_FILE);
     assert(root == ROOTINO);
     append_dirent(root, root, ".");
@@ -228,6 +229,7 @@ int main(int argc, char **argv)
     append_dirent(root, bin, "bin");
     append_dirent(root, dev, "dev");
     append_dirent(root, boot, "boot");
+    append_dirent(root, sys, "sys");
     append_dirent(root, init, "init");
     append_dirent(bin, bin, ".");
     append_dirent(bin, root, "..");
@@ -236,6 +238,8 @@ int main(int argc, char **argv)
     append_dirent(dev, root, "..");
     append_dirent(boot, boot, ".");
     append_dirent(boot, root, "..");
+    append_dirent(sys, sys, ".");
+    append_dirent(sys, root, "..");
 
     append_host_file(init, argv[2]);
     struct dinode init_inode;
@@ -258,6 +262,7 @@ int main(int argc, char **argv)
     round_directory(bin);
     round_directory(dev);
     round_directory(boot);
+    round_directory(sys);
     write_bitmap();
     close(image_fd);
     printf("mkfs_minifs: %s nmeta=%u blocks=%u used=%u inodes=%u "

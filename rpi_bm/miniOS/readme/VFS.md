@@ -203,6 +203,7 @@ int t113_vfs_mount_fs(const char *path,
 /       minifs，SD 第二分区，只读
 /boot   FAT32，SD 第一分区，读写；失败时可退回 bootfs
 /dev    devfs，动态字符设备节点
+/sys    sysfs，只读投影 driver core 的 kobject/device/bus/driver
 ```
 
 挂载根 inode 直接使用文件系统传入的 `root_iop/root_fop`。FAT32 通过
@@ -422,3 +423,116 @@ VFS inode
 用户态的 fd 只是当前进程 fd 表的数组下标；内核 `struct file` 才是打开文件
 对象。它既不是磁盘上的文件，也不是 inode。多个 fd 可以指向同一个 file，一个
 inode 也可以同时对应多个相互独立、偏移不同的 file。
+
+## sysfs：把 driver core 投影到 `/sys`
+
+目录如何生成、属性怎样由驱动提供、与 Linux sysfs 的差别，详见
+[SYSFS_INPUT.md](SYSFS_INPUT.md)。
+
+`CONFIG_SYSFS=y` 时，`kernel_boot()` 在 driver core 完成设备枚举与驱动绑定后
+调用 `t113_sysfs_init()`。根 minifs 只提供空的 `/sys` 挂载点，实际目录和属性
+由 `sysfs.c` 根据当前内存对象动态生成，不写入 SD 卡。
+
+```text
+/sys
+├── devices                         按 device.parent 展开的设备拓扑
+│   └── platform
+│       ├── gic
+│       ├── uart3
+│       ├── timer0
+│       ├── user-key
+│       ├── twi2
+│       └── sdc1
+│           └── mmc1:0001:1
+└── bus                             按 bus_type 分类的视图
+    ├── platform
+    │   ├── devices
+    │   └── drivers
+    ├── i2c
+    │   ├── devices
+    │   └── drivers
+    └── sdio
+        ├── devices
+        └── drivers
+```
+
+设备目录公开 `name`、`bus`、`driver`、`path` 四个只读属性；驱动目录公开
+`name` 与 `bound`。例如：
+
+```sh
+ls /sys/devices/platform
+cat /sys/devices/platform/user-key/driver
+cat /sys/devices/platform/user-key/value
+cat /sys/devices/platform/user-key/keycode
+cat /sys/bus/platform/drivers/gpio-keys/bound
+cat /sys/bus/sdio/devices/mmc1:0001:1/path
+```
+
+当前 VFS 没有符号链接 inode，因此 `/sys/bus/*/devices/*` 使用可浏览的镜像目录，
+其 `path` 属性指回 `/devices/...`；这与 Linux sysfs 使用符号链接表达同一关系在
+语义上相同，但表示形式更简单。属性在每次 `read()` 时实时读取 driver core，
+后续注册的设备也会出现在目录中。
+
+## GPIO 按键
+
+probe、中断、事件队列、寄存器和已知问题详见 [SYSFS_INPUT.md](SYSFS_INPUT.md)。
+
+100ASK T113-S3 RESET 旁的 USER KEY 已作为 platform device `user-key` 注册：
+
+```text
+compatible  gpio-keys
+GPIO        PB4
+有效电平    低
+上下拉      内部上拉
+中断        GPIOB，双边沿
+消抖        20 ms
+键值        KEY_ENTER (28)
+```
+
+`gpio_keys` 驱动在 probe 中申请 GPIOB IRQ，建立 16 项事件环形队列和等待队列，
+并注册字符设备 `(13,0)` 与 devfs 节点 `/dev/key0`。按下和释放分别产生
+`value=1`、`value=0` 的 `input_event`；队列为空时读取进程睡眠，由 IRQ 入队后
+唤醒。用户态可运行：
+
+```sh
+keytest
+```
+
+驱动模型与设备 I/O 是两条互补路径：
+
+```text
+/sys/devices/platform/user-key  查看设备、总线和绑定驱动
+/dev/key0                       阻塞读取实际按键事件
+```
+
+## 已知限制（主机侧测试结果）
+
+把 `vfs.c`、minifs、FAT32、bio、devfs、chrdev 用主机 gcc（ASan/UBSan）编进一个
+测试程序，用 `make t113` 生成的 `minifs.img` 和一个 FAT32 分区拼成 SD 卡镜像，
+按 `kernel_boot()` 的顺序挂载后测试。下面这些都通过：
+
+- 挂载 `/`、`/boot`、`/dev`；读 `/init`、`/bin/sh`、`/bin/init`（硬链接）、
+  `/boot/sub/deep.txt`，内容与主机文件一致；
+- `readdir` 列出 `/`、`/bin`、`/boot`、`/dev`；
+- `/dev/console` 经 `chrdev_open()` 切到驱动 fops，读写成功，`f_pos` 保持 0；
+- FAT32 的 `O_CREATE`、写入、重新打开、`O_TRUNC`；
+- 同一文件打开两次共享一个 dentry 和 inode；
+- 反复打开/关闭 500 次后 dentry、inode、file 槽位数回到开机时的值，FAT32 的
+  16 个 `fat_inode` 槽位也没有耗尽；没有锁重入。
+
+发现的问题：
+
+1. **路径中间是非目录时没有拒绝。** `lookup_path()` 不检查 `current` 是否为
+   目录，直接调用它的 `i_op->lookup`。minifs 和 FAT32 用完整路径解析，会自己
+   失败；devfs 只比较 `child->d_name`，所以 `/dev/console/console` 能打开控制台。
+   在 `lookup_path()` 调 `lookup` 之前加一次 `i_type == VFS_NODE_DIR` 检查即可，
+   这对应 Linux 的 `-ENOTDIR`。
+2. **只写的字符设备打不开。** `t113_chrdev_register()` 允许只有 `write` 的
+   fops，但 `t113_vfs_open()` 总是要求 `f_op->read`。现在只有 `RDONLY/RDWR`
+   两种模式，没有 `O_WRONLY`，所以这种设备任何模式都打不开。
+3. `alloc_inode()` 命中缓存时传给 `evict_inode()` 的临时 `struct inode` 只填了
+   部分字段（`i_op`、`i_fop` 未初始化）。FAT32 只读 `i_private`，现在没问题，
+   但新文件系统的 `evict_inode` 不能依赖其他字段。
+4. bootfs 的目录 fops 没有 `readdir`，退回 bootfs 时 `ls /boot` 会失败。
+5. 挂载根 inode 的 `i_ino` 固定为 0，minifs 真正的根是 1；`/bin/..` 会得到另一个
+   `i_ino = 1` 的 inode。只读情况下没有影响。

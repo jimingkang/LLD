@@ -1,0 +1,9 @@
+# miniBoot build output (make t113)
+/build-t113/
+
+# Also keep accidental in-tree compiler output out of commits.
+*.o
+*.d
+*.a
+*.elf
+*.map
